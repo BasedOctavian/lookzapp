@@ -491,14 +491,24 @@ function VideoCall() {
             >
               Lookzapp
             </Heading>
-            <Button
-              variant="link"
-              color="red.500"
-              fontWeight="medium"
-              onClick={handleSignOut}
-            >
-              Sign Out
-            </Button>
+            <HStack spacing={4}>
+              <Button
+                variant="link"
+                color="blue.500"
+                fontWeight="medium"
+                onClick={() => navigate('/top-rated-users')}
+              >
+                Top Rated Users
+              </Button>
+              <Button
+                variant="link"
+                color="red.500"
+                fontWeight="medium"
+                onClick={handleSignOut}
+              >
+                Sign Out
+              </Button>
+            </HStack>
           </Flex>
 
           <Flex

@@ -13,11 +13,11 @@ import {
 } from '@chakra-ui/react';
 import { FormControl, FormLabel } from '@chakra-ui/form-control';
 
-
 function CreateAccount() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [profilePictureFile, setProfilePictureFile] = useState(null); // State for profile picture
   const [isLoading, setIsLoading] = useState(false);
   const { signUp } = useAuth();
   const toast = useToast();
@@ -27,7 +27,7 @@ function CreateAccount() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await signUp(email, password, displayName);
+      await signUp(email, password, displayName, profilePictureFile);
       toast({
         title: 'Account created',
         description: "You've successfully signed up!",
@@ -101,6 +101,14 @@ function CreateAccount() {
                 placeholder="Enter your password"
                 bg="gray.100"
                 _focus={{ bg: 'white', borderColor: 'blue.400' }}
+              />
+            </FormControl>
+            <FormControl id="profilePicture">
+              <FormLabel>Profile Picture (optional)</FormLabel>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setProfilePictureFile(e.target.files[0])}
               />
             </FormControl>
             <Button
