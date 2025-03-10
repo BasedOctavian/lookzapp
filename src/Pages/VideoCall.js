@@ -33,6 +33,9 @@ import {
   Videocam,
   VideocamOff,
 } from '@mui/icons-material';
+import { useAuth } from '../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
+import { useUserData } from '../hooks/useUserData';
 
 function VideoCall() {
   const [roomId, setRoomId] = useState('');
@@ -43,12 +46,20 @@ function VideoCall() {
   const [localStream, setLocalStream] = useState(null);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
-
+  const [remoteUserName, setRemoteUserName] = useState(''); // New state for remote user's name
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const toast = useToast();
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+  const { userData, loading } = useUserData();
 
-  // Initialize local media stream
+  useEffect(() => {
+    if (userData) {
+      console.error('User data:', userData);
+    }
+  }, [userData]);
+
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
@@ -64,14 +75,23 @@ function VideoCall() {
       });
   }, []);
 
-  // Handle peer connection events
   useEffect(() => {
     if (!peer) {
       setConnectionStatus('');
       return;
     }
 
-    const handleConnect = () => setConnectionStatus('Connected');
+    const handleConnect = () => {
+      setConnectionStatus('Connected');
+      if (userData && userData.displayName) {
+        peer.send(userData.displayName);
+      }
+    };
+
+    const handleData = (data) => {
+      setRemoteUserName(data.toString());
+    };
+
     const handleError = async (err) => {
       console.error('Peer error:', err);
       setError('Connection error');
@@ -82,7 +102,6 @@ function VideoCall() {
         duration: 3000,
         isClosable: true,
       });
-      // Set room as inactive on connection error
       if (roomId) {
         try {
           const roomRef = doc(db, 'rooms', roomId);
@@ -96,9 +115,11 @@ function VideoCall() {
         }
       }
     };
+
     const handleClose = () => setConnectionStatus('Call ended');
 
     peer.on('connect', handleConnect);
+    peer.on('data', handleData);
     peer.on('error', handleError);
     peer.on('close', handleClose);
 
@@ -106,12 +127,12 @@ function VideoCall() {
 
     return () => {
       peer.off('connect', handleConnect);
+      peer.off('data', handleData);
       peer.off('error', handleError);
       peer.off('close', handleClose);
     };
-  }, [peer, isInitiator, toast, roomId]);
+  }, [peer, isInitiator, toast, roomId, userData]);
 
-  // Create a new room
   const handleCreateRoom = async () => {
     setIsInitiator(true);
     setError('');
@@ -160,7 +181,6 @@ function VideoCall() {
           duration: 3000,
           isClosable: true,
         });
-        // Set room as inactive on connection error
         if (roomId) {
           try {
             const roomRef = doc(db, 'rooms', roomId);
@@ -183,7 +203,6 @@ function VideoCall() {
     }
   };
 
-  // Join an existing room
   const handleJoinRoom = async (roomId) => {
     setIsInitiator(false);
     setError('');
@@ -228,7 +247,6 @@ function VideoCall() {
           duration: 3000,
           isClosable: true,
         });
-        // Set room as inactive on connection error
         if (roomId) {
           try {
             const roomRef = doc(db, 'rooms', roomId);
@@ -253,7 +271,6 @@ function VideoCall() {
     }
   };
 
-  // Reuse an inactive room
   const handleReuseRoom = async (existingRoomId) => {
     setIsInitiator(true);
     setError('');
@@ -302,7 +319,6 @@ function VideoCall() {
         duration: 3000,
         isClosable: true,
       });
-      // Set room as inactive on connection error
       if (roomId) {
         try {
           const roomRef = doc(db, 'rooms', roomId);
@@ -321,7 +337,6 @@ function VideoCall() {
     setPeer(newPeer);
   };
 
-  // Start the call by creating, joining, or reusing a room
   const handleStart = async () => {
     try {
       const roomsQuery = query(
@@ -347,7 +362,6 @@ function VideoCall() {
     }
   };
 
-  // End the call and clean up
   const handleEndCall = () => {
     if (peer) {
       peer.destroy();
@@ -355,7 +369,6 @@ function VideoCall() {
     }
   };
 
-  // Handle call end and set room to inactive
   const handleCallEnded = async () => {
     if (roomId) {
       try {
@@ -373,12 +386,12 @@ function VideoCall() {
     setPeer(null);
     setRoomId('');
     setIsInitiator(false);
+    setRemoteUserName(''); // Reset the remote user's name
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
   };
 
-  // Toggle audio mute
   const toggleAudio = () => {
     if (localStream) {
       const audioTracks = localStream.getAudioTracks();
@@ -387,7 +400,6 @@ function VideoCall() {
     }
   };
 
-  // Toggle video mute
   const toggleVideo = () => {
     if (localStream) {
       const videoTracks = localStream.getVideoTracks();
@@ -396,23 +408,46 @@ function VideoCall() {
     }
   };
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/signin');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      toast({
+        title: 'Sign out error',
+        description: 'An error occurred while signing out',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
   return (
     <Box minH="100vh" bgGradient="linear(to-br, gray.50, blue.100)" p={4}>
       <Container maxW="100%" py={6}>
         <VStack spacing={6} align="stretch">
-          {/* Header */}
-          <Heading
-            as="h1"
-            size="xl"
-            textAlign="center"
-            color="blue.700"
-            fontWeight="bold"
-            textShadow="1px 1px 2px rgba(0, 0, 0, 0.1)"
-          >
-            Lookzapp
-          </Heading>
+          <Flex justify="space-between" align="center">
+            <Heading
+              as="h1"
+              size="xl"
+              color="blue.700"
+              fontWeight="bold"
+              textShadow="1px 1px 2px rgba(0, 0, 0, 0.1)"
+            >
+              Lookzapp
+            </Heading>
+            <Button
+              variant="link"
+              color="red.500"
+              fontWeight="medium"
+              onClick={handleSignOut}
+            >
+              Sign Out
+            </Button>
+          </Flex>
 
-          {/* Video Section */}
           <Flex
             direction={['column', 'row']}
             w="100%"
@@ -452,7 +487,7 @@ function VideoCall() {
                 borderRadius="md"
                 fontSize="sm"
               >
-                You
+                {userData?.displayName || 'You'} {/* Optional: Show local user's name */}
               </Text>
             </Box>
             <Box
@@ -499,13 +534,12 @@ function VideoCall() {
                   borderRadius="md"
                   fontSize="sm"
                 >
-                  Remote
+                  {remoteUserName || 'Remote'}
                 </Text>
               )}
             </Box>
           </Flex>
 
-          {/* Controls */}
           <HStack spacing={4} justify="center" flexWrap="wrap">
             {peer ? (
               <>
@@ -562,7 +596,6 @@ function VideoCall() {
             )}
           </HStack>
 
-          {/* Status and Info */}
           {roomId && (
             <Text
               fontSize={['sm', 'md']}
