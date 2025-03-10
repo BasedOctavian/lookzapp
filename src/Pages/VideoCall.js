@@ -36,6 +36,7 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
+import { useUserRatingData } from '../hooks/useUserRatingData';
 import RatingScale from '../Components/RatingScale';
 
 function VideoCall() {
@@ -48,18 +49,24 @@ function VideoCall() {
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [remoteUserName, setRemoteUserName] = useState('');
+  const [remoteUserId, setRemoteUserId] = useState('');
+  const [hasRated, setHasRated] = useState(false); // New state to track rating submission
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const toast = useToast();
   const { signOut } = useAuth();
   const navigate = useNavigate();
-  const { userData, loading } = useUserData();
+  const { userData, rating, loading } = useUserData();
+
+  // Use useUserRatingData for remote user's rating
+  const { submitRating: submitRemoteRating, rating: remoteRating, loading: ratingLoading } = useUserRatingData(remoteUserId);
 
   useEffect(() => {
     if (userData) {
-      console.error('User data:', userData);
+      console.log('User data:', userData);
+      console.log('User rating:', rating);
     }
-  }, [userData]);
+  }, [userData, rating]);
 
   useEffect(() => {
     navigator.mediaDevices
@@ -84,13 +91,19 @@ function VideoCall() {
 
     const handleConnect = () => {
       setConnectionStatus('Connected');
-      if (userData && userData.displayName) {
-        peer.send(userData.displayName);
+      if (userData && userData.id) {
+        peer.send(JSON.stringify({ displayName: userData.displayName, userId: userData.id }));
       }
     };
 
     const handleData = (data) => {
-      setRemoteUserName(data.toString());
+      try {
+        const remoteData = JSON.parse(data);
+        setRemoteUserName(remoteData.displayName);
+        setRemoteUserId(remoteData.userId);
+      } catch (err) {
+        console.error('Invalid data received:', err);
+      }
     };
 
     const handleError = async (err) => {
@@ -133,6 +146,11 @@ function VideoCall() {
       peer.off('close', handleClose);
     };
   }, [peer, isInitiator, toast, roomId, userData]);
+
+  // Reset hasRated when remoteUserId changes (new call session)
+  useEffect(() => {
+    setHasRated(false);
+  }, [remoteUserId]);
 
   const handleCreateRoom = async () => {
     setIsInitiator(true);
@@ -388,6 +406,7 @@ function VideoCall() {
     setRoomId('');
     setIsInitiator(false);
     setRemoteUserName('');
+    setRemoteUserId('');
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
@@ -418,6 +437,39 @@ function VideoCall() {
       toast({
         title: 'Sign out error',
         description: 'An error occurred while signing out',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handleRating = async (rating) => {
+    if (!remoteUserId) {
+      toast({
+        title: 'Error',
+        description: 'Cannot submit rating: Remote user ID not available',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+    try {
+      await submitRemoteRating(rating);
+      setHasRated(true); // Hide RatingScale after successful submission
+      toast({
+        title: 'Rating submitted',
+        description: `You rated ${remoteUserName} ${rating}/10`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (err) {
+      console.error('Error submitting rating:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to submit rating',
         status: 'error',
         duration: 3000,
         isClosable: true,
@@ -543,6 +595,22 @@ function VideoCall() {
             </Box>
           </Flex>
 
+          {/* Display both users' ratings */}
+          <HStack spacing={4} justify="center" mt={4}>
+            {!loading && (
+              <Box textAlign="center">
+                <Text fontWeight="bold">Your Rating</Text>
+                <Text>{rating.toFixed(1)} / 10</Text>
+              </Box>
+            )}
+            {remoteUserId && !ratingLoading && (
+              <Box textAlign="center">
+                <Text fontWeight="bold">{remoteUserName}'s Rating</Text>
+                <Text>{remoteRating.toFixed(1)} / 10</Text>
+              </Box>
+            )}
+          </HStack>
+
           <HStack spacing={{ base: 2, md: 4 }} justify="center" flexWrap="wrap">
             {peer ? (
               <>
@@ -599,12 +667,9 @@ function VideoCall() {
             )}
           </HStack>
 
-          {peer && (
-            <RatingScale
-              onRate={(rating) =>
-                console.log(`Rated ${remoteUserName}: ${rating}/10`)
-              }
-            />
+          {/* Show RatingScale only if peer is active and hasn't rated */}
+          {peer && !hasRated && (
+            <RatingScale onRate={(rating) => handleRating(rating)} />
           )}
 
           {roomId && (
