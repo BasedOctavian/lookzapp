@@ -36,6 +36,7 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
+import RatingScale from '../Components/RatingScale';
 
 function VideoCall() {
   const [roomId, setRoomId] = useState('');
@@ -46,7 +47,7 @@ function VideoCall() {
   const [localStream, setLocalStream] = useState(null);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
-  const [remoteUserName, setRemoteUserName] = useState(''); // New state for remote user's name
+  const [remoteUserName, setRemoteUserName] = useState('');
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const toast = useToast();
@@ -386,7 +387,7 @@ function VideoCall() {
     setPeer(null);
     setRoomId('');
     setIsInitiator(false);
-    setRemoteUserName(''); // Reset the remote user's name
+    setRemoteUserName('');
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
@@ -425,9 +426,9 @@ function VideoCall() {
   };
 
   return (
-    <Box minH="100vh" bgGradient="linear(to-br, gray.50, blue.100)" p={4}>
-      <Container maxW="100%" py={6}>
-        <VStack spacing={6} align="stretch">
+    <Box minH="100vh" bgGradient="linear(to-br, gray.50, blue.100)" p={{ base: 2, md: 4 }}>
+      <Container maxW="100%" py={{ base: 4, md: 6 }}>
+        <VStack spacing={{ base: 4, md: 6 }} align="stretch">
           <Flex justify="space-between" align="center">
             <Heading
               as="h1"
@@ -461,6 +462,7 @@ function VideoCall() {
           >
             <Box
               w={['100%', '45%']}
+              h={['40vh', '60vh']}
               borderWidth="2px"
               borderColor="gray.200"
               borderRadius="lg"
@@ -474,7 +476,7 @@ function VideoCall() {
                 autoPlay
                 muted
                 playsInline
-                style={{ width: '100%', height: 'auto', display: 'block' }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
               <Text
                 position="absolute"
@@ -487,11 +489,12 @@ function VideoCall() {
                 borderRadius="md"
                 fontSize="sm"
               >
-                {userData?.displayName || 'You'} {/* Optional: Show local user's name */}
+                {userData?.displayName || 'You'}
               </Text>
             </Box>
             <Box
               w={['100%', '45%']}
+              h={['40vh', '60vh']}
               borderWidth="2px"
               borderColor="gray.200"
               borderRadius="lg"
@@ -504,7 +507,7 @@ function VideoCall() {
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
-                style={{ width: '100%', height: 'auto', display: 'block' }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
               {!peer && (
                 <Text
@@ -540,7 +543,7 @@ function VideoCall() {
             </Box>
           </Flex>
 
-          <HStack spacing={4} justify="center" flexWrap="wrap">
+          <HStack spacing={{ base: 2, md: 4 }} justify="center" flexWrap="wrap">
             {peer ? (
               <>
                 <IconButton
@@ -553,7 +556,7 @@ function VideoCall() {
                     )
                   }
                   colorScheme={isAudioMuted ? 'red' : 'blue'}
-                  size="lg"
+                  size={{ base: 'md', md: 'lg' }}
                   variant="solid"
                   onClick={toggleAudio}
                 />
@@ -567,14 +570,14 @@ function VideoCall() {
                     )
                   }
                   colorScheme={isVideoMuted ? 'red' : 'blue'}
-                  size="lg"
+                  size={{ base: 'md', md: 'lg' }}
                   variant="solid"
                   onClick={toggleVideo}
                 />
                 <Button
                   leftIcon={<Icon as={Close} color="white" w={6} h={6} />}
                   colorScheme="red"
-                  size="lg"
+                  size={{ base: 'md', md: 'lg' }}
                   px={6}
                   onClick={handleEndCall}
                   _hover={{ bg: 'red.600' }}
@@ -586,7 +589,7 @@ function VideoCall() {
               <Button
                 leftIcon={<Icon as={Phone} color="white" w={6} h={6} />}
                 colorScheme="teal"
-                size="lg"
+                size={{ base: 'md', md: 'lg' }}
                 px={6}
                 onClick={handleStart}
                 _hover={{ bg: 'teal.600' }}
@@ -595,6 +598,14 @@ function VideoCall() {
               </Button>
             )}
           </HStack>
+
+          {peer && (
+            <RatingScale
+              onRate={(rating) =>
+                console.log(`Rated ${remoteUserName}: ${rating}/10`)
+              }
+            />
+          )}
 
           {roomId && (
             <Text
