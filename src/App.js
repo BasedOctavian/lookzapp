@@ -8,6 +8,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import PrivateRoute from './Pages/PrivateRoute';
 import TopRatedUsersTable from './Pages/TopRatedUsersTable';
 import Profile from './Pages/Profile';
+import HomeScreen from './Pages/HomeScreen';
 
 function App() {
   return (
@@ -16,11 +17,12 @@ function App() {
         <Routes>
           <Route path="/createaccount" element={<CreateAccount />} />
           <Route path="/signin" element={<SignIn />} />
-          <Route path="top-rated-users" element={<TopRatedUsersTable />} />
+          <Route path="top-rated-users" element={<PrivateRoute><TopRatedUsersTable /></PrivateRoute>} />
           {/* Use PrivateRoute as a wrapper inside a Route */}
           <Route path="/video-call" element={<PrivateRoute><VideoCall /></PrivateRoute>} />
-          <Route path="/" element={<Navigate to="/signin" />} />
-          <Route path="/profile/:userId" element={<Profile />} />
+          <Route path="/" element={<Navigate to="/home" />} />
+          <Route path="/profile/:userId" element={<PrivateRoute><Profile /></PrivateRoute>} />
+          <Route path="/home" element={<PrivateRoute><HomeScreen /></PrivateRoute>} />
         </Routes>
       </Router>
     </ChakraProvider>
