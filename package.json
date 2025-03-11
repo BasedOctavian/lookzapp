@@ -7,8 +7,10 @@
     "@chakra-ui/color-mode": "^2.2.0",
     "@chakra-ui/form-control": "^2.2.0",
     "@chakra-ui/icons": "^2.2.4",
+    "@chakra-ui/modal": "^2.3.1",
     "@chakra-ui/react": "^3.11.0",
     "@chakra-ui/toast": "^7.0.2",
+    "@chakra-ui/transition": "^2.1.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@firebase/auth": "^1.9.1",
@@ -33,7 +35,7 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-app-rewired start",
+    "start": "set PORT=3001 && react-app-rewired start",
     "build": "react-app-rewired build",
     "test": "react-app-rewired test",
     "eject": "react-scripts eject"

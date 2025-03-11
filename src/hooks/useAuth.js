@@ -38,8 +38,13 @@ export function useAuth() {
         displayName,
         email: user.email,
         createdAt: serverTimestamp(),
-        ranking: 5,
-        timesRanked: 1,
+        ranking: 0,
+        timesRanked: 0,
+        bodyRating: 0,
+        eyesRating: 0,
+        facialRating: 0,
+        hairRating: 0,
+        smileRating: 0,
         profilePicture: profilePictureURL // Will be null if no file is uploaded
       });
 

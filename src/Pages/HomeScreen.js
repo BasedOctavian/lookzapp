@@ -7,8 +7,10 @@ import {
   Icon, 
   Text, 
   SimpleGrid, 
+  Button, 
+  Spinner 
 } from '@chakra-ui/react';
-import { FaVideo, FaStar, FaMapMarkedAlt, FaUser, FaCog } from 'react-icons/fa';
+import { FaVideo, FaStar, FaMapMarkedAlt, FaGamepad, FaEnvelope, FaTrophy } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
 
@@ -16,55 +18,72 @@ function HomeScreen() {
   const navigate = useNavigate();
   const { userData, rating, loading } = useUserData();
   const [userId, setUserId] = useState(null);
+  const [userName, setUserName] = useState(null);
+
+  useEffect(() => {
+    if (userData) {
+      setUserId(userData.id);
+      setUserName(userData.displayName);
+    }
+  }, [userData]);
 
   const options = [
     { 
       title: 'Video Chat', 
       icon: FaVideo, 
       route: '/video-call', 
-      description: 'Connect instantly through live video calls.', 
+      description: 'Rate instantly through live video calls.', 
       colorScheme: 'teal' 
+    },
+    { 
+      title: 'Other Games', 
+      icon: FaGamepad, 
+      route: '/other-games', 
+      description: 'Explore and play more games.', 
+      colorScheme: 'green' 
+    },
+    { 
+      title: 'Rating', 
+      icon: FaTrophy, 
+      route: '/get-ranked', 
+      description: `Your rating: ${rating ? rating.toFixed(2) : 'N/A'} | World rank: #TBD`, 
+      colorScheme: 'yellow' 
     },
     { 
       title: 'Get Ranked', 
       icon: FaStar, 
       route: '/get-ranked', 
-      description: 'See how you stack up against others.', 
+      description: 'See how you stack up against others using photos.', 
       colorScheme: 'blue' 
     },
     { 
       title: 'Guess Location', 
       icon: FaMapMarkedAlt, 
       route: '/guess-location', 
-      description: 'Challenge your geography skills.', 
+      description: 'Challenge your skills in guessing countries.', 
       colorScheme: 'orange' 
     },
     { 
-      title: 'Profile', 
-      icon: FaUser, 
-      route: '/profile/' + userId, 
-      description: 'View and edit your personal profile.', 
-      colorScheme: 'purple' 
-    },
-    { 
-      title: 'Settings', 
-      icon: FaCog, 
-      route: '/settings', 
-      description: 'Customize your app experience.', 
-      colorScheme: 'gray' 
+      title: 'Messages', 
+      icon: FaEnvelope, 
+      route: '/messages', 
+      description: 'Check your inbox for new messages.', 
+      colorScheme: 'red' 
     },
   ];
 
-  useEffect(() => {
-    if (userData) {
-      setUserId(userData.id);
-    }
-  }, [userData]);
+  if (loading) {
+    return (
+      <Box minH="100vh" display="flex" alignItems="center" justifyContent="center">
+        <Spinner size="xl" />
+      </Box>
+    );
+  }
 
   return (
     <Box minH="100vh" bgGradient="linear(to-br, gray.50, blue.100)" py={10} px={5}>
       <Container maxW="container.xl">
-        <VStack spacing={10}>
+        <VStack spacing={10} align="center">
           <Heading 
             as="h1" 
             size="3xl" 
@@ -75,30 +94,43 @@ function HomeScreen() {
             Lookzapp
           </Heading>
           <Text fontSize="xl" color="gray.700" textAlign="center">
-            Welcome! Select an option below to get started.
+            Welcome, {userName || 'Guest'}! Select an option below to get started.
           </Text>
-          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={8} w="full">
+          <Text fontSize="lg" color="gray.600" textAlign="center">
+            Your current rating: {rating ? Math.min(rating, 4.81).toFixed(2) : 'N/A'}
+          </Text>
+
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={30} w="full">
             {options.map((option) => (
-              <Box
+              <Button
                 key={option.title}
-                as="button"
                 onClick={() => navigate(option.route)}
-                bg={'white'}
+                bg="white"
                 p={6}
                 borderRadius="lg"
                 boxShadow="lg"
                 transition="all 0.3s"
-                _hover={{ bg: 'gray.50', transform: 'scale(1.02)' }}
+                _hover={{ bg: 'gray.50', transform: 'scale(1.05)', boxShadow: 'xl' }}
                 textAlign="center"
+                w="full"
+                h="auto"
               >
-                <Icon as={option.icon} w={12} h={12} color={`${option.colorScheme}.500`} mb={4} />
-                <Heading as="h3" size="md" mb={2}>
-                  {option.title}
-                </Heading>
-                <Text fontSize="sm" color="gray.600">
-                  {option.description}
-                </Text>
-              </Box>
+                <VStack spacing={4} style={{ marginBottom: '90px' }}>
+                  <Icon 
+                    as={option.icon} 
+                    w={12} 
+                    h={12} 
+                    color={`${option.colorScheme}.500`} 
+                    style={{ marginBottom: '0px', marginTop: '20px' }}
+                  />
+                  <Heading as="h3" size="md" color="black">
+                    {option.title}
+                  </Heading>
+                  <Text fontSize="sm" color="gray.600">
+                    {option.description}
+                  </Text>
+                </VStack>
+              </Button>
             ))}
           </SimpleGrid>
         </VStack>

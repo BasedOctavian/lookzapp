@@ -11,6 +11,7 @@ import {
   Heading,
   IconButton,
   Icon,
+  Circle,
 } from '@chakra-ui/react';
 import {
   collection,
@@ -37,7 +38,96 @@ import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
 import { useUserRatingData } from '../hooks/useUserRatingData';
-import RatingScale from '../Components/RatingScale';
+import { Fade } from '@chakra-ui/transition';
+
+// RatingScale Component with Emoji Icons and Dual-Step Rating
+const RatingScale = ({ onRate }) => {
+  const [selectedRating, setSelectedRating] = useState(null);
+  const [showNumbers, setShowNumbers] = useState(true);
+  const [showCategories, setShowCategories] = useState(false);
+
+  const handleNumberClick = (rating) => {
+    console.log(`Selected rating: ${rating}`);
+    setSelectedRating(rating);
+    setShowNumbers(false);
+    setShowCategories(true);
+  };
+
+  const handleCategoryClick = (category) => {
+    console.log(`Selected category: ${category}`);
+    // Pass both the chosen rating and the selected feature (category)
+    onRate(selectedRating, category);
+    setShowCategories(false);
+  };
+
+  return (
+    <Box textAlign="center" mt={4}>
+      <Fade in={showNumbers}>
+        {showNumbers && (
+          <HStack spacing={4} justify="center" flexWrap="wrap">
+            {[...Array(10)].map((_, i) => (
+              <Circle
+                key={i + 1}
+                size="40px"
+                bg="blue.500"
+                color="white"
+                cursor="pointer"
+                _hover={{ bg: 'blue.600' }}
+                onClick={() => handleNumberClick(i + 1)}
+                transition="all 0.2s"
+              >
+                {i + 1}
+              </Circle>
+            ))}
+          </HStack>
+        )}
+      </Fade>
+
+      <Text fontSize="xl" mt={4}>
+        Why?
+      </Text>
+
+      <Fade in={showCategories}>
+        {showCategories && (
+          <HStack
+            spacing={4}
+            justify="center"
+            flexWrap="wrap"
+            mt={4}
+            style={{ justifyContent: 'center', gap: '20px' }}
+          >
+            {[
+              { category: 'Eyes', emoji: '👀' },
+              { category: 'Smile', emoji: '😊' },
+              { category: 'Jawline', emoji: '👤' },
+              { category: 'Hair', emoji: '💇' },
+              { category: 'Body', emoji: '💪' },
+            ].map(({ category, emoji }) => (
+              <Circle
+                key={category}
+                size="90px"
+                bg="black"
+                color="white"
+                cursor="pointer"
+                _hover={{ bg: 'blue.100' }}
+                onClick={() => handleCategoryClick(category)}
+                transition="all 0.2s"
+                p={2}
+              >
+                <VStack spacing={1}>
+                  <Text fontSize="2xl">{emoji}</Text>
+                  <Text fontSize="xs" style={{ textAlign: 'center', color: 'black' }}>
+                    {category}
+                  </Text>
+                </VStack>
+              </Circle>
+            ))}
+          </HStack>
+        )}
+      </Fade>
+    </Box>
+  );
+};
 
 function VideoCall() {
   const [roomId, setRoomId] = useState('');
@@ -50,16 +140,19 @@ function VideoCall() {
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [remoteUserName, setRemoteUserName] = useState('');
   const [remoteUserId, setRemoteUserId] = useState('');
-  const [hasRated, setHasRated] = useState(false); // New state to track rating submission
+  const [hasRated, setHasRated] = useState(false);
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const toast = useToast();
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const { userData, rating, loading } = useUserData();
-
-  // Use useUserRatingData for remote user's rating
-  const { submitRating: submitRemoteRating, rating: remoteRating, loading: ratingLoading } = useUserRatingData(remoteUserId);
+  // Use the rating hook for the remote user
+  const {
+    submitRating: submitRemoteRating,
+    rating: remoteRating,
+    loading: ratingLoading,
+  } = useUserRatingData(remoteUserId);
 
   useEffect(() => {
     if (userData) {
@@ -147,7 +240,6 @@ function VideoCall() {
     };
   }, [peer, isInitiator, toast, roomId, userData]);
 
-  // Reset hasRated when remoteUserId changes (new call session)
   useEffect(() => {
     setHasRated(false);
   }, [remoteUserId]);
@@ -444,37 +536,11 @@ function VideoCall() {
     }
   };
 
-  const handleRating = async (rating) => {
-    if (!remoteUserId) {
-      toast({
-        title: 'Error',
-        description: 'Cannot submit rating: Remote user ID not available',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
-    }
-    try {
-      await submitRemoteRating(rating);
-      setHasRated(true); // Hide RatingScale after successful submission
-      toast({
-        title: 'Rating submitted',
-        description: `You rated ${remoteUserName} ${rating}/10`,
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-    } catch (err) {
-      console.error('Error submitting rating:', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to submit rating',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-    }
+  // New handleRating calls submitRemoteRating with the selected rating and feature.
+  const handleRating = (newRating, selectedFeature) => {
+    console.log(`Rating selected: ${newRating} for ${selectedFeature}`);
+    submitRemoteRating(newRating, selectedFeature);
+    setHasRated(true);
   };
 
   return (
@@ -500,12 +566,7 @@ function VideoCall() {
               >
                 Top Rated Users
               </Button>
-              <Button
-                variant="link"
-                color="red.500"
-                fontWeight="medium"
-                onClick={handleSignOut}
-              >
+              <Button variant="link" color="red.500" fontWeight="medium" onClick={handleSignOut}>
                 Sign Out
               </Button>
             </HStack>
@@ -605,7 +666,6 @@ function VideoCall() {
             </Box>
           </Flex>
 
-          {/* Display both users' ratings */}
           <HStack spacing={4} justify="center" mt={4}>
             {!loading && (
               <Box textAlign="center">
@@ -677,9 +737,8 @@ function VideoCall() {
             )}
           </HStack>
 
-          {/* Show RatingScale only if peer is active and hasn't rated */}
           {peer && !hasRated && (
-            <RatingScale onRate={(rating) => handleRating(rating)} />
+            <RatingScale onRate={(rating, feature) => handleRating(rating, feature)} />
           )}
 
           {roomId && (
@@ -692,8 +751,7 @@ function VideoCall() {
               borderRadius="md"
               boxShadow="sm"
             >
-              Room ID: <strong>{roomId}</strong> |{' '}
-              {isInitiator ? 'Initiator' : 'Receiver'} | {connectionStatus}
+              Room ID: <strong>{roomId}</strong> | {isInitiator ? 'Initiator' : 'Receiver'} | {connectionStatus}
             </Text>
           )}
           {error && (
