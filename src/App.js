@@ -9,6 +9,7 @@ import PrivateRoute from './Pages/PrivateRoute';
 import TopRatedUsersTable from './Pages/TopRatedUsersTable';
 import Profile from './Pages/Profile';
 import HomeScreen from './Pages/HomeScreen';
+import Updates from './Pages/Updates';
 
 function App() {
   // State to show or hide the warning overlay
@@ -39,6 +40,7 @@ function App() {
           <Route path="/" element={<Navigate to="/home" />} />
           <Route path="/profile/:userId" element={<PrivateRoute><Profile /></PrivateRoute>} />
           <Route path="/home" element={<PrivateRoute><HomeScreen /></PrivateRoute>} />
+          <Route path="/updates" element={<PrivateRoute><Updates /></PrivateRoute>} />
         </Routes>
 
         {/* Custom warning overlay */}

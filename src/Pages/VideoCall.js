@@ -9,9 +9,9 @@ import {
   VStack,
   HStack,
   Heading,
-  IconButton,
-  Icon,
   Circle,
+  Grid,
+  useToken,
 } from '@chakra-ui/react';
 import {
   collection,
@@ -38,7 +38,11 @@ import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
 import { useUserRatingData } from '../hooks/useUserRatingData';
+import { Divider } from '@mui/material';
 import { Fade } from '@chakra-ui/transition';
+import { IconButton } from "@mui/material";
+
+
 
 // RatingScale Component with Emoji Icons and Dual-Step Rating
 const RatingScale = ({ onRate }) => {
@@ -46,83 +50,108 @@ const RatingScale = ({ onRate }) => {
   const [showNumbers, setShowNumbers] = useState(true);
   const [showCategories, setShowCategories] = useState(false);
 
+  const [blue400, pink400, purple400, teal400, orange400] = useToken(
+    'colors',
+    ['blue.400', 'pink.400', 'purple.400', 'teal.400', 'orange.400']
+  );
+
+  const categories = [
+    { category: 'Eyes', emoji: '👀', color: blue400 },
+    { category: 'Smile', emoji: '😊', color: pink400 },
+    { category: 'Jawline', emoji: '👤', color: purple400 },
+    { category: 'Hair', emoji: '💇', color: teal400 },
+    { category: 'Body', emoji: '💪', color: orange400 },
+  ];
+
   const handleNumberClick = (rating) => {
-    console.log(`Selected rating: ${rating}`);
     setSelectedRating(rating);
     setShowNumbers(false);
     setShowCategories(true);
   };
 
   const handleCategoryClick = (category) => {
-    console.log(`Selected category: ${category}`);
-    // Pass both the chosen rating and the selected feature (category)
     onRate(selectedRating, category);
     setShowCategories(false);
   };
 
   return (
-    <Box textAlign="center" mt={4}>
+    <Box textAlign="center" mt={4} p={6} bg="white" borderRadius="2xl" boxShadow="xl">
       <Fade in={showNumbers}>
         {showNumbers && (
-          <HStack spacing={4} justify="center" flexWrap="wrap">
-            {[...Array(10)].map((_, i) => (
-              <Circle
-                key={i + 1}
-                size="40px"
-                bg="blue.500"
-                color="white"
-                cursor="pointer"
-                _hover={{ bg: 'blue.600' }}
-                onClick={() => handleNumberClick(i + 1)}
-                transition="all 0.2s"
-              >
-                {i + 1}
-              </Circle>
-            ))}
-          </HStack>
+          <>
+            <Heading size="md" mb={6} color="gray.700" fontWeight="semibold">
+              How would you rate this appearance?
+            </Heading>
+            <Flex wrap="wrap" gap={3} justify="center">
+              {[...Array(10)].map((_, i) => (
+                <Circle
+                  key={i + 1}
+                  size="50px"
+                  bgGradient="linear(to-br, blue.400, purple.500)"
+                  color="blue.600"
+                  cursor="pointer"
+                  _hover={{ transform: 'scale(1.1)', shadow: 'lg' }}
+                  onClick={() => handleNumberClick(i + 1)}
+                  transition="all 0.2s cubic-bezier(.27,.67,.47,1.6))"
+                  fontSize="lg"
+                  fontWeight="bold"
+                  boxShadow="md"
+                >
+                  {i + 1}
+                </Circle>
+              ))}
+            </Flex>
+          </>
         )}
       </Fade>
 
-      <Text fontSize="xl" mt={4}>
-        Why?
-      </Text>
-
       <Fade in={showCategories}>
         {showCategories && (
-          <HStack
-            spacing={4}
-            justify="center"
-            flexWrap="wrap"
-            mt={4}
-            style={{ justifyContent: 'center', gap: '20px' }}
-          >
-            {[
-              { category: 'Eyes', emoji: '👀' },
-              { category: 'Smile', emoji: '😊' },
-              { category: 'Jawline', emoji: '👤' },
-              { category: 'Hair', emoji: '💇' },
-              { category: 'Body', emoji: '💪' },
-            ].map(({ category, emoji }) => (
-              <Circle
-                key={category}
-                size="90px"
-                bg="black"
-                color="white"
-                cursor="pointer"
-                _hover={{ bg: 'blue.100' }}
-                onClick={() => handleCategoryClick(category)}
-                transition="all 0.2s"
-                p={2}
-              >
-                <VStack spacing={1}>
-                  <Text fontSize="2xl">{emoji}</Text>
-                  <Text fontSize="xs" style={{ textAlign: 'center', color: 'black' }}>
-                    {category}
-                  </Text>
-                </VStack>
-              </Circle>
-            ))}
-          </HStack>
+          <>
+            <VStack spacing={4}>
+              <Heading size="md" color="gray.700" fontWeight="semibold">
+                Select the most impressive feature
+                <Text fontSize="sm" color="gray.500" mt={1}>
+                  (You rated {selectedRating}/10)
+                </Text>
+              </Heading>
+
+              <Divider borderColor="gray.200" />
+
+              <Grid templateColumns="repeat(auto-fit, minmax(100px, 1fr))" gap={5} w="100%">
+                {categories.map(({ category, emoji, color }) => (
+                  <Box
+                    key={category}
+                    as="button"
+                    p={3}
+                    borderRadius="xl"
+                    borderWidth="2px"
+                    borderColor="gray.100"
+                    _hover={{
+                      transform: 'scale(1.05)',
+                      borderColor: color,
+                      boxShadow: `0 0 12px ${color}`,
+                    }}
+                    transition="all 0.2s cubic-bezier(.27,.67,.47,1.6))"
+                    onClick={() => handleCategoryClick(category)}
+                  >
+                    <VStack spacing={2}>
+                      <Text fontSize="4xl">{emoji}</Text>
+                      <Text
+                        fontSize="sm"
+                        fontWeight="semibold"
+                        color="gray.700"
+                        textTransform="uppercase"
+                        letterSpacing="wide"
+                      >
+                        {category}
+                      </Text>
+                    </VStack>
+                  </Box>
+                ))}
+              </Grid>
+            </VStack>
+          </>
         )}
       </Fade>
     </Box>
@@ -141,25 +170,23 @@ function VideoCall() {
   const [remoteUserName, setRemoteUserName] = useState('');
   const [remoteUserId, setRemoteUserId] = useState('');
   const [hasRated, setHasRated] = useState(false);
+  const [initialRating, setInitialRating] = useState(null);
+  const [remoteRatingReceived, setRemoteRatingReceived] = useState(false);
+  const [redirected, setRedirected] = useState(false);
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const toast = useToast();
   const { signOut } = useAuth();
   const navigate = useNavigate();
-  const { userData, rating, loading } = useUserData();
-  // Use the rating hook for the remote user
+  const { userData, rating: localRating, loading } = useUserData();
+  const headerBg = 'rgba(255, 255, 255, 0.8)';
+  const featureColors = ['blue.400', 'pink.400', 'purple.400', 'teal.400', 'orange.400'];
   const {
     submitRating: submitRemoteRating,
     rating: remoteRating,
     loading: ratingLoading,
   } = useUserRatingData(remoteUserId);
-
-  useEffect(() => {
-    if (userData) {
-      console.log('User data:', userData);
-      console.log('User rating:', rating);
-    }
-  }, [userData, rating]);
+  const [remoteDataReceived, setRemoteDataReceived] = useState(false);
 
   useEffect(() => {
     navigator.mediaDevices
@@ -175,6 +202,7 @@ function VideoCall() {
         setError('Failed to access camera/microphone');
       });
   }, []);
+  
 
   useEffect(() => {
     if (!peer) {
@@ -182,8 +210,11 @@ function VideoCall() {
       return;
     }
 
+    
+
     const handleConnect = () => {
       setConnectionStatus('Connected');
+      setInitialRating(localRating.toFixed(1));
       if (userData && userData.id) {
         peer.send(JSON.stringify({ displayName: userData.displayName, userId: userData.id }));
       }
@@ -194,6 +225,9 @@ function VideoCall() {
         const remoteData = JSON.parse(data);
         setRemoteUserName(remoteData.displayName);
         setRemoteUserId(remoteData.userId);
+        setRemoteDataReceived(true);
+        console.log('Received remote data:', { remoteUserId: remoteData.userId, localUserId: userData.id });
+        setRemoteRatingReceived(true);
       } catch (err) {
         console.error('Invalid data received:', err);
       }
@@ -201,6 +235,7 @@ function VideoCall() {
 
     const handleError = async (err) => {
       console.error('Peer error:', err);
+     
       setError('Connection error');
       toast({
         title: 'Connection error',
@@ -238,11 +273,63 @@ function VideoCall() {
       peer.off('error', handleError);
       peer.off('close', handleClose);
     };
-  }, [peer, isInitiator, toast, roomId, userData]);
+  }, [peer, isInitiator, toast, roomId, userData, localRating]);
+
 
   useEffect(() => {
     setHasRated(false);
   }, [remoteUserId]);
+
+  useEffect(() => {
+    if (!peer && remoteDataReceived){
+      console.log('remote rating', remoteRatingReceived)
+      console.log('Navigating to updates');
+      handleCallEnded();
+    }
+   
+  }, [peer, remoteRatingReceived]);
+
+  // Listen for remote user's rating of the local user
+  useEffect(() => {
+    if (!remoteUserId || !userData?.id) {
+      console.log('Skipping rating listener: missing remoteUserId or userData.id');
+      return;
+    }
+
+    const q = query(
+      collection(db, 'ratings'),
+      where('rateeId', '==', userData.id),
+      where('raterId', '==', remoteUserId)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      console.log('Rating snapshot:', {
+        size: snapshot.size,
+        docs: snapshot.docs.map(doc => doc.data())
+      });
+      setRemoteRatingReceived(snapshot.size > 0);
+    }, (error) => {
+      console.error('Error in rating listener:', error);
+      toast({
+        title: 'Rating listener error',
+        description: 'Failed to monitor ratings: ' + error.message,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    });
+
+    return () => unsubscribe();
+  }, [remoteUserId, userData?.id, toast]);
+
+  // Redirect to Updates page when both users have rated each other
+  useEffect(() => {
+    if (hasRated && remoteRatingReceived && !redirected) {
+      console.log('Redirecting to /updates with initialRating:', initialRating);
+      setRedirected(true);
+      navigate('/updates', { state: { initialRating } });
+    }
+  }, [hasRated, remoteRatingReceived, initialRating, navigate, redirected]);
 
   const handleCreateRoom = async () => {
     setIsInitiator(true);
@@ -253,7 +340,7 @@ function VideoCall() {
         trickle: false,
         stream: localStream,
       });
-
+  
       newPeer.on('signal', async (data) => {
         const offer = JSON.stringify(data);
         const roomRef = await addDoc(collection(db, 'rooms'), {
@@ -262,7 +349,7 @@ function VideoCall() {
           answer: null,
         });
         setRoomId(roomRef.id);
-
+  
         onSnapshot(doc(db, 'rooms', roomRef.id), (docSnap) => {
           const roomData = docSnap.data();
           if (roomData?.answer && !newPeer.destroyed) {
@@ -275,15 +362,16 @@ function VideoCall() {
           }
         });
       });
-
+  
       newPeer.on('stream', (stream) => {
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = stream;
         }
       });
-
+  
       newPeer.on('error', async (err) => {
         console.error('Peer error:', err);
+        navigate('/updates', { state: { initialRating } });
         setError('Connection error');
         toast({
           title: 'Connection error',
@@ -305,8 +393,20 @@ function VideoCall() {
           }
         }
       });
-
+  
       newPeer.on('close', () => handleCallEnded());
+  
+      // Add ICE connection state listener
+      newPeer._pc.oniceconnectionstatechange = () => {
+        if (
+          newPeer._pc.iceConnectionState === 'disconnected' ||
+          newPeer._pc.iceConnectionState === 'failed'
+        ) {
+          console.log('ICE connection lost:', newPeer._pc.iceConnectionState);
+          handleCallEnded();
+        }
+      };
+  
       setPeer(newPeer);
     } catch (err) {
       console.error('Error creating room:', err);
@@ -351,6 +451,7 @@ function VideoCall() {
       newPeer.on('error', async (err) => {
         console.error('Peer error:', err);
         setError('Connection error');
+        navigate('/updates', { state: { initialRating } });
         toast({
           title: 'Connection error',
           description: 'An error occurred with the connection',
@@ -502,6 +603,11 @@ function VideoCall() {
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
+
+    if (initialRating){
+      console.log(initialRating);
+      navigate('/updates', { state: { initialRating } });
+    }
   };
 
   const toggleAudio = () => {
@@ -536,17 +642,38 @@ function VideoCall() {
     }
   };
 
-  // New handleRating calls submitRemoteRating with the selected rating and feature.
   const handleRating = (newRating, selectedFeature) => {
-    console.log(`Rating selected: ${newRating} for ${selectedFeature}`);
-    submitRemoteRating(newRating, selectedFeature);
-    setHasRated(true);
+    console.log(`Submitting rating: ${newRating} for ${selectedFeature} to ${remoteUserId}`);
+    submitRemoteRating(newRating, selectedFeature)
+      .then(() => {
+        setHasRated(true);
+        console.log('Rating submitted successfully');
+      })
+      .catch((err) => {
+        console.error('Error submitting rating:', err);
+        toast({
+          title: 'Rating error',
+          description: 'Failed to submit rating',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+      });
   };
 
   return (
-    <Box minH="100vh" bgGradient="linear(to-br, gray.50, blue.100)" p={{ base: 2, md: 4 }}>
-      <Container maxW="100%" py={{ base: 4, md: 6 }}>
-        <VStack spacing={{ base: 4, md: 6 }} align="stretch">
+    <Flex direction="column" minH="100vh" bg="gray.50">
+      {/* Modern Sticky Header */}
+      <Box
+        position="sticky"
+        top="0"
+        w="100%"
+        bg="rgba(255, 255, 255, 0.8)"
+        backdropFilter="blur(10px)"
+        zIndex="sticky"
+        borderBottomWidth="1px"
+      >
+        <Container maxW="container.xl" py={4}>
           <Flex justify="space-between" align="center">
             <Heading
               as="h1"
@@ -554,6 +681,7 @@ function VideoCall() {
               color="blue.700"
               fontWeight="bold"
               textShadow="1px 1px 2px rgba(0, 0, 0, 0.1)"
+              onClick={() => navigate('/')}
             >
               Lookzapp
             </Heading>
@@ -566,12 +694,23 @@ function VideoCall() {
               >
                 Top Rated Users
               </Button>
-              <Button variant="link" color="red.500" fontWeight="medium" onClick={handleSignOut}>
+              <Button
+                variant="link"
+                color="red.500"
+                fontWeight="medium"
+                onClick={handleSignOut}
+              >
                 Sign Out
               </Button>
             </HStack>
           </Flex>
+        </Container>
+      </Box>
 
+      {/* Main Content */}
+      <Container maxW="container.xl" py={{ base: 4, md: 6 }}>
+        <VStack spacing={{ base: 4, md: 6 }} align="stretch">
+          {/* Video Containers */}
           <Flex
             direction={['column', 'row']}
             w="100%"
@@ -580,17 +719,18 @@ function VideoCall() {
             gap={6}
             p={4}
             bg="white"
-            borderRadius="xl"
-            boxShadow="lg"
+            borderRadius="2xl"
+            boxShadow="xl"
           >
+            {/* Local Video */}
             <Box
               w={['100%', '45%']}
               h={['40vh', '60vh']}
               borderWidth="2px"
-              borderColor="gray.200"
-              borderRadius="lg"
+              borderColor="gray.100"
+              borderRadius="xl"
               overflow="hidden"
-              boxShadow="md"
+              boxShadow="lg"
               bg="black"
               position="relative"
             >
@@ -611,18 +751,21 @@ function VideoCall() {
                 py={1}
                 borderRadius="md"
                 fontSize="sm"
+                fontWeight="medium"
               >
                 {userData?.displayName || 'You'}
               </Text>
             </Box>
+
+            {/* Remote Video */}
             <Box
               w={['100%', '45%']}
               h={['40vh', '60vh']}
               borderWidth="2px"
-              borderColor="gray.200"
-              borderRadius="lg"
+              borderColor="gray.100"
+              borderRadius="xl"
               overflow="hidden"
-              boxShadow="md"
+              boxShadow="lg"
               bg="black"
               position="relative"
             >
@@ -644,8 +787,9 @@ function VideoCall() {
                   py={2}
                   borderRadius="md"
                   fontSize="md"
+                  fontWeight="medium"
                 >
-                  Waiting for remote video...
+                  Waiting for connection...
                 </Text>
               )}
               {peer && (
@@ -659,117 +803,135 @@ function VideoCall() {
                   py={1}
                   borderRadius="md"
                   fontSize="sm"
+                  fontWeight="medium"
                 >
-                  {remoteUserName || 'Remote'}
+                  {remoteUserName || 'Stranger'}
                 </Text>
               )}
             </Box>
           </Flex>
 
-          <HStack spacing={4} justify="center" mt={4}>
+          {/* Ratings Display */}
+          <HStack spacing={6} justify="center" w="100%">
             {!loading && (
-              <Box textAlign="center">
-                <Text fontWeight="bold">Your Rating</Text>
-                <Text>{rating.toFixed(1)} / 10</Text>
+              <Box
+                textAlign="center"
+                bg="white"
+                p={4}
+                borderRadius="xl"
+                boxShadow="md"
+              >
+                <Text fontSize="sm" color="gray.500" mb={1}>
+                  Your Rating
+                </Text>
+                <Text fontSize="2xl" fontWeight="bold" color="blue.600">
+                  {localRating.toFixed(1)}
+                </Text>
               </Box>
             )}
             {remoteUserId && !ratingLoading && (
-              <Box textAlign="center">
-                <Text fontWeight="bold">{remoteUserName}'s Rating</Text>
-                <Text>{remoteRating.toFixed(1)} / 10</Text>
+              <Box
+                textAlign="center"
+                bg="white"
+                p={4}
+                borderRadius="xl"
+                boxShadow="md"
+              >
+                <Text fontSize="sm" color="gray.500" mb={1}>
+                  {remoteUserName}'s Rating
+                </Text>
+                <Text fontSize="2xl" fontWeight="bold" color="purple.600">
+                  {remoteRating.toFixed(1)}
+                </Text>
               </Box>
             )}
           </HStack>
 
-          <HStack spacing={{ base: 2, md: 4 }} justify="center" flexWrap="wrap">
+          {/* Call Controls */}
+          <HStack spacing={4} justify="center" flexWrap="wrap">
             {peer ? (
               <>
                 <IconButton
-                  aria-label={isAudioMuted ? 'Unmute Audio' : 'Mute Audio'}
-                  icon={
-                    isAudioMuted ? (
-                      <Icon as={MicOff} color="white" w={6} h={6} />
-                    ) : (
-                      <Icon as={Mic} color="white" w={6} h={6} />
-                    )
-                  }
-                  colorScheme={isAudioMuted ? 'red' : 'blue'}
-                  size={{ base: 'md', md: 'lg' }}
-                  variant="solid"
+                  aria-label={isAudioMuted ? "Unmute Audio" : "Mute Audio"}
                   onClick={toggleAudio}
-                />
-                <IconButton
-                  aria-label={isVideoMuted ? 'Enable Video' : 'Disable Video'}
-                  icon={
-                    isVideoMuted ? (
-                      <Icon as={VideocamOff} color="white" w={6} h={6} />
-                    ) : (
-                      <Icon as={Videocam} color="white" w={6} h={6} />
-                    )
-                  }
-                  colorScheme={isVideoMuted ? 'red' : 'blue'}
-                  size={{ base: 'md', md: 'lg' }}
-                  variant="solid"
-                  onClick={toggleVideo}
-                />
-                <Button
-                  leftIcon={<Icon as={Close} color="white" w={6} h={6} />}
-                  colorScheme="red"
-                  size={{ base: 'md', md: 'lg' }}
-                  px={6}
-                  onClick={handleEndCall}
-                  _hover={{ bg: 'red.600' }}
+                  color={isAudioMuted ? "error" : "primary"}
                 >
-                  End Call
+                  {isAudioMuted ? <MicOff /> : <Mic />}
+                </IconButton>
+
+                <IconButton
+                  aria-label={isVideoMuted ? "Enable Video" : "Disable Video"}
+                  onClick={toggleVideo}
+                  color={isVideoMuted ? "error" : "primary"}
+                >
+                  {isVideoMuted ? <VideocamOff /> : <Videocam />}
+                </IconButton>
+                <Button
+                  leftIcon={<Close />}
+                  colorScheme="red"
+                  size="lg"
+                  px={8}
+                  onClick={handleEndCall}
+                  boxShadow="md"
+                  _hover={{ transform: 'scale(1.05)' }}
+                >
+                  Move on
                 </Button>
               </>
             ) : (
               <Button
-                leftIcon={<Icon as={Phone} color="white" w={6} h={6} />}
+                leftIcon={<Phone />}
                 colorScheme="teal"
-                size={{ base: 'md', md: 'lg' }}
-                px={6}
+                size="lg"
+                px={8}
                 onClick={handleStart}
-                _hover={{ bg: 'teal.600' }}
+                boxShadow="md"
+                _hover={{ transform: 'scale(1.05)' }}
               >
-                Start Call
+                Start Random Call
               </Button>
             )}
           </HStack>
 
+          {/* Rating Interface */}
           {peer && !hasRated && (
-            <RatingScale onRate={(rating, feature) => handleRating(rating, feature)} />
+            <Box w="100%" bg="white" p={6} borderRadius="2xl" boxShadow="xl">
+              <RatingScale onRate={(rating, feature) => handleRating(rating, feature)} />
+            </Box>
           )}
 
-          {roomId && (
-            <Text
-              fontSize={['sm', 'md']}
-              color="gray.700"
-              textAlign="center"
-              bg="white"
-              p={3}
-              borderRadius="md"
-              boxShadow="sm"
-            >
-              Room ID: <strong>{roomId}</strong> | {isInitiator ? 'Initiator' : 'Receiver'} | {connectionStatus}
-            </Text>
-          )}
-          {error && (
-            <Text
-              fontSize={['sm', 'md']}
-              color="red.600"
-              textAlign="center"
-              bg="red.50"
-              p={3}
-              borderRadius="md"
-              boxShadow="sm"
-            >
-              {error}
-            </Text>
-          )}
+          {/* Status Indicators */}
+          <VStack spacing={2} w="100%">
+            {roomId && (
+              <Text
+                fontSize="sm"
+                color="gray.600"
+                textAlign="center"
+                bg="white"
+                p={3}
+                borderRadius="lg"
+                boxShadow="sm"
+              >
+                Connection ID: <strong>{roomId}</strong> • {connectionStatus}
+              </Text>
+            )}
+            {error && (
+              <Text
+                fontSize="sm"
+                color="red.600"
+                textAlign="center"
+                bg="red.50"
+                p={3}
+                borderRadius="lg"
+                boxShadow="sm"
+              >
+                {error}
+              </Text>
+            )}
+          </VStack>
         </VStack>
       </Container>
-    </Box>
+    </Flex>
   );
 }
 
