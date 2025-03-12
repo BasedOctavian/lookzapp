@@ -42,7 +42,7 @@ export function useUserRatingData(userId) {
     if (!userId) return;
     const userDocRef = doc(db, 'users', userId);
   
-    // Map selectedFeature to the corresponding rating field, ensuring case matches database fields
+    // Map selectedFeature to the corresponding rating field
     const featureKey = selectedFeature === 'Jawline' ? 'facialRating' : `${selectedFeature.toLowerCase()}Rating`;
   
     // Get current ratings for each feature (default to 0)
@@ -54,34 +54,22 @@ export function useUserRatingData(userId) {
     const currentTimesRanked = userData?.timesRanked || 0;
     const currentRanking = userData?.ranking || 0;
   
-    let selectedPoints;
-    let otherPoints;
-    if (newRating < 5) {
-      // For low ratings: selected feature gets 0 points; others get newRating/4 each
-      selectedPoints = 0;
-      otherPoints = newRating / 4;
-    } else if (newRating === 5) {
-      // For a neutral rating: selected gets 3 points; others get (5 - 3)/4 = 0.5 each
-      selectedPoints = 3;
-      otherPoints = (5 - 3) / 4; // 0.5
-    } else {
-      // For high ratings: selected gets 3 + 0.6 * (newRating - 5); others share the rest
-      selectedPoints = 3 + 0.6 * (newRating - 5);
-      otherPoints = (newRating - selectedPoints) / 4;
-    }
+    // Calculate points using the new formula
+    const p_selected = 1.2 * (newRating - 5);
+    const p_other = (newRating - p_selected) / 4;
   
     // Update each feature rating based on whether it is the selected feature
-    const updatedEyes = featureKey === 'eyesRating' ? currentEyes + selectedPoints : currentEyes + otherPoints;
-    const updatedSmile = featureKey === 'smileRating' ? currentSmile + selectedPoints : currentSmile + otherPoints;
-    const updatedFacial = featureKey === 'facialRating' ? currentFacial + selectedPoints : currentFacial + otherPoints;
-    const updatedHair = featureKey === 'hairRating' ? currentHair + selectedPoints : currentHair + otherPoints;
-    const updatedBody = featureKey === 'bodyRating' ? currentBody + selectedPoints : currentBody + otherPoints;
+    const updatedEyes = featureKey === 'eyesRating' ? currentEyes + p_selected : currentEyes + p_other;
+    const updatedSmile = featureKey === 'smileRating' ? currentSmile + p_selected : currentSmile + p_other;
+    const updatedFacial = featureKey === 'facialRating' ? currentFacial + p_selected : currentFacial + p_other;
+    const updatedHair = featureKey === 'hairRating' ? currentHair + p_selected : currentHair + p_other;
+    const updatedBody = featureKey === 'bodyRating' ? currentBody + p_selected : currentBody + p_other;
   
-    // Calculate the cumulative ranking as the sum of all feature ratings
+    // Update ranking and timesRanked
     const updatedTimesRanked = currentTimesRanked + 1;
-    const updatedRanking = currentRanking + newRating
+    const updatedRanking = currentRanking + newRating;
   
-    // Update Firestore with the new ratings
+    // Update Firestore
     await updateDoc(userDocRef, {
       eyesRating: updatedEyes,
       smileRating: updatedSmile,

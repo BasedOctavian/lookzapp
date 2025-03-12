@@ -46,7 +46,7 @@ function HomeScreen() {
       title: 'Rating', 
       icon: FaTrophy, 
       route: '/top-rated-users', 
-      description: `Your rating: ${rating ? rating.toFixed(2) : 'N/A'} | World rank: #TBD`, 
+      description: `Your rating: ${rating ? rating.toFixed(1) : 'N/A'} | World rank: #TBD`, 
       colorScheme: 'yellow' 
     },
     { 
@@ -97,7 +97,7 @@ function HomeScreen() {
             Welcome, {userName || 'Guest'}! Select an option below to get started.
           </Text>
           <Text fontSize="lg" color="gray.600" textAlign="center">
-          Your current rating: {rating.toFixed(2)}
+          Your current rating: {rating.toFixed(1)}
           </Text>
 
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={30} w="full">
