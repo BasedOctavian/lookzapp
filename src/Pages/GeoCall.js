@@ -35,17 +35,17 @@ import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
 import { IconButton } from "@mui/material";
-import { LoadScript, GoogleMap, Marker } from '@react-google-maps/api'; // Map library
+import { LoadScript, GoogleMap, Marker } from '@react-google-maps/api';
 
 const mapContainerStyle = {
-    width: '100%',
-    height: '100%',
-  };
-  
-  const defaultCenter = {
-    lat: 0,
-    lng: 0,
-  };
+  width: '100%',
+  height: '100%',
+};
+
+const defaultCenter = {
+  lat: 0,
+  lng: 0,
+};
 
 function GeoCall() {
   const [roomId, setRoomId] = useState('');
@@ -64,11 +64,23 @@ function GeoCall() {
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const { userData } = useUserData();
-  const [guessLocation, setGuessLocation] = useState(null); // For GeoGuessr functionality
+  const [guessLocation, setGuessLocation] = useState(null);
   const [localLocation, setLocalLocation] = useState(null);
   const [remoteLocation, setRemoteLocation] = useState(null);
   const [isDataChannelOpen, setIsDataChannelOpen] = useState(false);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const [mapLoadError, setMapLoadError] = useState(false);
+  const [mapKey, setMapKey] = useState(0);
+  const [localGuessCount, setLocalGuessCount] = useState(0);
+  const [localLastGuessCorrect, setLocalLastGuessCorrect] = useState(null);
+  const [remoteGuessCount, setRemoteGuessCount] = useState(0);
+  const [remoteLastGuessCorrect, setRemoteLastGuessCorrect] = useState(null);
+  const [localGameOver, setLocalGameOver] = useState(false);
+  const [remoteGameOver, setRemoteGameOver] = useState(false);
+  const [showRules, setShowRules] = useState(true);
+  const [localGuesses, setLocalGuesses] = useState([]);
 
+  // Get Local Location
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -87,6 +99,7 @@ function GeoCall() {
     }
   }, []);
 
+  // Send Location When Data Channel Opens
   useEffect(() => {
     if (peer && isDataChannelOpen && localLocation) {
       try {
@@ -100,8 +113,8 @@ function GeoCall() {
       }
     }
   }, [localLocation, peer, isDataChannelOpen]);
-  
 
+  // Access Media Devices
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
@@ -117,6 +130,7 @@ function GeoCall() {
       });
   }, []);
 
+  // Peer Event Handlers
   useEffect(() => {
     if (!peer) {
       setConnectionStatus('');
@@ -125,9 +139,7 @@ function GeoCall() {
 
     const handleConnect = () => {
       setConnectionStatus('Connected');
-      setIsDataChannelOpen(true); // Track data channel state
-      
-      // Send initial location immediately when connected
+      setIsDataChannelOpen(true);
       if (localLocation) {
         peer.send(JSON.stringify({
           type: 'location',
@@ -135,29 +147,37 @@ function GeoCall() {
           lng: localLocation.lng
         }));
       }
-      
       if (userData && userData.id) {
         peer.send(JSON.stringify({ 
           displayName: userData.displayName, 
           userId: userData.id 
         }));
       }
+      peer.send(JSON.stringify({
+        type: 'guessUpdate',
+        guessCount: localGuessCount,
+        lastGuessCorrect: localLastGuessCorrect,
+        gameOver: localGameOver
+      }));
     };
 
-    // Modified data handler
-const handleData = (data) => {
-  try {
-    const remoteData = JSON.parse(data);
-    if (remoteData.type === 'location') {
-      setRemoteLocation({ lat: remoteData.lat, lng: remoteData.lng });
-    } else {
-      setRemoteUserName(remoteData.displayName);
-      setRemoteUserId(remoteData.userId);
-    }
-  } catch (err) {
-    console.error('Invalid data received:', err);
-  }
-};
+    const handleData = (data) => {
+      try {
+        const remoteData = JSON.parse(data);
+        if (remoteData.type === 'location') {
+          setRemoteLocation({ lat: remoteData.lat, lng: remoteData.lng });
+        } else if (remoteData.type === 'guessUpdate') {
+          setRemoteGuessCount(remoteData.guessCount);
+          setRemoteLastGuessCorrect(remoteData.lastGuessCorrect);
+          setRemoteGameOver(remoteData.gameOver);
+        } else {
+          setRemoteUserName(remoteData.displayName);
+          setRemoteUserId(remoteData.userId);
+        }
+      } catch (err) {
+        console.error('Invalid data received:', err);
+      }
+    };
 
     const handleError = async (err) => {
       console.error('Peer error:', err);
@@ -198,8 +218,9 @@ const handleData = (data) => {
       peer.off('error', handleError);
       peer.off('close', handleClose);
     };
-  }, [peer, isInitiator, toast, roomId, userData]);
+  }, [peer, isInitiator, toast, roomId, userData, localGuessCount, localLastGuessCorrect, localGameOver]);
 
+  // Room Creation
   const handleCreateRoom = async () => {
     setIsInitiator(true);
     setError('');
@@ -264,7 +285,6 @@ const handleData = (data) => {
 
       newPeer.on('close', () => handleCallEnded());
 
-      // Add ICE connection state listener
       newPeer._pc.oniceconnectionstatechange = () => {
         if (
           newPeer._pc.iceConnectionState === 'disconnected' ||
@@ -282,6 +302,7 @@ const handleData = (data) => {
     }
   };
 
+  // Join Room
   const handleJoinRoom = async (roomId) => {
     setIsInitiator(false);
     setError('');
@@ -350,6 +371,7 @@ const handleData = (data) => {
     }
   };
 
+  // Reuse Room
   const handleReuseRoom = async (existingRoomId) => {
     setIsInitiator(true);
     setError('');
@@ -416,6 +438,7 @@ const handleData = (data) => {
     setPeer(newPeer);
   };
 
+  // Start Call
   const handleStart = async () => {
     try {
       const roomsQuery = query(
@@ -441,6 +464,7 @@ const handleData = (data) => {
     }
   };
 
+  // End Call
   const handleEndCall = () => {
     if (peer) {
       peer.destroy();
@@ -448,6 +472,7 @@ const handleData = (data) => {
     }
   };
 
+  // Handle Call Ended
   const handleCallEnded = async () => {
     if (roomId) {
       try {
@@ -470,8 +495,18 @@ const handleData = (data) => {
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
+    setLocalGuessCount(0);
+    setLocalLastGuessCorrect(null);
+    setRemoteGuessCount(0);
+    setRemoteLastGuessCorrect(null);
+    setLocalGameOver(false);
+    setRemoteGameOver(false);
+    setLocalGuesses([]);
+    setGuessLocation(null);
+    setRemoteLocation(null);
   };
 
+  // Toggle Audio
   const toggleAudio = () => {
     if (localStream) {
       const audioTracks = localStream.getAudioTracks();
@@ -480,6 +515,7 @@ const handleData = (data) => {
     }
   };
 
+  // Toggle Video
   const toggleVideo = () => {
     if (localStream) {
       const videoTracks = localStream.getVideoTracks();
@@ -488,6 +524,7 @@ const handleData = (data) => {
     }
   };
 
+  // Sign Out
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -504,12 +541,106 @@ const handleData = (data) => {
     }
   };
 
+  // Handle Map Click
   const handleMapClick = (event) => {
+    if (!isMapLoaded || localGameOver) return;
     const lat = event.latLng.lat();
     const lng = event.latLng.lng();
     setGuessLocation({ lat, lng });
     if (peer) {
       peer.send(JSON.stringify({ type: 'guess', lat, lng }));
+    }
+  };
+
+  // Submit Guess
+  const handleSubmitGuess = () => {
+    if (localGuessCount >= 3 || localGameOver) return;
+    if (guessLocation && remoteLocation && window.google) {
+      const guessLatLng = new window.google.maps.LatLng(guessLocation.lat, guessLocation.lng);
+      const remoteLatLng = new window.google.maps.LatLng(remoteLocation.lat, remoteLocation.lng);
+      const distance = window.google.maps.geometry.spherical.computeDistanceBetween(guessLatLng, remoteLatLng);
+      const distanceInMiles = distance / 1609.34;
+      const isCorrect = distanceInMiles <= 500;
+      const newGuessCount = localGuessCount + 1;
+      
+      setLocalGuessCount(newGuessCount);
+      setLocalLastGuessCorrect(isCorrect);
+      setLocalGuesses(prev => [...prev, { location: guessLocation, isCorrect }]);
+      
+      if (isCorrect || newGuessCount >= 3) {
+        setLocalGameOver(true);
+      }
+      
+      if (peer) {
+        peer.send(JSON.stringify({
+          type: 'guessUpdate',
+          guessCount: newGuessCount,
+          lastGuessCorrect: isCorrect,
+          gameOver: isCorrect || newGuessCount >= 3
+        }));
+      }
+      
+      const distanceText = `Distance: ${distanceInMiles.toFixed(2)} miles`;
+      if (isCorrect) {
+        toast({
+          title: 'Correct Guess!',
+          description: `${distanceText}. You guessed within 500 miles in ${newGuessCount} guesses.`,
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+      } else if (newGuessCount < 3) {
+        toast({
+          title: 'Incorrect Guess',
+          description: `${distanceText}. Not within 500 miles. You have ${3 - newGuessCount} guesses left.`,
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+      } else {
+        toast({
+          title: 'Game Over',
+          description: `You did not guess within 500 miles after 3 attempts.`,
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+      }
+    } else {
+      console.log('Cannot calculate distance: missing location data');
+    }
+  };
+
+  // Determine Video Border Color
+  const getBorderColor = (guessCount, lastGuessCorrect, gameOver) => {
+    if (gameOver) {
+      if (lastGuessCorrect) {
+        return 'green.500';
+      } else if (guessCount >= 3) {
+        return 'red.500';
+      }
+    }
+    return 'gray.100';
+  };
+
+  // Compute Game Result
+  const computeGameResult = () => {
+    if (!localGameOver || !remoteGameOver) return null;
+
+    if (localLastGuessCorrect && !remoteLastGuessCorrect) {
+      return 'win';
+    } else if (!localLastGuessCorrect && remoteLastGuessCorrect) {
+      return 'lose';
+    } else if (localLastGuessCorrect && remoteLastGuessCorrect) {
+      if (localGuessCount < remoteGuessCount) {
+        return 'win';
+      } else if (localGuessCount > remoteGuessCount) {
+        return 'lose';
+      } else {
+        return 'tie';
+      }
+    } else {
+      return 'tie';
     }
   };
 
@@ -551,6 +682,29 @@ const handleData = (data) => {
         </Container>
       </Box>
 
+      {/* Rules Section */}
+      {showRules && (
+        <Container maxW="container.xl" py={2}>
+          <Box bg="blue.100" p={4} borderRadius="md" mb={4} position="relative">
+            <Text fontSize="md" fontWeight="bold">Game Rules:</Text>
+            <Text fontSize="sm">
+              - Each player has 3 guesses to correctly guess the opponent's location within 500 miles.<br />
+              - A correct guess within 3 attempts turns your video outline green.<br />
+              - Running out of guesses (3 incorrect attempts) turns your video outline red.<br />
+              - The game ends when both players have either guessed correctly or used all their guesses.
+            </Text>
+            <Button 
+              mt={4} 
+              colorScheme="yellow" 
+              variant="solid" 
+              onClick={() => setShowRules(false)}
+            >
+              Close
+            </Button>
+          </Box>
+        </Container>
+      )}
+
       {/* Main Content */}
       <Container maxW="container.xl" py={{ base: 4, md: 6 }} position="relative">
         <VStack spacing={{ base: 4, md: 6 }} align="stretch">
@@ -578,24 +732,58 @@ const handleData = (data) => {
               boxShadow="lg"
               position="relative"
             >
-              <LoadScript googleMapsApiKey="AIzaSyCvuEqGfe2JN51zV6mwJJuCGW5Z_xVvWp8">
-                <GoogleMap
-                  mapContainerStyle={mapContainerStyle}
-                  zoom={2}
-                  center={defaultCenter}
-                  onClick={handleMapClick}
+              {mapLoadError ? (
+                <VStack justify="center" h="100%">
+                  <Text color="red.500">Failed to load map. Please try again.</Text>
+                  <Button onClick={() => {
+                    setIsMapLoaded(false);
+                    setMapLoadError(false);
+                    setMapKey(prev => prev + 1);
+                  }}>Retry</Button>
+                </VStack>
+              ) : (
+                <LoadScript
+                  key={mapKey}
+                  googleMapsApiKey="AIzaSyCvuEqGfe2JN51zV6mwJJuCGW5Z_xVvWp8"
+                  libraries={['geometry']}
+                  onError={() => setMapLoadError(true)}
                 >
-                  {guessLocation && <Marker position={guessLocation} />}
-                </GoogleMap>
-              </LoadScript>
+                  <GoogleMap
+                    mapContainerStyle={mapContainerStyle}
+                    zoom={2}
+                    center={defaultCenter}
+                    onClick={handleMapClick}
+                    onLoad={() => setIsMapLoaded(true)}
+                  >
+                    {guessLocation && <Marker position={guessLocation} />}
+                    {localGuesses.map((guess, index) => (
+                      <Marker
+                        key={index}
+                        position={guess.location}
+                        icon={{
+                          url: guess.isCorrect ? 'https://maps.google.com/mapfiles/ms/icons/green-dot.png' : 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                        }}
+                      />
+                    ))}
+                    {localGameOver && remoteGameOver && remoteLocation && (
+                      <Marker
+                        position={remoteLocation}
+                        icon={{
+                          url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+                        }}
+                      />
+                    )}
+                  </GoogleMap>
+                </LoadScript>
+              )}
             </Box>
 
             {/* Remote Video */}
             <Box
               w={['100%', '35%']}
               h={['40vh', '60vh']}
-              borderWidth="2px"
-              borderColor="gray.100"
+              borderWidth="4px"
+              borderColor={getBorderColor(remoteGuessCount, remoteLastGuessCorrect, remoteGameOver)}
               borderRadius="xl"
               overflow="hidden"
               boxShadow="lg"
@@ -626,28 +814,34 @@ const handleData = (data) => {
                 </Text>
               )}
               {peer && (
-            <Box
-              position="absolute"
-              bottom="2"
-              left="2"
-              color="white"
-              bg="rgba(0, 0, 0, 0.6)"
-              px={2}
-              py={1}
-              borderRadius="md"
-            >
-              <Text fontSize="sm" fontWeight="medium">
-                {remoteUserName || 'Stranger'}
-              </Text>
-              {remoteLocation ? (
-                <Text fontSize="xs">
-                  Lat: {remoteLocation.lat.toFixed(4)}, Lng: {remoteLocation.lng.toFixed(4)}
-                </Text>
-              ) : (
-                <Text fontSize="xs">Location unavailable</Text>
+                <Box
+                  position="absolute"
+                  bottom="2"
+                  left="2"
+                  color="white"
+                  bg="rgba(0, 0, 0, 0.6)"
+                  px={2}
+                  py={1}
+                  borderRadius="md"
+                >
+                  <Text fontSize="sm" fontWeight="medium">
+                    {remoteUserName || 'Stranger'}
+                  </Text>
+                  <Text fontSize="xs">
+                    Guesses: {remoteGuessCount}/3
+                  </Text>
+                  {remoteLastGuessCorrect !== null && (
+                    <Text fontSize="xs">
+                      Last Guess: {remoteLastGuessCorrect ? '✓' : '✗'}
+                    </Text>
+                  )}
+                  {remoteGameOver && (
+                    <Text fontSize="xs" fontWeight="bold" color={remoteLastGuessCorrect ? 'green.300' : 'red.300'}>
+                      {remoteLastGuessCorrect ? 'Winner' : 'Loser'}
+                    </Text>
+                  )}
+                </Box>
               )}
-            </Box>
-          )}
             </Box>
           </Flex>
 
@@ -658,8 +852,8 @@ const handleData = (data) => {
             left="4"
             w={['120px', '200px']}
             h={['90px', '150px']}
-            borderWidth="2px"
-            borderColor="gray.100"
+            borderWidth="4px"
+            borderColor={getBorderColor(localGuessCount, localLastGuessCorrect, localGameOver)}
             borderRadius="xl"
             overflow="hidden"
             boxShadow="lg"
@@ -673,7 +867,7 @@ const handleData = (data) => {
               playsInline
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
-             <Box
+            <Box
               position="absolute"
               bottom="2"
               left="2"
@@ -686,18 +880,32 @@ const handleData = (data) => {
               <Text fontSize="sm" fontWeight="medium">
                 {userData?.displayName || 'You'}
               </Text>
-              {localLocation ? (
+              <Text fontSize="xs">
+                Guesses: {localGuessCount}/3
+              </Text>
+              {localLastGuessCorrect !== null && (
                 <Text fontSize="xs">
-                  Lat: {localLocation.lat.toFixed(4)}, Lng: {localLocation.lng.toFixed(4)}
+                  Last Guess: {localLastGuessCorrect ? '✓' : '✗'}
                 </Text>
-              ) : (
-                <Text fontSize="xs">Location unavailable</Text>
+              )}
+              {localGameOver && (
+                <Text fontSize="xs" fontWeight="bold" color={localLastGuessCorrect ? 'green.300' : 'red.300'}>
+                  {localLastGuessCorrect ? 'Winner' : 'Loser'}
+                </Text>
               )}
             </Box>
           </Box>
 
-          
-          
+          {/* Game Result */}
+          {computeGameResult() && (
+            <Box textAlign="center" mt={4}>
+              <Text fontSize="xl" fontWeight="bold">
+                {computeGameResult() === 'win' && 'You won!'}
+                {computeGameResult() === 'lose' && 'You lost!'}
+                {computeGameResult() === 'tie' && 'It\'s a tie!'}
+              </Text>
+            </Box>
+          )}
 
           {/* Call Controls */}
           <HStack spacing={4} justify="center" flexWrap="wrap">
@@ -710,7 +918,6 @@ const handleData = (data) => {
                 >
                   {isAudioMuted ? <MicOff /> : <Mic />}
                 </IconButton>
-
                 <IconButton
                   aria-label={isVideoMuted ? "Enable Video" : "Disable Video"}
                   onClick={toggleVideo}
@@ -729,6 +936,19 @@ const handleData = (data) => {
                 >
                   End Call
                 </Button>
+                {!localGameOver && (
+                  <Button
+                    colorScheme="blue"
+                    size="lg"
+                    onClick={handleSubmitGuess}
+                    isDisabled={!isMapLoaded || !guessLocation || !remoteLocation}
+                  >
+                    Submit Guess
+                  </Button>
+                )}
+                {localGameOver && !remoteGameOver && (
+                  <Text>Waiting for opponent to finish their guesses...</Text>
+                )}
               </>
             ) : (
               <Button
