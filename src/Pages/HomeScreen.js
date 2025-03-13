@@ -59,7 +59,7 @@ function HomeScreen() {
     { 
       title: 'Guess Location', 
       icon: FaMapMarkedAlt, 
-      route: '/guess-location', 
+      route: '/geo-call', 
       description: 'Challenge your skills in guessing countries.', 
       colorScheme: 'orange' 
     },
