@@ -14,21 +14,25 @@ import {
   Icon,
   Grid,
   GridItem,
+  useBreakpointValue,
 } from '@chakra-ui/react';
 import { useUserRatingData } from '../hooks/useUserRatingData';
+import { useDailyRatings } from '../hooks/useDailyRatings';
 import { CircularProgress, CircularProgressLabel } from "@chakra-ui/progress";
 import { FiMail, FiAward, FiLogOut, FiStar, FiUsers } from 'react-icons/fi';
 import Avatar from '@mui/material/Avatar';
 import { Divider } from '@mui/material';
-
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 
 function Profile() {
   const { userId } = useParams();
   const navigate = useNavigate();
   const { userData, rating, loading } = useUserRatingData(userId);
-  const cardBg = 'white'; // Static background color
-  const headerBg = 'rgba(255, 255, 255, 0.8)'; // Static header background
-  const featureColors = ['blue.400', 'pink.400', 'purple.400', 'teal.400', 'orange.400']; // Static feature colors
+  const { dailyRatings, loading: dailyRatingsLoading } = useDailyRatings(userId); // Use the new hook
+  const isMobile = useBreakpointValue({ base: true, md: false });
+  const cardBg = 'white';
+  const headerBg = 'rgba(255, 255, 255, 0.8)';
+  const featureColors = ['blue.400', 'pink.400', 'purple.400', 'teal.400', 'orange.400'];
 
   const handleSignOut = async () => {
     try {
@@ -76,14 +80,13 @@ function Profile() {
       body: totalFeatureRating ? (bodyRating / totalFeatureRating) * 100 : 0,
     };
 
-    // Adjust to make sure total is exactly 100%
+    // Adjust percentages to total 100%
     const totalPercentage = Object.values(percentages).reduce((a, b) => a + b, 0);
     const scale = totalPercentage > 0 ? 100 / totalPercentage : 1;
     Object.keys(percentages).forEach(key => {
       percentages[key] = Math.round(percentages[key] * scale);
     });
 
-    // Recalculate total to handle rounding discrepancies
     let adjustedTotal = Object.values(percentages).reduce((a, b) => a + b, 0);
     if (adjustedTotal !== 100) {
       const maxKey = Object.keys(percentages).reduce((a, b) =>
@@ -103,114 +106,190 @@ function Profile() {
     profileContent = (
       <Box 
         w="100%"
-        maxW="xl"
+        maxW={{ base: '100%', md: '6xl' }}
         bg={cardBg}
         borderRadius="2xl"
-        boxShadow="xl"
+        boxShadow="lg"
         position="relative"
         overflow="hidden"
         mt={6}
+        mx={4}
       >
-        {/* Profile Header */}
+        {/* Enhanced Profile Header */}
         <Box 
-          h="140px"
-          bgGradient="linear(to-r, blue.400, purple.500)"
+          h="160px"
+          bgGradient="linear(to-r, blue.500, cyan.400)"
           position="relative"
+          borderTopLeftRadius="2xl"
+          borderTopRightRadius="2xl"
         >
           <Avatar 
             alt={userData.displayName}
             src={userData.profilePicture}
             sx={{
-              width: 180,
-              height: 180,
+              width: 200,
+              height: 200,
               border: '4px solid',
               borderColor: cardBg,
               position: 'absolute',
-              bottom: '-60px',
+              bottom: '-80px',
               left: '50%',
-              transform: 'translateX(-50%)'
+              transform: 'translateX(-50%)',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
             }}
           />
         </Box>
 
         {/* Profile Content */}
-        <VStack spacing={6} pt={20} px={6} pb={8}>
-          <VStack spacing={1}>
-            <Heading as="h1" size="xl" fontWeight="bold">
-              {userData.displayName}
-            </Heading>
-            <Text color="gray.500" fontSize="lg">
-              @{userData.username || userData.email.split('@')[0]}
-            </Text>
-          </VStack>
+        <VStack spacing={8} pt={24} px={{ base: 4, md: 8 }} pb={8}>
+        <VStack spacing={2}>
+          <Heading as="h1" size="2xl" fontWeight="extrabold" letterSpacing="tight">
+            {userData.displayName}
+          </Heading>
+          <Text color="gray.600" fontSize="lg" fontWeight="medium">
+            @{userData.username || userData.email.split('@')[0]}
+          </Text>
+        </VStack>
 
           {/* Stats Grid */}
-          <Grid templateColumns="repeat(3, 1fr)" gap={6} w="100%">
-            <GridItem>
+          <Grid templateColumns="repeat(3, 1fr)" gap={8} w="100%" maxW="600px">
+          {[
+            { label: 'Global Rank', value: 'N/A', color: 'blue.500' },
+            { label: 'Avg Rating', value: rating?.toFixed(1), color: 'purple.500' },
+            { label: 'Total Ratings', value: 'N/A', color: 'teal.500' },
+          ].map((stat, index) => (
+            <GridItem key={stat.label}>
               <VStack spacing={1}>
-                <Text fontSize="2xl" fontWeight="black" color="blue.500">
-                  N/A
+                <Text fontSize="3xl" fontWeight="black" color={stat.color}>
+                  {stat.value}
                 </Text>
-                <Text fontSize="sm" color="gray.500" textAlign="center">
-                  Global Rank
+                <Text fontSize="sm" color="gray.500" textAlign="center" fontWeight="medium">
+                  {stat.label}
                 </Text>
               </VStack>
             </GridItem>
-            <GridItem>
-              <VStack spacing={1}>
-                <Text fontSize="2xl" fontWeight="black" color="purple.500">
-                  {rating.toFixed(1)}
-                </Text>
-                <Text fontSize="sm" color="gray.500" textAlign="center">
-                  Average Rating
-                </Text>
-              </VStack>
-            </GridItem>
-            <GridItem>
-              <VStack spacing={1}>
-                <Text fontSize="2xl" fontWeight="black" color="teal.500">
-                  N/A
-                </Text>
-                <Text fontSize="sm" color="gray.500" textAlign="center">
-                  Total Ratings
-                </Text>
-              </VStack>
-            </GridItem>
-          </Grid>
+          ))}
+        </Grid>
 
           <Divider />
 
-          {/* Feature Progress Grid */}
-          <VStack spacing={4} w="100%">
-            <Heading size="md" fontWeight="semibold" alignSelf="start">
-              Rating Breakdown
-            </Heading>
-            <Grid templateColumns={{ base: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }} gap={4} w="100%">
-              {features.map((feature, index) => (
-                <GridItem key={feature.key}>
-                  <HStack spacing={4}>
-                    <CircularProgress
-                      value={feature.percent}
-                      color={featureColors[index % featureColors.length]}
-                      size="60px"
-                      thickness="8px"
-                    >
-                      <CircularProgressLabel>
-                        <Icon as={feature.icon} color="gray.500" boxSize={5} />
-                      </CircularProgressLabel>
-                    </CircularProgress>
-                    <VStack align="start" spacing={0}>
-                      <Text fontWeight="medium">{feature.label}</Text>
-                      <Text fontSize="2xl" fontWeight="bold">
-                        {feature.percent}%
-                      </Text>
-                    </VStack>
-                  </HStack>
-                </GridItem>
-              ))}
-            </Grid>
-          </VStack>
+         {/* Feature Progress Grid */}
+         <VStack spacing={6} w="100%">
+  <Heading size="md" fontWeight="medium" alignSelf="start" color="gray.700">
+    Feature Breakdown
+  </Heading>
+  <Grid 
+    templateColumns={{ base: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }} 
+    gap={4}
+    w="100%"
+    maxW="800px"
+  >
+    {features.map((feature, index) => (
+      <GridItem key={feature.key} textAlign="center">
+        <VStack spacing={2}>
+          <Box position="relative" display="inline-block">
+            <CircularProgress
+              value={feature.percent}
+              color={featureColors[index % featureColors.length]}
+              size="60px"
+              thickness="8px"
+              trackColor="gray.100"
+            />
+            <Text
+              position="absolute"
+              top="50%"
+              left="50%"
+              transform="translate(-50%, -50%)"
+              fontSize="sm"
+              fontWeight="bold"
+              color="gray.700"
+              whiteSpace="nowrap"
+            >
+              {feature.percent}%
+            </Text>
+          </Box>
+          <Text fontSize="sm" fontWeight="semibold" color="gray.700">
+            {feature.label}
+          </Text>
+          <Text fontSize="xs" color="gray.500">
+            {userData[`${feature.key}Rating`]?.toFixed(1)} avg
+          </Text>
         </VStack>
+      </GridItem>
+    ))}
+  </Grid>
+</VStack>
+
+          <Divider />
+
+          {/* Rating Progress Over Time */}
+          <VStack spacing={6} w="100%">
+          <Heading size="lg" fontWeight="semibold" alignSelf="start" letterSpacing="tight">
+            Rating History
+          </Heading>
+          {dailyRatingsLoading ? (
+            <Spinner size="lg" color="blue.500" thickness="3px" />
+          ) : dailyRatings.length > 0 ? (
+            <Box w="100%" h="400px">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart 
+                  data={dailyRatings} 
+                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                  <XAxis 
+                    dataKey="date" 
+                    tickFormatter={(date) => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    stroke="#718096"
+                    tickLine={{ stroke: '#e2e8f0' }}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                  />
+                  <YAxis 
+                    domain={[0, 10]} 
+                    stroke="#718096"
+                    tickLine={{ stroke: '#e2e8f0' }}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                    tickCount={6}
+                  />
+                  <Tooltip 
+                    labelFormatter={(label) => new Date(label).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    formatter={(value) => [value.toFixed(1), 'Rating']}
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                      padding: '12px',
+                    }}
+                  />
+                  <Line 
+                    type="linear"
+                    dataKey="averageRating" 
+                    stroke="#3182ce"
+                    strokeWidth={3}
+                    dot={{
+                      r: 6,
+                      fill: '#3182ce',
+                      stroke: 'white',
+                      strokeWidth: 2,
+                    }}
+                    activeDot={{
+                      r: 8,
+                      fill: '#3182ce',
+                      stroke: 'white',
+                      strokeWidth: 2,
+                    }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </Box>
+          ) : (
+            <Text color="gray.500" fontSize="lg">
+              No rating history available
+            </Text>
+          )}
+        </VStack>
+      </VStack>
       </Box>
     );
   }
