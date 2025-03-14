@@ -94,34 +94,31 @@ function HomeScreen() {
             Lookzapp
           </Heading>
           <Text fontSize="xl" color="gray.700" textAlign="center">
-            Welcome, {userName || 'Guest'}! Select an option below to get started.
-          </Text>
-          <Text fontSize="lg" color="gray.600" textAlign="center">
-          Your current rating: {rating.toFixed(1)}
+            Welcome, {userName || 'Guest'}! Your current rating is {rating.toFixed(1)}. Select an option below to get started.
           </Text>
 
-          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={30} w="full">
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={8} w="full">
             {options.map((option) => (
               <Button
                 key={option.title}
                 onClick={() => navigate(option.route)}
+                aria-label={option.title}
                 bg="white"
                 p={6}
                 borderRadius="lg"
                 boxShadow="lg"
-                transition="all 0.3s"
-                _hover={{ bg: 'gray.50', transform: 'scale(1.05)', boxShadow: 'xl' }}
+                transition="all 0.2s cubic-bezier(.27,.67,.47,1.6)"
+                _hover={{ bg: 'gray.50', transform: 'scale(1.02)', boxShadow: 'xl' }}
                 textAlign="center"
                 w="full"
                 h="auto"
               >
-                <VStack spacing={4} style={{ marginBottom: '90px' }}>
+                <VStack spacing={4}>
                   <Icon 
                     as={option.icon} 
-                    w={12} 
-                    h={12} 
+                    w={10} 
+                    h={10} 
                     color={`${option.colorScheme}.500`} 
-                    style={{ marginBottom: '0px', marginTop: '20px' }}
                   />
                   <Heading as="h3" size="md" color="black">
                     {option.title}

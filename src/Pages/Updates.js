@@ -1,16 +1,30 @@
-import { Flex, Box, Heading, Text, VStack, Spinner, Button, HStack } from '@chakra-ui/react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUserData } from '../hooks/useUserData';
-import { Avatar } from '@chakra-ui/avatar';
-import { Divider } from '@mui/material';
-import { useEffect, useState } from 'react';
+import {
+  Flex,
+  Box,
+  Heading,
+  Text,
+  VStack,
+  Spinner,
+  Button,
+  HStack,
+  Separator, // Replaced Divider with Separator
+} from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { FiStar, FiArrowUp, FiArrowDown } from 'react-icons/fi';
 import { CircularProgress, CircularProgressLabel } from '@chakra-ui/progress';
+import { Avatar } from '@mui/material';
 
+
+
+
+
+// Define Motion components (note: updated MotionSeparator instead of MotionDivider)
 const MotionBox = motion(Box);
-const MotionDivider = motion(Divider);
+const MotionSeparator = motion(Separator); // Changed from MotionDivider
 const MotionVStack = motion(VStack);
 
 function Updates() {
@@ -19,10 +33,12 @@ function Updates() {
   const { userData, rating, loading } = useUserData(user?.uid);
   const [showNewGrade, setShowNewGrade] = useState(false);
   const [showNextButton, setShowNextButton] = useState(false);
-  const featureColors = ['blue.400', 'pink.400', 'purple.400', 'teal.400', 'orange.400'];
   const location = useLocation();
   const initialRating = location.state?.initialRating || 0;
   const differential = (rating - initialRating).toFixed(1);
+
+  // Feature colors for rating breakdown
+  const featureColors = ['blue.400', 'pink.400', 'purple.400', 'teal.400', 'orange.400'];
 
   // Timer for showing the new grade after 3 seconds
   useEffect(() => {
@@ -40,7 +56,7 @@ function Updates() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Keyboard event listener for spacebar navigation after 4 seconds
+  // Keyboard event listener for spacebar navigation
   useEffect(() => {
     const handleKeyPress = (event) => {
       if (event.key === ' ' && showNextButton) {
@@ -110,7 +126,7 @@ function Updates() {
   if (loading) {
     return (
       <Flex minH="100vh" bgGradient="linear(to-br, gray.50, blue.100)" justify="center" align="center">
-        <Spinner size="xl" />
+        <Spinner size="xl" color="blue.500" />
       </Flex>
     );
   }
@@ -126,6 +142,7 @@ function Updates() {
         backdropFilter="blur(10px)"
         zIndex="sticky"
         borderBottomWidth="1px"
+        boxShadow="sm"
       >
         <Flex justify="space-between" align="center" p={4}>
           <Heading
@@ -133,7 +150,6 @@ function Updates() {
             size="xl"
             color="blue.700"
             fontWeight="bold"
-            textShadow="1px 1px 2px rgba(0, 0, 0, 0.1)"
             cursor="pointer"
             onClick={() => navigate('/')}
           >
@@ -143,7 +159,6 @@ function Updates() {
             <Button
               variant="link"
               color="blue.500"
-              fontWeight="medium"
               onClick={() => navigate('/top-rated-users')}
             >
               Top Rated Users
@@ -151,7 +166,6 @@ function Updates() {
             <Button
               variant="link"
               color="red.500"
-              fontWeight="medium"
               onClick={handleSignOut}
             >
               Sign Out
@@ -161,18 +175,18 @@ function Updates() {
       </Box>
 
       {/* Main Content */}
-      <Flex flex={1} justify="center" align="center" style={{ backgroundColor: 'rgb(29, 78, 216)' }}>
+      <Flex flex={1} justify="center" align="center">
         <MotionBox
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           w={{ base: '90%', md: '800px' }}
           p={12}
           bg="white"
           borderRadius="lg"
-          boxShadow="md"
+          boxShadow="xl"
         >
-          <VStack spacing={6} align="center">
+          <VStack spacing={8} align="center">
             {/* Avatar with Differential Indicator */}
             <MotionBox
               initial={{ opacity: 0 }}
@@ -183,8 +197,9 @@ function Updates() {
               <Avatar
                 src={userData?.profilePicture}
                 name={userData?.displayName}
-                boxSize="200px"
+                sx={{ width: 180, height: 180 }}
                 borderRadius="full"
+                boxShadow="md"
               />
               {/* Differential Indicator */}
               <MotionBox
@@ -237,7 +252,7 @@ function Updates() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.6, duration: 0.5 }}
               >
-                <Text fontSize="3xl" fontWeight="bold">
+                <Text fontSize="3xl" fontWeight="bold" color="gray.700">
                   {initialRating}
                 </Text>
                 <Text fontSize="md" color="gray.500">
@@ -245,10 +260,13 @@ function Updates() {
                 </Text>
               </MotionVStack>
 
-              {/* Divider */}
-              <MotionDivider
+              {/* Vertical Separator */}
+              <MotionSeparator
                 orientation="vertical"
-                height="50px"
+                size="md"
+                colorPalette="gray"
+                variant="solid"
+                h="50px"
                 mx={6}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: showNewGrade ? 1 : 0 }}
@@ -263,7 +281,7 @@ function Updates() {
                 animate={{ opacity: showNewGrade ? 1 : 0 }}
                 transition={{ duration: 0.5 }}
               >
-                <Text fontSize="3xl" fontWeight="bold">
+                <Text fontSize="3xl" fontWeight="bold" color="gray.700">
                   {rating.toFixed(1)}
                 </Text>
                 <Text fontSize="md" color="gray.500">
@@ -280,12 +298,14 @@ function Updates() {
               animate={{ opacity: showNewGrade ? 1 : 0 }}
               transition={{ duration: 0.5 }}
             >
-              <Divider />
+              {/* Horizontal Separator */}
+              <Separator size="sm" colorPalette="gray" variant="solid" />
+
               <Heading size="md" fontWeight="semibold" color="blue.700">
                 Rating Breakdown
               </Heading>
 
-              <HStack spacing={8} justify="center" w="100%">
+              <HStack spacing={8} justify="center" w="100%" flexWrap="wrap">
                 {features.map((feature, index) => (
                   <VStack key={feature.key} spacing={3} align="center">
                     <CircularProgress
@@ -295,19 +315,9 @@ function Updates() {
                       thickness="8px"
                     >
                       <CircularProgressLabel>
-                        <Box position="relative">
-                          <Text
-                            fontSize="sm"
-                            fontWeight="bold"
-                            position="absolute"
-                            top="50%"
-                            left="50%"
-                            transform="translate(-50%, -50%)"
-                            mt={1}
-                          >
-                            {feature.percent}%
-                          </Text>
-                        </Box>
+                        <Text fontSize="sm" fontWeight="bold">
+                          {feature.percent}%
+                        </Text>
                       </CircularProgressLabel>
                     </CircularProgress>
                     <Text fontSize="lg" fontWeight="medium" color="gray.700">
@@ -324,6 +334,9 @@ function Updates() {
                 colorScheme="blue"
                 onClick={() => navigate('/video-call')}
                 mt={4}
+                boxShadow="md"
+                _hover={{ transform: 'scale(1.05)' }}
+                transition="all 0.2s cubic-bezier(.27,.67,.47,1.6)"
               >
                 Next
               </Button>
