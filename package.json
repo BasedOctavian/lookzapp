@@ -9,6 +9,7 @@
     "@chakra-ui/icons": "^2.2.4",
     "@chakra-ui/input": "^2.1.2",
     "@chakra-ui/modal": "^2.3.1",
+    "@chakra-ui/number-input": "^2.1.2",
     "@chakra-ui/progress": "^2.2.0",
     "@chakra-ui/react": "^3.11.0",
     "@chakra-ui/table": "^2.1.0",
