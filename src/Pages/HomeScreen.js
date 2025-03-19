@@ -38,7 +38,7 @@ function HomeScreen() {
     { 
       title: 'Other Games', 
       icon: FaGamepad, 
-      route: '/other-games', 
+      route: '/two-truths', 
       description: 'Explore and play more games.', 
       colorScheme: 'green' 
     },

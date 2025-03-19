@@ -46,7 +46,7 @@ import { useUserRatingData } from '../hooks/useUserRatingData';
 const RatingScale = lazy(() => import('../Components/RatingScale'));
 
 function VideoCall() {
-  // State Declarations
+  // **State Declarations**
   const [roomId, setRoomId] = useState('');
   const [isInitiator, setIsInitiator] = useState(false);
   const [error, setError] = useState('');
@@ -60,7 +60,6 @@ function VideoCall() {
   const [hasRated, setHasRated] = useState(false);
   const [initialRating, setInitialRating] = useState(null);
   const [remoteRatingReceived, setRemoteRatingReceived] = useState(false);
-  const [redirected, setRedirected] = useState(false);
   const [currentRatingStep, setCurrentRatingStep] = useState('idle');
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -76,20 +75,12 @@ function VideoCall() {
 
   useEffect(() => {
     if (localRating) {
-      console.log('Local rating:', localRating.toFixed(1));
       setInitialRating(localRating.toFixed(1));
     }
-    
   }, [localRating]);
 
-  // Set initialRating when localRating is available and peer connects
-  useEffect(() => {
-    if (peer && localRating && !initialRating) {
-      setInitialRating(localRating.toFixed(1));
-    }
-  }, [peer, localRating, initialRating]);
+  // **Function Definitions**
 
-  // Function Definitions
   const handleCreateRoom = async () => {
     setIsInitiator(true);
     setError('');
@@ -294,6 +285,13 @@ function VideoCall() {
     } catch (err) {
       console.error('Error starting call:', err);
       setError('Failed to start call');
+      toast({
+        title: 'Start Call Error',
+        description: 'Unable to start the call. Please try again.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
     }
   };
 
@@ -329,12 +327,7 @@ function VideoCall() {
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
-    // Ensure initialRating is set before navigating
-    if (!initialRating && localRating) {
-      setInitialRating(localRating.toFixed(1));
-    }
-    console.log('Initial rating', initialRating);
-    navigate('/updates', { state: { initialRating } });
+    navigate('/updates', { state: { initialRating: initialRating || localRating?.toFixed(1) } });
   };
 
   const toggleAudio = () => {
@@ -370,17 +363,22 @@ function VideoCall() {
   };
 
   const handleRating = (newRating, selectedFeature) => {
-    console.log(`Submitting rating: ${newRating} for ${selectedFeature} to ${remoteUserId}`);
     submitRemoteRating(newRating, selectedFeature)
       .then(() => {
         setHasRated(true);
-        console.log('Rating submitted successfully');
+        toast({
+          title: 'Rating Submitted',
+          description: 'Your rating has been successfully submitted.',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
       })
       .catch((err) => {
         console.error('Error submitting rating:', err);
         toast({
-          title: 'Rating error',
-          description: 'Failed to submit rating',
+          title: 'Rating Error',
+          description: 'Failed to submit rating.',
           status: 'error',
           duration: 3000,
           isClosable: true,
@@ -388,7 +386,7 @@ function VideoCall() {
       });
   };
 
-  // useEffect Hooks
+  // **useEffect Hooks**
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
@@ -410,9 +408,6 @@ function VideoCall() {
 
     const handleConnect = () => {
       setConnectionStatus('Connected');
-      if (localRating && !initialRating) {
-        setInitialRating(localRating.toFixed(1));
-      }
       if (userData && userData.id) {
         peer.send(JSON.stringify({ displayName: userData.displayName, userId: userData.id }));
       }
@@ -423,7 +418,6 @@ function VideoCall() {
         const remoteData = JSON.parse(data);
         setRemoteUserName(remoteData.displayName);
         setRemoteUserId(remoteData.userId);
-        console.log('Received remote data:', { remoteUserId: remoteData.userId, localUserId: userData.id });
         setRemoteRatingReceived(true);
       } catch (err) {
         console.error('Invalid data received:', err);
@@ -461,18 +455,11 @@ function VideoCall() {
       peer.off('error', handleError);
       peer.off('close', handleClose);
     };
-  }, [peer, isInitiator, toast, roomId, userData, localRating]);
+  }, [peer, isInitiator, toast, roomId, userData]);
 
   useEffect(() => {
     setHasRated(false);
   }, [remoteUserId]);
-
-  useEffect(() => {
-    if (!peer && remoteRatingReceived) {
-      console.log('Navigating to updates');
-      handleCallEnded();
-    }
-  }, [peer, remoteRatingReceived]);
 
   useEffect(() => {
     if (!roomId || !peer) return;
@@ -507,61 +494,12 @@ function VideoCall() {
   }, [remoteUserId, userData?.id]);
 
   useEffect(() => {
-    if (!remoteUserId && remoteRatingReceived) {
-      console.log('Peer not connected');
-    }
-
-    if (!remoteUserId && !peer && remoteUserName) {
-      console.log('something happened');
-    }
-  }, [peer, remoteRatingReceived, remoteUserId, remoteVideoRef]);
-
-  useEffect(() => {
-    if (!remoteUserId || (remoteRatingReceived && !peer)) {
-      return;
-    }
-
-    const q = query(
-      collection(db, 'ratings'),
-      where('rateeId', '==', userData.id),
-      where('raterId', '==', remoteUserId)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      console.log('Rating snapshot:', {
-        size: snapshot.size,
-        docs: snapshot.docs.map(doc => doc.data())
-      });
-      setRemoteRatingReceived(snapshot.size > 0);
-    }, (error) => {
-      console.error('Error in rating listener:', error);
-      toast({
-        title: 'Rating listener error',
-        description: 'Failed to monitor ratings: ' + error.message,
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    });
-
-    return () => unsubscribe();
-  }, [remoteUserId, userData?.id, toast]);
-
-  useEffect(() => {
-    if (hasRated && remoteRatingReceived && !redirected) {
-      console.log('Redirecting to /updates with initialRating:', initialRating);
-      setRedirected(true);
-      navigate('/updates', { state: { initialRating } });
-    }
-  }, [hasRated, remoteRatingReceived, initialRating, navigate, redirected]);
-
-  useEffect(() => {
     if (!peer || hasRated) {
       setCurrentRatingStep('idle');
     }
   }, [peer, hasRated]);
 
-  // JSX Return Statement
+  // **JSX Return Statement**
   return (
     <Flex direction="column" minH="100vh" bg="gray.50">
       {/* Enhanced Sticky Header */}

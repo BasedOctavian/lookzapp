@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "@chakra-ui/avatar": "^2.3.0",
+    "@chakra-ui/card": "^2.2.0",
     "@chakra-ui/color-mode": "^2.2.0",
     "@chakra-ui/form-control": "^2.2.0",
     "@chakra-ui/icons": "^2.2.4",
@@ -11,6 +12,7 @@
     "@chakra-ui/modal": "^2.3.1",
     "@chakra-ui/number-input": "^2.1.2",
     "@chakra-ui/progress": "^2.2.0",
+    "@chakra-ui/radio": "^2.1.2",
     "@chakra-ui/react": "^3.11.0",
     "@chakra-ui/table": "^2.1.0",
     "@chakra-ui/toast": "^7.0.2",

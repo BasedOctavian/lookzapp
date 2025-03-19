@@ -34,7 +34,7 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
-import { IconButton } from "@mui/material";
+import { IconButton } from '@mui/material';
 import { LoadScript, GoogleMap, Marker } from '@react-google-maps/api';
 
 const mapContainerStyle = {
@@ -79,6 +79,8 @@ function GeoCall() {
   const [remoteGameOver, setRemoteGameOver] = useState(false);
   const [showRules, setShowRules] = useState(true);
   const [localGuesses, setLocalGuesses] = useState([]);
+  const [localClosestDistance, setLocalClosestDistance] = useState(Infinity);
+  const [remoteClosestDistance, setRemoteClosestDistance] = useState(Infinity);
 
   // Get Local Location
   useEffect(() => {
@@ -106,7 +108,7 @@ function GeoCall() {
         peer.send(JSON.stringify({
           type: 'location',
           lat: localLocation.lat,
-          lng: localLocation.lng
+          lng: localLocation.lng,
         }));
       } catch (err) {
         console.error('Error sending location:', err);
@@ -144,20 +146,21 @@ function GeoCall() {
         peer.send(JSON.stringify({
           type: 'location',
           lat: localLocation.lat,
-          lng: localLocation.lng
+          lng: localLocation.lng,
         }));
       }
       if (userData && userData.id) {
-        peer.send(JSON.stringify({ 
-          displayName: userData.displayName, 
-          userId: userData.id 
+        peer.send(JSON.stringify({
+          displayName: userData.displayName,
+          userId: userData.id,
         }));
       }
       peer.send(JSON.stringify({
         type: 'guessUpdate',
         guessCount: localGuessCount,
         lastGuessCorrect: localLastGuessCorrect,
-        gameOver: localGameOver
+        gameOver: localGameOver,
+        closestDistance: localClosestDistance,
       }));
     };
 
@@ -170,6 +173,7 @@ function GeoCall() {
           setRemoteGuessCount(remoteData.guessCount);
           setRemoteLastGuessCorrect(remoteData.lastGuessCorrect);
           setRemoteGameOver(remoteData.gameOver);
+          setRemoteClosestDistance(remoteData.closestDistance);
         } else {
           setRemoteUserName(remoteData.displayName);
           setRemoteUserId(remoteData.userId);
@@ -218,7 +222,7 @@ function GeoCall() {
       peer.off('error', handleError);
       peer.off('close', handleClose);
     };
-  }, [peer, isInitiator, toast, roomId, userData, localGuessCount, localLastGuessCorrect, localGameOver]);
+  }, [peer, isInitiator, toast, roomId, userData, localGuessCount, localLastGuessCorrect, localGameOver, localClosestDistance]);
 
   // Room Creation
   const handleCreateRoom = async () => {
@@ -504,6 +508,8 @@ function GeoCall() {
     setLocalGuesses([]);
     setGuessLocation(null);
     setRemoteLocation(null);
+    setLocalClosestDistance(Infinity);
+    setRemoteClosestDistance(Infinity);
   };
 
   // Toggle Audio
@@ -547,9 +553,6 @@ function GeoCall() {
     const lat = event.latLng.lat();
     const lng = event.latLng.lng();
     setGuessLocation({ lat, lng });
-    if (peer) {
-      peer.send(JSON.stringify({ type: 'guess', lat, lng }));
-    }
   };
 
   // Submit Guess
@@ -562,24 +565,29 @@ function GeoCall() {
       const distanceInMiles = distance / 1609.34;
       const isCorrect = distanceInMiles <= 500;
       const newGuessCount = localGuessCount + 1;
-      
+
       setLocalGuessCount(newGuessCount);
       setLocalLastGuessCorrect(isCorrect);
-      setLocalGuesses(prev => [...prev, { location: guessLocation, isCorrect }]);
-      
+      setLocalGuesses((prev) => [...prev, { location: guessLocation, isCorrect, distance: distanceInMiles }]);
+
+      if (distanceInMiles < localClosestDistance) {
+        setLocalClosestDistance(distanceInMiles);
+      }
+
       if (isCorrect || newGuessCount >= 3) {
         setLocalGameOver(true);
       }
-      
+
       if (peer) {
         peer.send(JSON.stringify({
           type: 'guessUpdate',
           guessCount: newGuessCount,
           lastGuessCorrect: isCorrect,
-          gameOver: isCorrect || newGuessCount >= 3
+          gameOver: isCorrect || newGuessCount >= 3,
+          closestDistance: Math.min(localClosestDistance, distanceInMiles),
         }));
       }
-      
+
       const distanceText = `Distance: ${distanceInMiles.toFixed(2)} miles`;
       if (isCorrect) {
         toast({
@@ -600,7 +608,7 @@ function GeoCall() {
       } else {
         toast({
           title: 'Game Over',
-          description: `You did not guess within 500 miles after 3 attempts.`,
+          description: `You did not guess within 500 miles after 3 attempts. Closest: ${localClosestDistance.toFixed(2)} miles.`,
           status: 'error',
           duration: 3000,
           isClosable: true,
@@ -627,20 +635,26 @@ function GeoCall() {
   const computeGameResult = () => {
     if (!localGameOver || !remoteGameOver) return null;
 
-    if (localLastGuessCorrect && !remoteLastGuessCorrect) {
-      return 'win';
-    } else if (!localLastGuessCorrect && remoteLastGuessCorrect) {
-      return 'lose';
-    } else if (localLastGuessCorrect && remoteLastGuessCorrect) {
-      if (localGuessCount < remoteGuessCount) {
+    if (localLastGuessCorrect && remoteLastGuessCorrect) {
+      // Both guessed correctly, winner is the one with the closer guess
+      if (localClosestDistance < remoteClosestDistance) {
         return 'win';
-      } else if (localGuessCount > remoteGuessCount) {
-        return 'lose';
       } else {
-        return 'tie';
+        return 'lose';
       }
+    } else if (localLastGuessCorrect) {
+      // Only local player guessed correctly
+      return 'win';
+    } else if (remoteLastGuessCorrect) {
+      // Only remote player guessed correctly
+      return 'lose';
     } else {
-      return 'tie';
+      // Neither guessed correctly, winner is the one with the closer guess
+      if (localClosestDistance < remoteClosestDistance) {
+        return 'win';
+      } else {
+        return 'lose';
+      }
     }
   };
 
@@ -688,15 +702,16 @@ function GeoCall() {
           <Box bg="blue.100" p={4} borderRadius="md" mb={4} position="relative">
             <Text fontSize="md" fontWeight="bold">Game Rules:</Text>
             <Text fontSize="sm">
-              - Each player has 3 guesses to correctly guess the opponent's location within 500 miles.<br />
-              - A correct guess within 3 attempts turns your video outline green.<br />
-              - Running out of guesses (3 incorrect attempts) turns your video outline red.<br />
-              - The game ends when both players have either guessed correctly or used all their guesses.
+              - Each player has 3 guesses to guess the opponent's location within 500 miles.<br />
+              - A correct guess within 500 miles turns your video outline green.<br />
+              - Running out of guesses turns your video outline red.<br />
+              - If both guess correctly, the closer guess wins. If neither guesses correctly, the closest guess wins.<br />
+              - The game ends when both players have finished guessing.
             </Text>
-            <Button 
-              mt={4} 
-              colorScheme="yellow" 
-              variant="solid" 
+            <Button
+              mt={4}
+              colorScheme="yellow"
+              variant="solid"
               onClick={() => setShowRules(false)}
             >
               Close
@@ -735,16 +750,20 @@ function GeoCall() {
               {mapLoadError ? (
                 <VStack justify="center" h="100%">
                   <Text color="red.500">Failed to load map. Please try again.</Text>
-                  <Button onClick={() => {
-                    setIsMapLoaded(false);
-                    setMapLoadError(false);
-                    setMapKey(prev => prev + 1);
-                  }}>Retry</Button>
+                  <Button
+                    onClick={() => {
+                      setIsMapLoaded(false);
+                      setMapLoadError(false);
+                      setMapKey((prev) => prev + 1);
+                    }}
+                  >
+                    Retry
+                  </Button>
                 </VStack>
               ) : (
                 <LoadScript
                   key={mapKey}
-                  googleMapsApiKey="AIzaSyCvuEqGfe2JN51zV6mwJJuCGW5Z_xVvWp8"
+                  googleMapsApiKey="AIzaSyCvuEqGfe2JN51zV6mwJJuCGW5Z_xVvWp8" // Replace with your actual API key
                   libraries={['geometry']}
                   onError={() => setMapLoadError(true)}
                 >
@@ -761,7 +780,9 @@ function GeoCall() {
                         key={index}
                         position={guess.location}
                         icon={{
-                          url: guess.isCorrect ? 'https://maps.google.com/mapfiles/ms/icons/green-dot.png' : 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                          url: guess.isCorrect
+                            ? 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
+                            : 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
                         }}
                       />
                     ))}
@@ -827,19 +848,15 @@ function GeoCall() {
                   <Text fontSize="sm" fontWeight="medium">
                     {remoteUserName || 'Stranger'}
                   </Text>
-                  <Text fontSize="xs">
-                    Guesses: {remoteGuessCount}/3
-                  </Text>
+                  <Text fontSize="xs">Guesses: {remoteGuessCount}/3</Text>
                   {remoteLastGuessCorrect !== null && (
                     <Text fontSize="xs">
                       Last Guess: {remoteLastGuessCorrect ? '✓' : '✗'}
                     </Text>
                   )}
-                  {remoteGameOver && (
-                    <Text fontSize="xs" fontWeight="bold" color={remoteLastGuessCorrect ? 'green.300' : 'red.300'}>
-                      {remoteLastGuessCorrect ? 'Winner' : 'Loser'}
-                    </Text>
-                  )}
+                  <Text fontSize="xs">
+                    Closest: {remoteClosestDistance === Infinity ? 'N/A' : `${remoteClosestDistance.toFixed(2)} mi`}
+                  </Text>
                 </Box>
               )}
             </Box>
@@ -880,19 +897,15 @@ function GeoCall() {
               <Text fontSize="sm" fontWeight="medium">
                 {userData?.displayName || 'You'}
               </Text>
-              <Text fontSize="xs">
-                Guesses: {localGuessCount}/3
-              </Text>
+              <Text fontSize="xs">Guesses: {localGuessCount}/3</Text>
               {localLastGuessCorrect !== null && (
                 <Text fontSize="xs">
                   Last Guess: {localLastGuessCorrect ? '✓' : '✗'}
                 </Text>
               )}
-              {localGameOver && (
-                <Text fontSize="xs" fontWeight="bold" color={localLastGuessCorrect ? 'green.300' : 'red.300'}>
-                  {localLastGuessCorrect ? 'Winner' : 'Loser'}
-                </Text>
-              )}
+              <Text fontSize="xs">
+                Closest: {localClosestDistance === Infinity ? 'N/A' : `${localClosestDistance.toFixed(2)} mi`}
+              </Text>
             </Box>
           </Box>
 
@@ -900,9 +913,10 @@ function GeoCall() {
           {computeGameResult() && (
             <Box textAlign="center" mt={4}>
               <Text fontSize="xl" fontWeight="bold">
-                {computeGameResult() === 'win' && 'You won!'}
-                {computeGameResult() === 'lose' && 'You lost!'}
-                {computeGameResult() === 'tie' && 'It\'s a tie!'}
+                {computeGameResult() === 'win' ? 'You won!' : 'You lost!'}
+              </Text>
+              <Text fontSize="sm">
+                Your closest: {localClosestDistance.toFixed(2)} mi vs Opponent’s closest: {remoteClosestDistance.toFixed(2)} mi
               </Text>
             </Box>
           )}
@@ -912,16 +926,16 @@ function GeoCall() {
             {peer ? (
               <>
                 <IconButton
-                  aria-label={isAudioMuted ? "Unmute Audio" : "Mute Audio"}
+                  aria-label={isAudioMuted ? 'Unmute Audio' : 'Mute Audio'}
                   onClick={toggleAudio}
-                  color={isAudioMuted ? "error" : "primary"}
+                  color={isAudioMuted ? 'error' : 'primary'}
                 >
                   {isAudioMuted ? <MicOff /> : <Mic />}
                 </IconButton>
                 <IconButton
-                  aria-label={isVideoMuted ? "Enable Video" : "Disable Video"}
+                  aria-label={isVideoMuted ? 'Enable Video' : 'Disable Video'}
                   onClick={toggleVideo}
-                  color={isVideoMuted ? "error" : "primary"}
+                  color={isVideoMuted ? 'error' : 'primary'}
                 >
                   {isVideoMuted ? <VideocamOff /> : <Videocam />}
                 </IconButton>
