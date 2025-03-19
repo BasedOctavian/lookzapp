@@ -9,7 +9,8 @@ import {
   VStack,
   HStack,
   Heading,
-  IconButton,
+  Input,
+  Spinner,
 } from '@chakra-ui/react';
 import {
   collection,
@@ -33,16 +34,24 @@ import {
   Mic,
   Videocam,
   VideocamOff,
+  Gamepad,
+  Logout,
+  Timer,
 } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
-import { Card, CardHeader, CardBody } from '@chakra-ui/card';
-import { Input } from '@chakra-ui/input';
 import { Radio, RadioGroup } from '@chakra-ui/radio';
+import { Alert, AlertIcon, AlertTitle, AlertDescription } from '@chakra-ui/alert';
+import { Avatar, IconButton } from '@mui/material';
+import { AnimatePresence, motion } from 'framer-motion';
+import Confetti from 'react-confetti';
+import { FormControl, FormErrorMessage } from '@chakra-ui/form-control';
+import { Skeleton } from '@chakra-ui/skeleton';
+import { Progress } from '@chakra-ui/progress';
 
 function TwoTruths() {
-  // State Declarations
+  // ### State Declarations
   const [roomId, setRoomId] = useState('');
   const [isInitiator, setIsInitiator] = useState(false);
   const [error, setError] = useState('');
@@ -56,8 +65,13 @@ function TwoTruths() {
   const [statements, setStatements] = useState(['', '', '']);
   const [lieIndex, setLieIndex] = useState(null);
   const [roomData, setRoomData] = useState(null);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(60); // Timer for entering statements
+  const [guessTimeLeft, setGuessTimeLeft] = useState(30); // Timer for guessing
+  const [messages, setMessages] = useState([]); // Chat messages
+  const [currentMessage, setCurrentMessage] = useState(''); // Current chat input
 
-  // Refs and Hooks
+  // ### Refs and Hooks
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const toast = useToast();
@@ -65,7 +79,7 @@ function TwoTruths() {
   const navigate = useNavigate();
   const { userData, loading } = useUserData();
 
-  // Helper Variables
+  // ### Helper Variables
   const isLocalInitiator = isInitiator;
   const localStatementsField = isLocalInitiator ? 'initiatorStatements' : 'joinerStatements';
   const localLieIndexField = isLocalInitiator ? 'initiatorLieIndex' : 'joinerLieIndex';
@@ -74,15 +88,66 @@ function TwoTruths() {
   const localGuessField = isLocalInitiator ? 'initiatorGuess' : 'joinerGuess';
   const remoteGuessField = isLocalInitiator ? 'joinerGuess' : 'initiatorGuess';
 
-  // Core Functions
+  // ### Framer Motion Components
+  const MotionBox = motion(Box);
+  const MotionButton = motion(Button);
 
+  // ### Game Phase Stepper Component
+  const GamePhaseStepper = ({ currentPhase }) => {
+    const phases = ['Setup', 'Connecting', 'Statements', 'Guessing', 'Results'];
+    const phaseIndex = {
+      setup: 0,
+      connecting: 1,
+      statements: 2,
+      guessing: 3,
+      results: 4,
+    }[currentPhase] || 0;
+
+    return (
+      <Flex justify="center" mb={8}>
+        <HStack spacing={4}>
+          {phases.map((phase, index) => (
+            <Flex key={phase} align="center">
+              <Box
+                w="40px"
+                h="40px"
+                borderRadius="full"
+                bg={index < phaseIndex ? 'teal.500' : index === phaseIndex ? 'blue.500' : 'gray.200'}
+                color="white"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                fontWeight="bold"
+                transition="all 0.3s ease"
+                aria-label={`${phase} phase ${index < phaseIndex ? 'completed' : index === phaseIndex ? 'current' : 'upcoming'}`}
+              >
+                {index < phaseIndex ? <CheckCircle /> : index + 1}
+              </Box>
+              <Text
+                fontSize="sm"
+                fontWeight={index === phaseIndex ? 'bold' : 'normal'}
+                color={index === phaseIndex ? 'blue.600' : 'gray.500'}
+                ml={2}
+              >
+                {phase}
+              </Text>
+            </Flex>
+          ))}
+        </HStack>
+      </Flex>
+    );
+  };
+
+  // ### Core Functions
+
+  // **Create a New Room**
   const handleCreateRoom = async () => {
     if (!localStream) {
-      setError('Local stream not available');
+      setError('Local stream not available. Check your camera and microphone permissions.');
       return;
     }
     if (!userData || !userData.id) {
-      setError('User data not loaded');
+      setError('User data not loaded. Please try again.');
       return;
     }
 
@@ -124,23 +189,30 @@ function TwoTruths() {
         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream;
       });
 
-      newPeer.on('error', handleCallEnded);
-      newPeer.on('close', handleCallEnded);
+      newPeer.on('error', (err) => {
+        console.error('PeerJS error:', err);
+        handleCallEnded(false);
+      });
+      newPeer.on('close', () => {
+        console.log('PeerJS connection closed');
+        handleCallEnded(false);
+      });
 
       setPeer(newPeer);
     } catch (err) {
       console.error('Error creating room:', err);
-      setError('Failed to create room');
+      setError('Failed to create room. Please try again.');
     }
   };
 
+  // **Join an Existing Room**
   const handleJoinRoom = async (roomId) => {
     if (!localStream) {
-      setError('Local stream not available');
+      setError('Local stream not available. Check your camera and microphone permissions.');
       return;
     }
     if (!userData || !userData.id) {
-      setError('User data not loaded');
+      setError('User data not loaded. Please try again.');
       return;
     }
 
@@ -152,13 +224,13 @@ function TwoTruths() {
       const roomSnap = await getDoc(roomRef);
 
       if (!roomSnap.exists()) {
-        setError('Room does not exist');
+        setError('Room does not exist. Check the room ID and try again.');
         return;
       }
 
       const roomData = roomSnap.data();
       if (roomData.status !== 'waiting' && roomData.status !== 'inactive') {
-        setError('Room is not available for joining');
+        setError('Room is not available for joining. It might be full or the game has already started.');
         return;
       }
 
@@ -191,8 +263,14 @@ function TwoTruths() {
           if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream;
         });
 
-        newPeer.on('error', handleCallEnded);
-        newPeer.on('close', handleCallEnded);
+        newPeer.on('error', (err) => {
+          console.error('PeerJS error:', err);
+          handleCallEnded(false);
+        });
+        newPeer.on('close', () => {
+          console.log('PeerJS connection closed');
+          handleCallEnded(false);
+        });
 
         setPeer(newPeer);
         setRoomId(roomId);
@@ -222,8 +300,14 @@ function TwoTruths() {
           if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream;
         });
 
-        newPeer.on('error', handleCallEnded);
-        newPeer.on('close', handleCallEnded);
+        newPeer.on('error', (err) => {
+          console.error('PeerJS error:', err);
+          handleCallEnded(false);
+        });
+        newPeer.on('close', () => {
+          console.log('PeerJS connection closed');
+          handleCallEnded(false);
+        });
 
         setPeer(newPeer);
         newPeer.signal(offer);
@@ -232,13 +316,14 @@ function TwoTruths() {
       }
     } catch (err) {
       console.error('Error joining room:', err);
-      setError('Failed to join room');
+      setError('Failed to join room. Please check your connection and try again.');
     }
   };
 
+  // **Start the Game (Join or Create)**
   const handleStart = async () => {
     if (!localStream) {
-      setError('Local stream not available');
+      setError('Local stream not available. Check your camera and microphone permissions.');
       return;
     }
 
@@ -264,10 +349,10 @@ function TwoTruths() {
       await handleCreateRoom();
     } catch (err) {
       console.error('Error starting game:', err);
-      setError('Failed to start game');
+      setError('Failed to start game. Please check your connection and try again.');
       toast({
         title: 'Start Error',
-        description: 'Unable to start the game.',
+        description: 'Unable to start the game. Please try again.',
         status: 'error',
         duration: 3000,
         isClosable: true,
@@ -275,46 +360,52 @@ function TwoTruths() {
     }
   };
 
+  // **End the Call**
   const handleEndCall = () => {
     if (peer) {
       peer.destroy();
-      handleCallEnded();
+      handleCallEnded(true);
     }
   };
 
-  const handleCallEnded = async () => {
-    if (roomId) {
-      try {
-        const roomRef = doc(db, 'twoTruthsRooms', roomId);
-        await updateDoc(roomRef, {
-          status: 'inactive',
-          offer: null,
-          answer: null,
-          initiatorId: null,
-          joinerId: null,
-          gameState: null,
-          initiatorStatements: null,
-          initiatorLieIndex: null,
-          joinerStatements: null,
-          joinerLieIndex: null,
-          initiatorGuess: null,
-          joinerGuess: null,
-        });
-        console.log('Room set to inactive:', roomId);
-      } catch (err) {
-        console.error('Error updating room status:', err);
-        setError('Failed to update room status');
+  // **Handle Call Termination**
+  const handleCallEnded = async (force = false) => {
+    if (force || (roomData && roomData.gameState === 'revealing_answers')) {
+      if (roomId) {
+        try {
+          const roomRef = doc(db, 'twoTruthsRooms', roomId);
+          await updateDoc(roomRef, {
+            status: 'inactive',
+            offer: null,
+            answer: null,
+            initiatorId: null,
+            joinerId: null,
+            gameState: null,
+            initiatorStatements: null,
+            initiatorLieIndex: null,
+            joinerStatements: null,
+            joinerLieIndex: null,
+            initiatorGuess: null,
+            joinerGuess: null,
+          });
+          console.log('Room set to inactive:', roomId);
+        } catch (err) {
+          console.error('Error updating room status:', err);
+          setError('Failed to update room status');
+        }
       }
+      setPeer(null);
+      setRoomId('');
+      setIsInitiator(false);
+      setRemoteUserName('');
+      setRemoteUserId('');
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    } else {
+      console.log('Call event detected, but game is in progress. Keeping room active.');
     }
-    setPeer(null);
-    setRoomId('');
-    setIsInitiator(false);
-    setRemoteUserName('');
-    setRemoteUserId('');
-    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-    // Removed navigate('/updates') to stay on the game page
   };
 
+  // **Toggle Audio**
   const toggleAudio = () => {
     if (localStream) {
       const audioTracks = localStream.getAudioTracks();
@@ -323,6 +414,7 @@ function TwoTruths() {
     }
   };
 
+  // **Toggle Video**
   const toggleVideo = () => {
     if (localStream) {
       const videoTracks = localStream.getVideoTracks();
@@ -331,6 +423,7 @@ function TwoTruths() {
     }
   };
 
+  // **Sign Out**
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -347,33 +440,45 @@ function TwoTruths() {
     }
   };
 
+  // ### Game UI Rendering
   const renderGameUI = () => {
-    if (!roomData) {
-      console.log('No roomData yet');
-      return null;
-    }
+    if (!roomData) return null;
 
-    console.log('Current game state:', roomData.gameState);
+    const completion = statements.filter((s) => s.trim()).length / 3 * 75 + (lieIndex !== null ? 25 : 0);
+    const currentPhase = roomData.gameState === 'entering_statements' ? 'statements' :
+                        roomData.gameState === 'guessing' ? 'guessing' :
+                        roomData.gameState === 'revealing_answers' ? 'results' :
+                        peer ? 'connecting' : 'setup';
 
-    switch (roomData.gameState) {
-      case 'entering_statements':
-        console.log('Rendering entering_statements UI');
-        if (!roomData[localStatementsField]) {
-          return (
-            <Card w="100%" boxShadow="lg" borderRadius="2xl">
-              <CardHeader>
+    return (
+      <AnimatePresence mode="wait">
+        {roomData.gameState === 'entering_statements' && (
+          <MotionBox
+            key="entering_statements"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.5 }}
+          >
+            {!hasSubmitted ? (
+              <VStack spacing={6} align="stretch">
                 <Heading size="md" color="blue.700">
                   Enter Your Two Truths and One Lie
                 </Heading>
-              </CardHeader>
-              <CardBody>
-                <VStack spacing={4}>
-                  <Text fontSize="sm" color="gray.600">
-                    Write three statements about yourself: two truths and one lie.
+                <Text fontSize="md" color="gray.600" mb={2}>
+                  Write two true facts and one lie about yourself. Select which one is the lie below.
+                </Text>
+                <Progress value={completion} size="sm" colorScheme="teal" mb={4} />
+                <HStack spacing={2}>
+                  <Timer color="error" />
+                  <Text fontSize="lg" color={timeLeft <= 10 ? 'red.600' : 'red.500'} fontWeight="bold">
+                    Time left: {timeLeft} seconds
                   </Text>
-                  {statements.map((stmt, index) => (
+                </HStack>
+                <Progress value={(timeLeft / 60) * 100} size="sm" colorScheme="red" mb={4} />
+                {statements.map((stmt, index) => (
+                  <FormControl key={index} isInvalid={!stmt.trim() && hasSubmitted}>
                     <Input
-                      key={index}
                       value={stmt}
                       onChange={(e) => {
                         const newStatements = [...statements];
@@ -382,208 +487,207 @@ function TwoTruths() {
                       }}
                       placeholder={`Statement ${index + 1}`}
                       variant="filled"
-                      size="md"
+                      size="lg"
+                      isDisabled={hasSubmitted}
+                      bg={lieIndex === index ? 'yellow.100' : 'white'}
+                      borderRadius="md"
+                      _focus={{ borderColor: 'blue.400', boxShadow: '0 0 0 1px blue.400' }}
+                      aria-label={`Statement ${index + 1}`}
+                      sx={{ transition: 'background-color 0.3s ease' }}
                     />
-                  ))}
-                  <HStack>
-                    <Text fontWeight="medium">Which one is your lie?</Text>
-                    <RadioGroup onChange={(value) => setLieIndex(Number(value))}>
-                      <HStack spacing={4}>
-                        {statements.map((_, index) => (
-                          <Radio key={index} value={index}>
-                            {index + 1}
-                          </Radio>
-                        ))}
-                      </HStack>
-                    </RadioGroup>
-                  </HStack>
-                  <Button
-                    colorScheme="teal"
-                    size="md"
-                    onClick={async () => {
-                      if (statements.some((s) => !s.trim()) || lieIndex === null) {
-                        toast({
-                          title: 'Incomplete',
-                          description: 'Please fill all statements and select your lie.',
-                          status: 'warning',
-                        });
-                        return;
-                      }
-                      try {
-                        await updateDoc(doc(db, 'twoTruthsRooms', roomId), {
-                          [localStatementsField]: statements,
-                          [localLieIndexField]: lieIndex,
-                        });
-                        console.log('Statements submitted:', statements, 'Lie index:', lieIndex);
-                      } catch (err) {
-                        console.error('Error submitting statements:', err);
-                        toast({ title: 'Error', description: 'Failed to submit.', status: 'error' });
-                      }
-                    }}
-                  >
-                    Submit
-                  </Button>
-                </VStack>
-              </CardBody>
-            </Card>
-          );
-        }
-        return (
-          <Text fontSize="md" color="gray.600">
-            Waiting for {remoteUserName || 'the other player'} to submit their statements...
-          </Text>
-        );
-
-      case 'guessing':
-        console.log('Rendering guessing UI');
-        if (roomData[localGuessField] === null && roomData[remoteStatementsField]) {
-          return (
-            <Card w="100%" boxShadow="lg" borderRadius="2xl">
-              <CardHeader>
+                    {!stmt.trim() && hasSubmitted && (
+                      <FormErrorMessage>Statement cannot be empty</FormErrorMessage>
+                    )}
+                  </FormControl>
+                ))}
+                <HStack spacing={4} align="center">
+                  <Text fontWeight="medium" color="gray.700">
+                    Which one is your lie?
+                  </Text>
+                  <RadioGroup onChange={(value) => !hasSubmitted && setLieIndex(Number(value))} value={lieIndex}>
+                    <HStack spacing={6}>
+                      {statements.map((_, index) => (
+                        <Radio
+                          key={index}
+                          value={index}
+                          isDisabled={hasSubmitted}
+                          colorScheme="teal"
+                          aria-label={`Select statement ${index + 1} as the lie`}
+                        >
+                          {index + 1}
+                        </Radio>
+                      ))}
+                    </HStack>
+                  </RadioGroup>
+                </HStack>
+                <MotionButton
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  colorScheme="teal"
+                  size="lg"
+                  onClick={async () => {
+                    if (statements.some((s) => !s.trim()) || lieIndex === null) return;
+                    await updateDoc(doc(db, 'twoTruthsRooms', roomId), {
+                      [localStatementsField]: statements,
+                      [localLieIndexField]: lieIndex,
+                    });
+                    setHasSubmitted(true);
+                  }}
+                  isDisabled={statements.some((s) => !s.trim()) || lieIndex === null}
+                  aria-label="Submit statements"
+                >
+                  Submit
+                </MotionButton>
+              </VStack>
+            ) : (
+              <Flex justify="center" align="center" direction="column">
+                <Spinner size="xl" color="teal.500" />
+                <Text mt={4} fontSize="lg" color="gray.600">
+                  Waiting for {remoteUserName || 'the other player'} to submit their statements...
+                </Text>
+              </Flex>
+            )}
+          </MotionBox>
+        )}
+        {roomData.gameState === 'guessing' && (
+          <MotionBox
+            key="guessing"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.5 }}
+          >
+            {roomData[localGuessField] === null && roomData[remoteStatementsField] ? (
+              <VStack spacing={6} align="stretch">
                 <Heading size="md" color="blue.700">
                   Guess {remoteUserName || 'Their'} Lie
                 </Heading>
-              </CardHeader>
-              <CardBody>
-                <VStack spacing={4}>
-                  <Text fontSize="sm" color="gray.600">
-                    Watch the video for clues! Here are {remoteUserName || 'their'} statements:
+                <Text fontSize="md" color="gray.600" mb={2}>
+                  Watch the video and pick the statement you think is the lie.
+                </Text>
+                <HStack spacing={2}>
+                  <Timer color="error" />
+                  <Text fontSize="lg" color={guessTimeLeft <= 10 ? 'red.600' : 'red.500'} fontWeight="bold">
+                    Time left to guess: {guessTimeLeft} seconds
                   </Text>
-                  {roomData[remoteStatementsField].map((stmt, index) => (
-                    <Text
+                </HStack>
+                <Progress value={(guessTimeLeft / 30) * 100} size="sm" colorScheme="red" mb={4} />
+                {roomData[remoteStatementsField].map((stmt, index) => (
+                  <Box
+                    key={index}
+                    p={4}
+                    bg="gray.50"
+                    border="1px solid"
+                    borderColor="gray.200"
+                    borderRadius="md"
+                    boxShadow="sm"
+                    _hover={{ bg: 'gray.100', borderColor: 'gray.300' }}
+                    transition="all 0.2s ease"
+                  >
+                    <Text fontSize="lg" color="gray.800">{`${index + 1}. ${stmt}`}</Text>
+                  </Box>
+                ))}
+                <HStack spacing={4} justify="center">
+                  {roomData[remoteStatementsField].map((_, index) => (
+                    <MotionButton
                       key={index}
-                      fontSize="lg"
-                      sx={{
-                        animation: `fadeIn 0.5s ease-in-out ${index * 0.3}s both`,
-                        '@keyframes fadeIn': {
-                          from: { opacity: 0, transform: 'translateY(10px)' },
-                          to: { opacity: 1, transform: 'translateY(0)' },
-                        },
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      colorScheme="blue"
+                      variant="solid"
+                      size="md"
+                      onClick={async () => {
+                        await updateDoc(doc(db, 'twoTruthsRooms', roomId), {
+                          [localGuessField]: index,
+                        });
                       }}
+                      aria-label={`Guess statement ${index + 1} as the lie`}
                     >
-                      {`${index + 1}. ${stmt}`}
-                    </Text>
+                      {index + 1}
+                    </MotionButton>
                   ))}
-                  <Text fontWeight="medium">Which one do you think is the lie?</Text>
-                  <HStack spacing={4}>
-                    {roomData[remoteStatementsField].map((_, index) => (
-                      <Button
-                        key={index}
-                        colorScheme="blue"
-                        variant="outline"
-                        onClick={async () => {
-                          try {
-                            await updateDoc(doc(db, 'twoTruthsRooms', roomId), {
-                              [localGuessField]: index,
-                            });
-                            console.log('Guess submitted:', index);
-                          } catch (err) {
-                            console.error('Error submitting guess:', err);
-                            toast({
-                              title: 'Error',
-                              description: 'Failed to submit guess.',
-                              status: 'error',
-                            });
-                          }
-                        }}
-                      >
-                        {index + 1}
-                      </Button>
-                    ))}
-                  </HStack>
-                </VStack>
-              </CardBody>
-            </Card>
-          );
-        }
-        return (
-          <Text fontSize="md" color="gray.600">
-            Waiting for {remoteUserName || 'the other player'} to guess your lie...
-          </Text>
-        );
-
-      case 'revealing_answers':
-        console.log('Rendering revealing_answers UI');
-        const localCorrect = roomData[localGuessField] === roomData[remoteLieIndexField];
-        const remoteCorrect = roomData[remoteGuessField] === roomData[localLieIndexField];
-        let resultText;
-        if (localCorrect && !remoteCorrect) resultText = 'You win! You guessed right, they didn’t.';
-        else if (!localCorrect && remoteCorrect) resultText = `${remoteUserName || 'They'} win! They guessed right, you didn’t.`;
-        else if (localCorrect && remoteCorrect) resultText = "It's a tie! You both guessed correctly.";
-        else resultText = "It's a tie! Neither of you guessed correctly.";
-
-        return (
-          <Card w="100%" boxShadow="lg" borderRadius="2xl">
-            <CardHeader>
-              <Heading size="md" color="blue.700">
-                Game Results
-              </Heading>
-            </CardHeader>
-            <CardBody>
-              <VStack spacing={4}>
-                <Text fontWeight="bold">Your Statements:</Text>
+                </HStack>
+              </VStack>
+            ) : (
+              <Flex justify="center" align="center" direction="column">
+                <Spinner size="xl" color="teal.500" />
+                <Text mt={4} fontSize="lg" color="gray.600">
+                  Waiting for {remoteUserName || 'the other player'} to guess your lie...
+                </Text>
+              </Flex>
+            )}
+          </MotionBox>
+        )}
+        {roomData.gameState === 'revealing_answers' && (
+          <MotionBox
+            key="revealing_answers"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.5 }}
+          >
+            <VStack spacing={6} align="stretch">
+              <Heading size="md" color="blue.700">Game Results</Heading>
+              <Box>
+                <Text fontWeight="bold" color="gray.700" mb={2}>
+                  Your Statements:
+                </Text>
                 {roomData[localStatementsField].map((stmt, index) => (
                   <Text
                     key={index}
-                    color={index === roomData[localLieIndexField] ? 'red.500' : 'black'}
-                    sx={{
-                      animation:
-                        index === roomData[localLieIndexField]
-                          ? 'pulse 1s infinite'
-                          : 'none',
-                      '@keyframes pulse': {
-                        '0%': { transform: 'scale(1)' },
-                        '50%': { transform: 'scale(1.05)' },
-                        '100%': { transform: 'scale(1)' },
-                      },
-                    }}
+                    color={index === roomData[localLieIndexField] ? 'red.500' : 'gray.800'}
+                    fontSize="lg"
                   >
                     {`${index + 1}. ${stmt} ${index === roomData[localLieIndexField] ? '(Lie)' : ''}`}
                   </Text>
                 ))}
-                <Text fontWeight="bold">{remoteUserName || 'Opponent'}’s Statements:</Text>
+                <Text mt={2} fontSize="lg" color="teal.600">
+                  {remoteUserName || 'Opponent'} guessed: Statement {roomData[remoteGuessField] + 1}
+                  {roomData[remoteGuessField] === roomData[localLieIndexField] ? ' (Correct!)' : ' (Wrong)'}
+                </Text>
+              </Box>
+              <Box>
+                <Text fontWeight="bold" color="gray.700" mb={2}>
+                  {remoteUserName || 'Opponent'}’s Statements:
+                </Text>
                 {roomData[remoteStatementsField].map((stmt, index) => (
                   <Text
                     key={index}
-                    color={index === roomData[remoteLieIndexField] ? 'red.500' : 'black'}
-                    sx={{
-                      animation:
-                        index === roomData[remoteLieIndexField]
-                          ? 'pulse 1s infinite'
-                          : 'none',
-                      '@keyframes pulse': {
-                        '0%': { transform: 'scale(1)' },
-                        '50%': { transform: 'scale(1.05)' },
-                        '100%': { transform: 'scale(1)' },
-                      },
-                    }}
+                    color={index === roomData[remoteLieIndexField] ? 'red.500' : 'gray.800'}
+                    fontSize="lg"
                   >
                     {`${index + 1}. ${stmt} ${index === roomData[remoteLieIndexField] ? '(Lie)' : ''}`}
                   </Text>
                 ))}
-                <Text>
-                  Your guess: Statement {roomData[localGuessField] + 1} (
-                  {localCorrect ? 'Correct' : 'Incorrect'})
+                <Text mt={2} fontSize="lg" color="teal.600">
+                  You guessed: Statement {roomData[localGuessField] + 1}
+                  {roomData[localGuessField] === roomData[remoteLieIndexField] ? ' (Correct!)' : ' (Wrong)'}
                 </Text>
-                <Text>
-                  {remoteUserName || 'Opponent'}’s guess: Statement {roomData[remoteGuessField] + 1} (
-                  {remoteCorrect ? 'Correct' : 'Incorrect'})
-                </Text>
-                <Text fontSize="lg" fontWeight="bold" color="teal.600">
-                  {resultText}
-                </Text>
-              </VStack>
-            </CardBody>
-          </Card>
-        );
-
-      default:
-        return null;
-    }
+              </Box>
+              {(() => {
+                const localCorrect = roomData[localGuessField] === roomData[remoteLieIndexField];
+                const remoteCorrect = roomData[remoteGuessField] === roomData[localLieIndexField];
+                let resultText;
+                if (localCorrect && !remoteCorrect) resultText = 'You win! You guessed right, they didn’t.';
+                else if (!localCorrect && remoteCorrect) resultText = `${remoteUserName || 'They'} win! They guessed right, you didn’t.`;
+                else if (localCorrect && remoteCorrect) resultText = "It's a tie! You both guessed correctly.";
+                else resultText = "It's a tie! Neither of you guessed correctly.";
+                return (
+                  <Text fontSize="xl" fontWeight="bold" color="teal.600" textAlign="center" mt={6}>
+                    {resultText}
+                  </Text>
+                );
+              })()}
+            </VStack>
+          </MotionBox>
+        )}
+      </AnimatePresence>
+    );
   };
 
-  // useEffect Hooks
+  // ### useEffect Hooks
 
+  // **Setup Media Stream**
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
@@ -595,8 +699,15 @@ function TwoTruths() {
         console.error('Failed to access media devices:', err);
         setError('Failed to access camera/microphone. Check permissions.');
       });
+
+    return () => {
+      if (localStream) {
+        localStream.getTracks().forEach((track) => track.stop());
+      }
+    };
   }, []);
 
+  // **Handle Peer Connection Events**
   useEffect(() => {
     if (!peer) {
       setConnectionStatus('');
@@ -614,293 +725,392 @@ function TwoTruths() {
     const handleData = (data) => {
       try {
         const remoteData = JSON.parse(data);
-        setRemoteUserName(remoteData.displayName);
-        setRemoteUserId(remoteData.userId);
+        if (remoteData.displayName) {
+          setRemoteUserName(remoteData.displayName);
+          setRemoteUserId(remoteData.userId);
+        } else if (remoteData.message) {
+          setMessages((prev) => [...prev, `${remoteUserName || 'Stranger'}: ${remoteData.message}`]);
+        }
       } catch (err) {
         console.error('Invalid data received:', err);
       }
     };
 
+    const handleError = (err) => {
+      console.error('PeerJS error:', err);
+      handleCallEnded(false);
+    };
+
+    const handleClose = () => {
+      console.log('PeerJS connection closed');
+      handleCallEnded(false);
+    };
+
     peer.on('connect', handleConnect);
     peer.on('data', handleData);
-    peer.on('error', handleCallEnded);
-    peer.on('close', handleCallEnded);
+    peer.on('error', handleError);
+    peer.on('close', handleClose);
 
     setConnectionStatus(isInitiator ? 'Waiting for connection...' : 'Connecting...');
 
     return () => {
       peer.off('connect', handleConnect);
       peer.off('data', handleData);
-      peer.off('error', handleCallEnded);
-      peer.off('close', handleCallEnded);
+      peer.off('error', handleError);
+      peer.off('close', handleClose);
     };
   }, [peer, isInitiator, userData]);
 
+  // **Listen to Room Data Updates**
   useEffect(() => {
     if (roomId) {
       const unsubscribe = onSnapshot(doc(db, 'twoTruthsRooms', roomId), (docSnap) => {
         if (docSnap.exists()) {
-          const data = docSnap.data();
-          console.log('Room data updated:', data);
-          setRoomData(data);
+          setRoomData(docSnap.data());
         }
       });
       return () => unsubscribe();
     }
   }, [roomId]);
 
+  // **Manage Game State Transitions**
   useEffect(() => {
     if (isLocalInitiator && roomData) {
-      console.log('Checking game state transition:', roomData.gameState);
       if (
         roomData.gameState === 'entering_statements' &&
         roomData.initiatorStatements &&
         roomData.joinerStatements
       ) {
-        console.log('Both statements submitted, moving to guessing');
         updateDoc(doc(db, 'twoTruthsRooms', roomId), { gameState: 'guessing' });
       } else if (
         roomData.gameState === 'guessing' &&
         roomData.initiatorGuess !== null &&
         roomData.joinerGuess !== null
       ) {
-        console.log('Both guesses submitted, moving to revealing_answers');
         updateDoc(doc(db, 'twoTruthsRooms', roomId), { gameState: 'revealing_answers' });
       }
     }
   }, [roomData, isLocalInitiator, roomId]);
 
-  // JSX Rendering
+  // **Statement Entry Timer**
+  useEffect(() => {
+    if (roomData?.gameState === 'entering_statements' && !hasSubmitted) {
+      const interval = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            if (!hasSubmitted) {
+              const randomLie = Math.floor(Math.random() * 3);
+              updateDoc(doc(db, 'twoTruthsRooms', roomId), {
+                [localStatementsField]: statements.map(s => s.trim() || 'I forgot to write this!'),
+                [localLieIndexField]: lieIndex !== null ? lieIndex : randomLie,
+              });
+              setHasSubmitted(true);
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setTimeLeft(60); // Reset timer when phase changes
+    }
+  }, [roomData?.gameState, hasSubmitted, statements, lieIndex, roomId]);
+
+  // **Guessing Timer**
+  useEffect(() => {
+    if (roomData?.gameState === 'guessing' && roomData[localGuessField] === null) {
+      const interval = setInterval(() => {
+        setGuessTimeLeft((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            const randomGuess = Math.floor(Math.random() * 3);
+            updateDoc(doc(db, 'twoTruthsRooms', roomId), { [localGuessField]: randomGuess });
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setGuessTimeLeft(30); // Reset timer when phase changes
+    }
+  }, [roomData?.gameState, roomData, localGuessField, roomId]);
+
+  // **Network Status Monitoring**
+  useEffect(() => {
+    const handleOnline = () => setError('');
+    const handleOffline = () =>
+      setError('You are offline. Please check your internet connection.');
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // ### Determine Current Phase
+  const currentPhase = roomData?.gameState === 'entering_statements' ? 'statements' :
+                       roomData?.gameState === 'guessing' ? 'guessing' :
+                       roomData?.gameState === 'revealing_answers' ? 'results' :
+                       peer ? 'connecting' : 'setup';
+
+  // ### JSX Rendering
   return (
-    <Flex direction="column" minH="100vh" bg="gray.50">
+    <Flex direction="column" minH="100vh" bg="gray.50" fontFamily="Inter, system-ui">
+      {roomData?.gameState === 'revealing_answers' && (
+        <Confetti width={window.innerWidth} height={window.innerHeight} recycle={false} numberOfPieces={200} />
+      )}
+      {/* Header */}
       <Box
         position="sticky"
         top="0"
         w="100%"
-        bg="rgba(255, 255, 255, 0.8)"
-        backdropFilter="blur(10px)"
+        bg="linear-gradient(to right, #3182CE, #38B2AC)"
         zIndex="sticky"
-        borderBottomWidth="1px"
-        boxShadow="sm"
+        boxShadow="0 4px 6px -1px rgba(0, 0, 0, 0.1)"
       >
         <Container maxW="container.xl" py={4}>
           <Flex justify="space-between" align="center">
-            <Heading
-              as="h1"
-              size="xl"
-              color="blue.700"
-              fontWeight="bold"
-              onClick={() => navigate('/')}
-              cursor="pointer"
-            >
-              Two Truths and a Lie
-            </Heading>
-            <HStack spacing={4}>
-              <Button variant="link" color="red.500" fontWeight="medium" onClick={handleSignOut}>
-                Sign Out
-              </Button>
+            <HStack spacing={3} cursor="pointer" onClick={() => navigate('/')}>
+              <IconButton
+                icon={<Gamepad />}
+                colorScheme="whiteAlpha"
+                variant="ghost"
+                size="lg"
+                aria-label="Game Icon"
+                _hover={{ transform: 'scale(1.1)' }}
+                transition="all 0.2s"
+              />
+              <Heading as="h1" size="xl" color="white" fontWeight="bold">
+                Two Truths and a Lie
+              </Heading>
             </HStack>
+            <IconButton
+              aria-label="Sign Out"
+              icon={<Logout />}
+              variant="ghost"
+              colorScheme="whiteAlpha"
+              size="lg"
+              onClick={handleSignOut}
+              _hover={{ transform: 'scale(1.1)' }}
+              transition="all 0.2s"
+            />
           </Flex>
         </Container>
       </Box>
 
-      <Container maxW="container.xl" py={{ base: 4, md: 6 }}>
-        <VStack spacing={{ base: 4, md: 6 }} align="stretch">
-          {/* Rules */}
-          <Card w="100%" boxShadow="md" borderRadius="2xl">
-            <CardBody>
-              <Text fontSize="md" color="gray.700">
-                <strong>Rules:</strong> Enter two truths and one lie about yourself. Watch your
-                opponent’s video to guess their lie. After both guess, see who got it right!
-              </Text>
-            </CardBody>
-          </Card>
-
-          {/* Video Containers */}
+      {/* Main Content */}
+      <Container maxW="container.xl" py={{ base: 6, md: 8 }}>
+        <VStack spacing={{ base: 6, md: 8 }} align="stretch">
+          <GamePhaseStepper currentPhase={currentPhase} />
           <Flex
-            direction={['column', 'row']}
+            direction={{ base: 'column', md: 'row' }}
             w="100%"
-            h={['75vh', 'auto']}
-            justify="center"
+            justify="space-between"
             align="center"
             gap={6}
-            p={4}
             bg="white"
             borderRadius="2xl"
             boxShadow="xl"
+            p={6}
           >
             <Box
-              w={['100%', '45%']}
-              h={['auto', '60vh']}
-              borderWidth="2px"
-              borderColor="gray.100"
+              position="relative"
+              w={{ base: '100%', md: '48%' }}
+              pb={{ base: '56.25%', md: '0' }}
+              h={{ base: 'auto', md: '60vh' }}
               borderRadius="xl"
               overflow="hidden"
               boxShadow="lg"
-              bg="black"
-              position="relative"
+              border="1px solid"
+              borderColor="gray.200"
             >
               <video
                 ref={localVideoRef}
                 autoPlay
                 muted
                 playsInline
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
               />
-              <HStack
-                position="absolute"
-                bottom="2"
-                left="2"
-                color="white"
-                bg="rgba(0, 0, 0, 0.6)"
-                px={2}
-                py={1}
-                borderRadius="md"
-                spacing={1}
-              >
-                <Text fontSize="sm" fontWeight="medium">
-                  {userData?.displayName || 'You'}
-                </Text>
-              </HStack>
+              <Box position="absolute" bottom="0" left="0" w="100%" bg="blackAlpha.600" p={2}>
+                <HStack spacing={2}>
+                  <Avatar size="sm" name={userData?.displayName || 'You'} src={userData?.avatarUrl} />
+                  <Text color="white" fontSize="sm" fontWeight="medium">
+                    {userData?.displayName || 'You'}
+                  </Text>
+                </HStack>
+              </Box>
             </Box>
             <Box
-              w={['100%', '45%']}
-              h={['auto', '60vh']}
-              borderWidth="2px"
-              borderColor="gray.100"
+              position="relative"
+              w={{ base: '100%', md: '48%' }}
+              pb={{ base: '56.25%', md: '0' }}
+              h={{ base: 'auto', md: '60vh' }}
               borderRadius="xl"
               overflow="hidden"
               boxShadow="lg"
-              bg="black"
-              position="relative"
+              border="1px solid"
+              borderColor="gray.200"
             >
-              <video
-                ref={remoteVideoRef}
-                autoPlay
-                playsInline
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-              {!peer && (
-                <Text
-                  position="absolute"
-                  top="50%"
-                  left="50%"
-                  transform="translate(-50%, -50%)"
-                  color="white"
-                  bg="rgba(0, 0, 0, 0.6)"
-                  px={4}
-                  py={2}
-                  borderRadius="md"
-                  fontSize="md"
-                  fontWeight="medium"
-                >
-                  Waiting for connection...
-                </Text>
+              {peer ? (
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <Flex justify="center" align="center" h="100%" bg="gray.800">
+                  <Spinner size="xl" color="white" />
+                  <Text color="white" ml={4} fontSize="md">
+                    Waiting for connection...
+                  </Text>
+                </Flex>
               )}
               {peer && (
-                <HStack
-                  position="absolute"
-                  bottom="2"
-                  left="2"
-                  color="white"
-                  bg="rgba(0, 0, 0, 0.6)"
-                  px={2}
-                  py={1}
-                  borderRadius="md"
-                  spacing={1}
-                >
-                  <Text fontSize="sm" fontWeight="medium">
-                    {remoteUserName || 'Stranger'}
-                  </Text>
-                </HStack>
+                <Box position="absolute" bottom="0" left="0" w="100%" bg="blackAlpha.600" p={2}>
+                  <HStack spacing={2}>
+                    <Avatar size="sm" name={remoteUserName || 'Stranger'} />
+                    <Text color="white" fontSize="sm" fontWeight="medium">
+                      {remoteUserName || 'Stranger'}
+                    </Text>
+                  </HStack>
+                </Box>
               )}
             </Box>
           </Flex>
-
-          {/* Game Interface */}
-          <Box w="100%" p={4} bg="white" borderRadius="2xl" boxShadow="xl">
-            {peer && renderGameUI()}
-          </Box>
-
-          {/* Call Controls */}
-          <HStack spacing={4} justify="center" flexWrap="wrap">
+          <MotionBox
+            w="100%"
+            p={6}
+            bg="white"
+            borderRadius="2xl"
+            boxShadow="xl"
+            border="1px solid"
+            borderColor="gray.200"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            {peer ? renderGameUI() : <Skeleton height="200px" />}
+          </MotionBox>
+          <Flex justify="center" align="center" gap={4} flexWrap="wrap">
             {peer ? (
               <>
                 <IconButton
                   aria-label={isAudioMuted ? 'Unmute Audio' : 'Mute Audio'}
-                  onClick={toggleAudio}
-                  colorScheme={isAudioMuted ? 'red' : 'teal'}
                   icon={isAudioMuted ? <MicOff /> : <Mic />}
+                  colorScheme={isAudioMuted ? 'red' : 'teal'}
+                  size="lg"
+                  variant="outline"
+                  onClick={toggleAudio}
+                  _hover={{ transform: 'scale(1.1)' }}
+                  transition="all 0.2s"
                 />
                 <IconButton
                   aria-label={isVideoMuted ? 'Enable Video' : 'Disable Video'}
-                  onClick={toggleVideo}
-                  colorScheme={isVideoMuted ? 'red' : 'teal'}
                   icon={isVideoMuted ? <VideocamOff /> : <Videocam />}
+                  colorScheme={isVideoMuted ? 'red' : 'teal'}
+                  size="lg"
+                  variant="outline"
+                  onClick={toggleVideo}
+                  _hover={{ transform: 'scale(1.1)' }}
+                  transition="all 0.2s"
                 />
-                <Button
+                <MotionButton
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   leftIcon={<Close />}
                   colorScheme="red"
                   size="lg"
                   px={8}
                   onClick={handleEndCall}
-                  boxShadow="md"
-                  _hover={{ transform: 'scale(1.05)' }}
                 >
                   End Call
-                </Button>
+                </MotionButton>
               </>
             ) : (
-              <Button
+              <MotionButton
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 leftIcon={<Phone />}
                 colorScheme="teal"
                 size="lg"
                 px={8}
                 onClick={handleStart}
-                boxShadow="md"
-                _hover={{ transform: 'scale(1.05)' }}
-                transition="all 0.2s cubic-bezier(.27,.67,.47,1.6)"
               >
                 Start Game
-              </Button>
+              </MotionButton>
             )}
-          </HStack>
-
-          {/* Status Indicators */}
-          <VStack spacing={2} w="100%">
-            {roomId && (
-              <HStack
-                fontSize="sm"
-                color="gray.600"
-                textAlign="center"
-                bg="white"
-                p={3}
-                borderRadius="lg"
-                boxShadow="sm"
-                justify="center"
+          </Flex>
+          {/* Chat Section */}
+          <Box mt={8} p={6} bg="white" borderRadius="xl" boxShadow="md" border="1px solid" borderColor="gray.200">
+            <Heading size="md" mb={4} color="gray.800">
+              Chat
+            </Heading>
+            <VStack spacing={2} align="stretch" maxH="200px" overflowY="auto" p={2} bg="gray.50" borderRadius="md">
+              {messages.map((msg, index) => {
+                const isUserMessage = msg.startsWith(userData?.displayName || 'You');
+                return (
+                  <Box
+                    key={index}
+                    p={2}
+                    bg={isUserMessage ? 'teal.50' : 'gray.100'}
+                    borderRadius="md"
+                    boxShadow="sm"
+                    alignSelf={isUserMessage ? 'flex-end' : 'flex-start'}
+                    maxW="70%"
+                  >
+                    <Text fontSize="sm" color="gray.800">{msg}</Text>
+                  </Box>
+                );
+              })}
+            </VStack>
+            <HStack mt={4}>
+              <Input
+                value={currentMessage}
+                onChange={(e) => setCurrentMessage(e.target.value)}
+                placeholder="Type a message..."
+                variant="filled"
+                bg="gray.50"
+                borderColor="gray.200"
+                _focus={{ borderColor: 'teal.400', boxShadow: '0 0 0 1px teal.400' }}
+                aria-label="Type a message"
+              />
+              <MotionButton
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                colorScheme="teal"
+                onClick={() => {
+                  if (currentMessage.trim()) {
+                    setMessages([...messages, `${userData?.displayName || 'You'}: ${currentMessage}`]);
+                    setCurrentMessage('');
+                    if (peer) peer.send(JSON.stringify({ message: currentMessage }));
+                  }
+                }}
               >
-                <CheckCircle color="success" />
-                <Text>
-                  Connection ID: <strong>{roomId}</strong> • {connectionStatus}
-                </Text>
-              </HStack>
-            )}
-            {error && (
-              <HStack
-                fontSize="sm"
-                color="red.600"
-                textAlign="center"
-                bg="red.50"
-                p={3}
-                borderRadius="lg"
-                boxShadow="sm"
-                justify="center"
-              >
-                <Error color="error" />
-                <Text>{error}</Text>
-              </HStack>
-            )}
-          </VStack>
+                Send
+              </MotionButton>
+            </HStack>
+          </Box>
+          {roomId && (
+            <Alert status="success" variant="subtle" borderRadius="md" boxShadow="sm">
+              <AlertIcon as={CheckCircle} />
+              <AlertTitle mr={2}>Connection ID: {roomId}</AlertTitle>
+              <AlertDescription>{connectionStatus}</AlertDescription>
+            </Alert>
+          )}
+          {error && (
+            <Alert status="error" variant="subtle" borderRadius="md" boxShadow="sm">
+              <AlertIcon as={Error} />
+              <AlertTitle mr={2}>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
         </VStack>
       </Container>
     </Flex>
