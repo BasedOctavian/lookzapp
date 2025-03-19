@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Peer from 'simple-peer';
 import {
   Container,
@@ -36,7 +36,7 @@ import {
   VideocamOff,
   Gamepad,
   Logout,
-  Timer,
+  Timer as TimerIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -50,8 +50,57 @@ import { FormControl, FormErrorMessage } from '@chakra-ui/form-control';
 import { Skeleton } from '@chakra-ui/skeleton';
 import { Progress } from '@chakra-ui/progress';
 
+// Memoized StatementInput Component to Prevent Unnecessary Re-renders
+const StatementInput = React.memo(({ stmt, index, onChange, isDisabled, isSelected }) => {
+  return (
+    <FormControl isInvalid={!stmt.trim() && isDisabled}>
+      <Input
+        value={stmt}
+        onChange={(e) => onChange(index, e.target.value)}
+        placeholder={`Statement ${index + 1}`}
+        variant="filled"
+        size="lg"
+        isDisabled={isDisabled}
+        bg={isSelected ? 'yellow.100' : 'white'}
+        borderRadius="md"
+        _focus={{ borderColor: 'blue.400', boxShadow: '0 0 0 1px blue.400' }}
+        aria-label={`Statement ${index + 1}`}
+        sx={{ transition: 'background-color 0.3s ease' }}
+      />
+      {!stmt.trim() && isDisabled && (
+        <FormErrorMessage>Statement cannot be empty</FormErrorMessage>
+      )}
+    </FormControl>
+  );
+});
+
+// Isolated Timer Component
+const Timer = ({ initialTime, onTimeUp }) => {
+  const [timeLeft, setTimeLeft] = useState(initialTime);
+
+  useEffect(() => {
+    if (timeLeft <= 0) {
+      onTimeUp();
+      return;
+    }
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [timeLeft, onTimeUp]);
+
+  return (
+    <HStack spacing={2}>
+      <TimerIcon color="error" />
+      <Text fontSize="lg" color={timeLeft <= 10 ? 'red.600' : 'red.500'} fontWeight="bold">
+        Time left: {timeLeft} seconds
+      </Text>
+    </HStack>
+  );
+};
+
 function TwoTruths() {
-  // ### State Declarations
+  // State Declarations
   const [roomId, setRoomId] = useState('');
   const [isInitiator, setIsInitiator] = useState(false);
   const [error, setError] = useState('');
@@ -71,7 +120,7 @@ function TwoTruths() {
   const [messages, setMessages] = useState([]); // Chat messages
   const [currentMessage, setCurrentMessage] = useState(''); // Current chat input
 
-  // ### Refs and Hooks
+  // Refs and Hooks
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const toast = useToast();
@@ -79,7 +128,7 @@ function TwoTruths() {
   const navigate = useNavigate();
   const { userData, loading } = useUserData();
 
-  // ### Helper Variables
+  // Helper Variables
   const isLocalInitiator = isInitiator;
   const localStatementsField = isLocalInitiator ? 'initiatorStatements' : 'joinerStatements';
   const localLieIndexField = isLocalInitiator ? 'initiatorLieIndex' : 'joinerLieIndex';
@@ -88,11 +137,20 @@ function TwoTruths() {
   const localGuessField = isLocalInitiator ? 'initiatorGuess' : 'joinerGuess';
   const remoteGuessField = isLocalInitiator ? 'joinerGuess' : 'initiatorGuess';
 
-  // ### Framer Motion Components
+  // Framer Motion Components
   const MotionBox = motion(Box);
   const MotionButton = motion(Button);
 
-  // ### Game Phase Stepper Component
+  // Memoized Event Handler for Statement Changes
+  const handleStatementChange = useCallback((index, value) => {
+    setStatements((prev) => {
+      const newStatements = [...prev];
+      newStatements[index] = value;
+      return newStatements;
+    });
+  }, []);
+
+  // Game Phase Stepper Component
   const GamePhaseStepper = ({ currentPhase }) => {
     const phases = ['Setup', 'Connecting', 'Statements', 'Guessing', 'Results'];
     const phaseIndex = {
@@ -138,9 +196,9 @@ function TwoTruths() {
     );
   };
 
-  // ### Core Functions
+  // Core Functions
 
-  // **Create a New Room**
+  // Create a New Room
   const handleCreateRoom = async () => {
     if (!localStream) {
       setError('Local stream not available. Check your camera and microphone permissions.');
@@ -205,7 +263,7 @@ function TwoTruths() {
     }
   };
 
-  // **Join an Existing Room**
+  // Join an Existing Room
   const handleJoinRoom = async (roomId) => {
     if (!localStream) {
       setError('Local stream not available. Check your camera and microphone permissions.');
@@ -320,7 +378,7 @@ function TwoTruths() {
     }
   };
 
-  // **Start the Game (Join or Create)**
+  // Start the Game (Join or Create)
   const handleStart = async () => {
     if (!localStream) {
       setError('Local stream not available. Check your camera and microphone permissions.');
@@ -360,7 +418,7 @@ function TwoTruths() {
     }
   };
 
-  // **End the Call**
+  // End the Call
   const handleEndCall = () => {
     if (peer) {
       peer.destroy();
@@ -368,7 +426,7 @@ function TwoTruths() {
     }
   };
 
-  // **Handle Call Termination**
+  // Handle Call Termination
   const handleCallEnded = async (force = false) => {
     if (force || (roomData && roomData.gameState === 'revealing_answers')) {
       if (roomId) {
@@ -405,7 +463,7 @@ function TwoTruths() {
     }
   };
 
-  // **Toggle Audio**
+  // Toggle Audio
   const toggleAudio = () => {
     if (localStream) {
       const audioTracks = localStream.getAudioTracks();
@@ -414,7 +472,7 @@ function TwoTruths() {
     }
   };
 
-  // **Toggle Video**
+  // Toggle Video
   const toggleVideo = () => {
     if (localStream) {
       const videoTracks = localStream.getVideoTracks();
@@ -423,7 +481,7 @@ function TwoTruths() {
     }
   };
 
-  // **Sign Out**
+  // Sign Out
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -440,7 +498,7 @@ function TwoTruths() {
     }
   };
 
-  // ### Game UI Rendering
+  // Game UI Rendering
   const renderGameUI = () => {
     if (!roomData) return null;
 
@@ -469,36 +527,26 @@ function TwoTruths() {
                   Write two true facts and one lie about yourself. Select which one is the lie below.
                 </Text>
                 <Progress value={completion} size="sm" colorScheme="teal" mb={4} />
-                <HStack spacing={2}>
-                  <Timer color="error" />
-                  <Text fontSize="lg" color={timeLeft <= 10 ? 'red.600' : 'red.500'} fontWeight="bold">
-                    Time left: {timeLeft} seconds
-                  </Text>
-                </HStack>
+                <Timer initialTime={60} onTimeUp={() => {
+                  if (!hasSubmitted) {
+                    const randomLie = Math.floor(Math.random() * 3);
+                    updateDoc(doc(db, 'twoTruthsRooms', roomId), {
+                      [localStatementsField]: statements.map(s => s.trim() || 'I forgot to write this!'),
+                      [localLieIndexField]: lieIndex !== null ? lieIndex : randomLie,
+                    });
+                    setHasSubmitted(true);
+                  }
+                }} />
                 <Progress value={(timeLeft / 60) * 100} size="sm" colorScheme="red" mb={4} />
                 {statements.map((stmt, index) => (
-                  <FormControl key={index} isInvalid={!stmt.trim() && hasSubmitted}>
-                    <Input
-                      value={stmt}
-                      onChange={(e) => {
-                        const newStatements = [...statements];
-                        newStatements[index] = e.target.value;
-                        setStatements(newStatements);
-                      }}
-                      placeholder={`Statement ${index + 1}`}
-                      variant="filled"
-                      size="lg"
-                      isDisabled={hasSubmitted}
-                      bg={lieIndex === index ? 'yellow.100' : 'white'}
-                      borderRadius="md"
-                      _focus={{ borderColor: 'blue.400', boxShadow: '0 0 0 1px blue.400' }}
-                      aria-label={`Statement ${index + 1}`}
-                      sx={{ transition: 'background-color 0.3s ease' }}
-                    />
-                    {!stmt.trim() && hasSubmitted && (
-                      <FormErrorMessage>Statement cannot be empty</FormErrorMessage>
-                    )}
-                  </FormControl>
+                  <StatementInput
+                    key={index}
+                    stmt={stmt}
+                    index={index}
+                    onChange={handleStatementChange}
+                    isDisabled={hasSubmitted}
+                    isSelected={lieIndex === index}
+                  />
                 ))}
                 <HStack spacing={4} align="center">
                   <Text fontWeight="medium" color="gray.700">
@@ -566,7 +614,7 @@ function TwoTruths() {
                   Watch the video and pick the statement you think is the lie.
                 </Text>
                 <HStack spacing={2}>
-                  <Timer color="error" />
+                  <TimerIcon color="error" />
                   <Text fontSize="lg" color={guessTimeLeft <= 10 ? 'red.600' : 'red.500'} fontWeight="bold">
                     Time left to guess: {guessTimeLeft} seconds
                   </Text>
@@ -685,9 +733,9 @@ function TwoTruths() {
     );
   };
 
-  // ### useEffect Hooks
+  // useEffect Hooks
 
-  // **Setup Media Stream**
+  // Setup Media Stream
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
@@ -707,7 +755,7 @@ function TwoTruths() {
     };
   }, []);
 
-  // **Handle Peer Connection Events**
+  // Handle Peer Connection Events
   useEffect(() => {
     if (!peer) {
       setConnectionStatus('');
@@ -761,7 +809,7 @@ function TwoTruths() {
     };
   }, [peer, isInitiator, userData]);
 
-  // **Listen to Room Data Updates**
+  // Listen to Room Data Updates
   useEffect(() => {
     if (roomId) {
       const unsubscribe = onSnapshot(doc(db, 'twoTruthsRooms', roomId), (docSnap) => {
@@ -773,7 +821,7 @@ function TwoTruths() {
     }
   }, [roomId]);
 
-  // **Manage Game State Transitions**
+  // Manage Game State Transitions
   useEffect(() => {
     if (isLocalInitiator && roomData) {
       if (
@@ -792,7 +840,7 @@ function TwoTruths() {
     }
   }, [roomData, isLocalInitiator, roomId]);
 
-  // **Statement Entry Timer**
+  // Statement Entry Timer
   useEffect(() => {
     if (roomData?.gameState === 'entering_statements' && !hasSubmitted) {
       const interval = setInterval(() => {
@@ -818,7 +866,7 @@ function TwoTruths() {
     }
   }, [roomData?.gameState, hasSubmitted, statements, lieIndex, roomId]);
 
-  // **Guessing Timer**
+  // Guessing Timer
   useEffect(() => {
     if (roomData?.gameState === 'guessing' && roomData[localGuessField] === null) {
       const interval = setInterval(() => {
@@ -838,7 +886,7 @@ function TwoTruths() {
     }
   }, [roomData?.gameState, roomData, localGuessField, roomId]);
 
-  // **Network Status Monitoring**
+  // Network Status Monitoring
   useEffect(() => {
     const handleOnline = () => setError('');
     const handleOffline = () =>
@@ -853,13 +901,13 @@ function TwoTruths() {
     };
   }, []);
 
-  // ### Determine Current Phase
+  // Determine Current Phase
   const currentPhase = roomData?.gameState === 'entering_statements' ? 'statements' :
                        roomData?.gameState === 'guessing' ? 'guessing' :
                        roomData?.gameState === 'revealing_answers' ? 'results' :
                        peer ? 'connecting' : 'setup';
 
-  // ### JSX Rendering
+  // JSX Rendering
   return (
     <Flex direction="column" minH="100vh" bg="gray.50" fontFamily="Inter, system-ui">
       {roomData?.gameState === 'revealing_answers' && (
@@ -887,7 +935,7 @@ function TwoTruths() {
                 transition="all 0.2s"
               />
               <Heading as="h1" size="xl" color="white" fontWeight="bold">
-                Two Truths and a Lie
+                Lookzapp
               </Heading>
             </HStack>
             <IconButton
