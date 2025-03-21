@@ -362,8 +362,8 @@ function VideoCall() {
     }
   };
 
-  const handleRating = (newRating, selectedFeature) => {
-    submitRemoteRating(newRating, selectedFeature)
+  const handleRating = (newRating, featureAllocations) => {
+    submitRemoteRating(newRating, featureAllocations)
       .then(() => {
         setHasRated(true);
         toast({

@@ -16,6 +16,7 @@
     "@chakra-ui/radio": "^2.1.2",
     "@chakra-ui/react": "^3.11.0",
     "@chakra-ui/skeleton": "^2.1.0",
+    "@chakra-ui/slider": "^2.1.0",
     "@chakra-ui/table": "^2.1.0",
     "@chakra-ui/toast": "^7.0.2",
     "@chakra-ui/tooltip": "^2.3.1",

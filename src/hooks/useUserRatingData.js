@@ -6,7 +6,6 @@ export function useUserRatingData(userId) {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch user document from Firestore when userId changes
   useEffect(() => {
     const fetchUserData = async () => {
       if (userId) {
@@ -22,7 +21,6 @@ export function useUserRatingData(userId) {
     fetchUserData();
   }, [userId]);
 
-  // Calculate the average rating (cumulative ranking divided by timesRanked)
   const rating = useMemo(() => {
     if (!userData) return 0;
     const totalRanking = userData.ranking || 0;
@@ -33,19 +31,16 @@ export function useUserRatingData(userId) {
   /**
    * Submit a new rating and store the average rating in dailyRatings.
    *
-   * @param {number} newRating - The overall rating submitted (e.g., 7).
-   * @param {string} selectedFeature - The feature being rated.
-   *   Expected values: "eyesRating", "smileRating", "facialRating", "hairRating", or "bodyRating".
-   *   (If the UI shows "Jawline", it will be mapped to "facialRating".)
+   * @param {number} newRating - The overall rating submitted (e.g., 8).
+   * @param {Object} featureAllocations - An object with points allocated to each feature.
+   *   Expected keys: 'eyesRating', 'smileRating', 'facialRating', 'hairRating', 'bodyRating'.
+   *   Values are the points (e.g., { eyesRating: 2.4, smileRating: 1.6, ... }).
    */
-  const submitRating = async (newRating, selectedFeature) => {
+  const submitRating = async (newRating, featureAllocations) => {
     if (!userId) return;
     const userDocRef = doc(db, 'users', userId);
 
-    // Map selectedFeature to the corresponding rating field
-    const featureKey = selectedFeature === 'Jawline' ? 'facialRating' : `${selectedFeature.toLowerCase()}Rating`;
-
-    // Get current ratings for each feature (default to 0)
+    // Get current cumulative ratings (default to 0 if undefined)
     const currentEyes = userData?.eyesRating || 0;
     const currentSmile = userData?.smileRating || 0;
     const currentFacial = userData?.facialRating || 0;
@@ -54,25 +49,21 @@ export function useUserRatingData(userId) {
     const currentTimesRanked = userData?.timesRanked || 0;
     const currentRanking = userData?.ranking || 0;
 
-    // Calculate points using the new formula
-    const p_selected = 1.2 * (newRating - 5);
-    const p_other = (newRating - p_selected) / 4;
+    // Update each feature's cumulative rating with the allocated points
+    const updatedEyes = currentEyes + (featureAllocations.eyesRating || 0);
+    const updatedSmile = currentSmile + (featureAllocations.smileRating || 0);
+    const updatedFacial = currentFacial + (featureAllocations.facialRating || 0);
+    const updatedHair = currentHair + (featureAllocations.hairRating || 0);
+    const updatedBody = currentBody + (featureAllocations.bodyRating || 0);
 
-    // Update each feature rating based on whether it is the selected feature
-    const updatedEyes = featureKey === 'eyesRating' ? currentEyes + p_selected : currentEyes + p_other;
-    const updatedSmile = featureKey === 'smileRating' ? currentSmile + p_selected : currentSmile + p_other;
-    const updatedFacial = featureKey === 'facialRating' ? currentFacial + p_selected : currentFacial + p_other;
-    const updatedHair = featureKey === 'hairRating' ? currentHair + p_selected : currentHair + p_other;
-    const updatedBody = featureKey === 'bodyRating' ? currentBody + p_selected : currentBody + p_other;
-
-    // Update ranking and timesRanked
+    // Update overall ranking and times ranked
     const updatedTimesRanked = currentTimesRanked + 1;
     const updatedRanking = currentRanking + newRating;
 
     // Calculate the new average rating
     const updatedAverageRating = updatedTimesRanked > 0 ? updatedRanking / updatedTimesRanked : 0;
 
-    // Update Firestore with cumulative ratings
+    // Update Firestore with the new cumulative ratings
     await updateDoc(userDocRef, {
       eyesRating: updatedEyes,
       smileRating: updatedSmile,
@@ -83,7 +74,7 @@ export function useUserRatingData(userId) {
       timesRanked: updatedTimesRanked,
     });
 
-    // Store the average rating (ranking / timesRanked) in the dailyRatings sub-collection
+    // Store the average rating in the dailyRatings sub-collection
     const currentDate = new Date().toISOString().split('T')[0]; // e.g., '2023-10-17'
     await setDoc(doc(db, 'users', userId, 'dailyRatings', currentDate), {
       averageRating: updatedAverageRating.toFixed(1),
