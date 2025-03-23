@@ -16,7 +16,8 @@ import { useUserData } from '../hooks/useUserData';
 import { Star } from '@mui/icons-material';
 import { useToast } from '@chakra-ui/toast';
 import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../firebase'; // Adjust the import path to your Firebase config
+import { db } from '../firebase';
+import { useInfluencerRatingData } from '../hooks/useInfluencerRatingData';
 
 const RatingScale = lazy(() => import('../Components/RatingScale'));
 
@@ -29,11 +30,20 @@ function GetRanked() {
   const [influencersList, setInfluencersList] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [ratingKey, setRatingKey] = useState(0); // To reset RatingScale
   const localVideoRef = useRef(null);
   const toast = useToast();
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const { userData, rating: localRating, loading: userLoading } = useUserData();
+
+  const currentInfluencer =
+    influencersList.length > 0 && currentIndex >= 0 && currentIndex < influencersList.length
+      ? influencersList[currentIndex]
+      : null;
+
+  const { influencerData, rating: influencerRating, loading: ratingLoading, error: ratingError } =
+    useInfluencerRatingData(currentInfluencer?.id || null);
 
   // Set up local video feed
   useEffect(() => {
@@ -64,15 +74,25 @@ function GetRanked() {
           const querySnapshot = await getDocs(collection(db, 'streamers'));
           const influencers = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
           setInfluencersList(influencers);
-          setCurrentIndex(0); // Reset to first influencer
+          setCurrentIndex(0);
         } catch (error) {
           console.error('Error fetching influencers:', error);
+          toast({
+            title: 'Fetch Error',
+            description: 'Failed to load influencers.',
+            status: 'error',
+            duration: 3000,
+            isClosable: true,
+          });
+          setInfluencersList([]);
         }
         setIsLoading(false);
+      } else {
+        setInfluencersList([]);
       }
     };
     loadInfluencers();
-  }, [category]);
+  }, [category, toast]);
 
   // Handle sign-out
   const handleSignOut = async () => {
@@ -91,19 +111,30 @@ function GetRanked() {
     }
   };
 
-  // Handle rating submission
-  const handleRating = (newRating, featureAllocations) => {
-    console.log('Rating submitted:', newRating, featureAllocations);
+  // Handle rating submission and reset
+  const handleRatingSubmit = async (rating, featureAllocations) => {
+    // Placeholder for rating submission logic (e.g., updating Firestore)
     toast({
       title: 'Rating Submitted',
-      description: `You rated the photo: ${newRating}`,
+      description: `You rated ${currentInfluencer.name}: ${rating}`,
       status: 'success',
       duration: 3000,
       isClosable: true,
     });
+    setRatingKey((prevKey) => prevKey + 1); // Reset RatingScale
+    setCurrentIndex((prevIndex) => (prevIndex + 1) % influencersList.length); // Next influencer
   };
 
-  const currentInfluencer = influencersList.length > 0 ? influencersList[currentIndex] : null;
+  // Navigation handlers
+  const handleNextPhoto = () => {
+    setCurrentIndex((prevIndex) => (prevIndex + 1) % influencersList.length);
+    setRatingKey((prevKey) => prevKey + 1); // Reset RatingScale
+  };
+
+  const handlePreviousPhoto = () => {
+    setCurrentIndex((prevIndex) => (prevIndex - 1 + influencersList.length) % influencersList.length);
+    setRatingKey((prevKey) => prevKey + 1); // Reset RatingScale
+  };
 
   return (
     <Flex direction="column" minH="100vh" bg="gray.50">
@@ -218,7 +249,7 @@ function GetRanked() {
               </HStack>
             </Box>
 
-            {/* Remote: Photo and Details */}
+            {/* Influencer Photo and Details */}
             <VStack w={['100%', '45%']} spacing={4} align="stretch">
               <Box
                 w="100%"
@@ -235,7 +266,7 @@ function GetRanked() {
                 alignItems="center"
               >
                 {category === 'influencers' ? (
-                  isLoading ? (
+                  isLoading || ratingLoading ? (
                     <Spinner size="xl" color="blue.500" />
                   ) : currentInfluencer ? (
                     <img
@@ -271,6 +302,18 @@ function GetRanked() {
                       ? currentInfluencer.name
                       : 'Placeholder User'}
                   </Text>
+                  {category === 'influencers' && currentInfluencer && !ratingLoading && !ratingError ? (
+                    <HStack spacing={1}>
+                      <Star sx={{ fontSize: 16, color: '#FFD700' }} />
+                      <Text fontSize="sm" fontWeight="medium">
+                        {influencerRating.toFixed(1)}
+                      </Text>
+                    </HStack>
+                  ) : category === 'influencers' && currentInfluencer && !ratingLoading && ratingError ? (
+                    <Text fontSize="sm" fontWeight="medium">
+                      Rating unavailable
+                    </Text>
+                  ) : null}
                 </HStack>
               </Box>
 
@@ -305,11 +348,14 @@ function GetRanked() {
           {/* Rating Section */}
           <Suspense fallback={<Text>Loading rating interface...</Text>}>
             <Box w="100%" bg="white" p={6} borderRadius="2xl" boxShadow="xl">
-              <RatingScale
-                onRate={(rating, featureAllocations) =>
-                  handleRating(rating, featureAllocations)
-                }
-              />
+              {category === 'influencers' && currentInfluencer ? (
+                <RatingScale
+                  key={ratingKey} // Reset component state
+                  onRate={handleRatingSubmit}
+                />
+              ) : (
+                <Text>Rating is only available for influencers.</Text>
+              )}
             </Box>
           </Suspense>
 
@@ -321,11 +367,7 @@ function GetRanked() {
                   colorScheme="teal"
                   size="lg"
                   px={8}
-                  onClick={() =>
-                    setCurrentIndex(
-                      (prevIndex) => (prevIndex - 1 + influencersList.length) % influencersList.length
-                    )
-                  }
+                  onClick={handlePreviousPhoto}
                   boxShadow="md"
                   _hover={{ transform: 'scale(1.05)' }}
                   transition="all 0.2s cubic-bezier(.27,.67,.47,1.6)"
@@ -336,9 +378,7 @@ function GetRanked() {
                   colorScheme="teal"
                   size="lg"
                   px={8}
-                  onClick={() =>
-                    setCurrentIndex((prevIndex) => (prevIndex + 1) % influencersList.length)
-                  }
+                  onClick={handleNextPhoto}
                   boxShadow="md"
                   _hover={{ transform: 'scale(1.05)' }}
                   transition="all 0.2s cubic-bezier(.27,.67,.47,1.6)"
