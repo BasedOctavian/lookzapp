@@ -12,6 +12,8 @@ import HomeScreen from './Pages/HomeScreen';
 import Updates from './Pages/Updates';
 import GeoCall from './Pages/GeoCall';
 import TwoTruths from './Pages/TwoTruths';
+import GetRankedSelection from './Pages/GetRankedSelection';
+import GetRanked from './Pages/GetRanked';
 
 function App() {
   // State to show or hide the warning overlay
@@ -45,6 +47,8 @@ function App() {
           <Route path="/updates" element={<PrivateRoute><Updates /></PrivateRoute>} />
           <Route path="/geo-call" element={<PrivateRoute><GeoCall /></PrivateRoute>} />
           <Route path="/two-truths" element={<PrivateRoute><TwoTruths /></PrivateRoute>} />
+          <Route path="/get-ranked-selection" element={<PrivateRoute><GetRankedSelection /></PrivateRoute>} />
+          <Route path="/ranking" element={<PrivateRoute><GetRanked /></PrivateRoute>} />
         </Routes>
 
         {/* Custom warning overlay */}

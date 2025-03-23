@@ -52,7 +52,7 @@ function HomeScreen() {
     { 
       title: 'Get Ranked', 
       icon: FaStar, 
-      route: '/get-ranked', 
+      route: '/get-ranked-selection', 
       description: 'See how you stack up against others using photos.', 
       colorScheme: 'blue' 
     },
