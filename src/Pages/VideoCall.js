@@ -42,7 +42,6 @@ import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
 import { useUserRatingData } from '../hooks/useUserRatingData';
 
-// Lazy load the RatingScale component
 const RatingScale = lazy(() => import('../Components/RatingScale'));
 
 function VideoCall() {
@@ -61,6 +60,7 @@ function VideoCall() {
   const [initialRating, setInitialRating] = useState(null);
   const [remoteRatingReceived, setRemoteRatingReceived] = useState(false);
   const [currentRatingStep, setCurrentRatingStep] = useState('idle');
+  const [callStartTime, setCallStartTime] = useState(null);
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const toast = useToast();
@@ -76,11 +76,11 @@ function VideoCall() {
   useEffect(() => {
     if (localRating) {
       setInitialRating(localRating.toFixed(1));
+      console.log("Local rating now exists:", localRating.toFixed(1));
     }
   }, [localRating]);
 
   // **Function Definitions**
-
   const handleCreateRoom = async () => {
     setIsInitiator(true);
     setError('');
@@ -303,6 +303,7 @@ function VideoCall() {
   };
 
   const handleCallEnded = async () => {
+    console.log('Call ended, setting room to inactive');
     if (!initialRating && localRating) {
       setInitialRating(localRating.toFixed(1));
     }
@@ -327,7 +328,9 @@ function VideoCall() {
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
-    navigate('/updates', { state: { initialRating: initialRating || localRating?.toFixed(1) } });
+    if (localRating && remoteRatingReceived) {
+      navigate('/updates', { state: { initialRating: initialRating || localRating.toFixed(1) } });
+    }
   };
 
   const toggleAudio = () => {
@@ -362,8 +365,29 @@ function VideoCall() {
     }
   };
 
+  // Define the mapping between RatingScale categories and Firestore fields
+  const featureMapping = {
+    'Eyes': 'eyesRating',
+    'Smile': 'smileRating',
+    'Jawline': 'facialRating',
+    'Hair': 'hairRating',
+    'Body': 'bodyRating',
+  };
+
   const handleRating = (newRating, featureAllocations) => {
-    submitRemoteRating(newRating, featureAllocations)
+    // Transform featureAllocations to match Firestore field names
+    const mappedAllocations = {};
+    for (const [category, score] of Object.entries(featureAllocations)) {
+      const fieldName = featureMapping[category];
+      if (fieldName) {
+        mappedAllocations[fieldName] = score;
+      } else {
+        console.warn(`No mapping found for category: ${category}`);
+      }
+    }
+
+    // Submit the transformed data
+    submitRemoteRating(newRating, mappedAllocations)
       .then(() => {
         setHasRated(true);
         toast({
@@ -408,6 +432,8 @@ function VideoCall() {
 
     const handleConnect = () => {
       setConnectionStatus('Connected');
+      setCallStartTime(new Date());
+      console.log('Call started at:', new Date());
       if (userData && userData.id) {
         peer.send(JSON.stringify({ displayName: userData.displayName, userId: userData.id }));
       }
@@ -418,7 +444,7 @@ function VideoCall() {
         const remoteData = JSON.parse(data);
         setRemoteUserName(remoteData.displayName);
         setRemoteUserId(remoteData.userId);
-        setRemoteRatingReceived(true);
+        console.log('Remote user ID set to:', remoteData.userId);
       } catch (err) {
         console.error('Invalid data received:', err);
       }
@@ -478,20 +504,34 @@ function VideoCall() {
   }, [roomId, peer]);
 
   useEffect(() => {
-    if (!remoteUserId || !userData?.id) return;
+    if (!remoteUserId || !userData?.id || !callStartTime) {
+      console.log('Cannot set up listener: missing remoteUserId, userData.id, or callStartTime');
+      return;
+    }
+
+    console.log('Setting up listener for ratings');
 
     const q = query(
       collection(db, 'ratings'),
       where('rateeId', '==', userData.id),
-      where('raterId', '==', remoteUserId)
+      where('raterId', '==', remoteUserId),
+      where('createdAt', '>', callStartTime)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setRemoteRatingReceived(snapshot.size > 0);
+      console.log('Snapshot received with', snapshot.size, 'documents');
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          console.log('Remote user has rated you:', change.doc.data());
+          setRemoteRatingReceived(true);
+        }
+      });
+    }, (error) => {
+      console.error('Listener error:', error);
     });
 
     return () => unsubscribe();
-  }, [remoteUserId, userData?.id]);
+  }, [remoteUserId, userData?.id, callStartTime]);
 
   useEffect(() => {
     if (!peer || hasRated) {
@@ -502,7 +542,6 @@ function VideoCall() {
   // **JSX Return Statement**
   return (
     <Flex direction="column" minH="100vh" bg="gray.50">
-      {/* Enhanced Sticky Header */}
       <Box
         position="sticky"
         top="0"
@@ -547,10 +586,8 @@ function VideoCall() {
         </Container>
       </Box>
 
-      {/* Main Content */}
       <Container maxW="container.xl" py={{ base: 4, md: 6 }}>
         <VStack spacing={{ base: 4, md: 6 }} align="stretch">
-          {/* Video Containers */}
           <Flex
             direction={['column', 'row']}
             w="100%"
@@ -563,7 +600,6 @@ function VideoCall() {
             borderRadius="2xl"
             boxShadow="xl"
           >
-            {/* Local Video */}
             <Box
               w={['100%', '45%']}
               h={['auto', '60vh']}
@@ -608,7 +644,6 @@ function VideoCall() {
               </HStack>
             </Box>
 
-            {/* Remote Video */}
             <Box
               w={['100%', '45%']}
               h={['auto', '60vh']}
@@ -672,19 +707,17 @@ function VideoCall() {
             </Box>
           </Flex>
 
-          {/* Rating Interface */}
           {peer && !hasRated && (
             <Suspense fallback={<Text>Loading rating interface...</Text>}>
               <Box w="100%" bg="white" p={6} borderRadius="2xl" boxShadow="xl">
                 <RatingScale
-                  onRate={(rating, feature) => handleRating(rating, feature)}
+                  onRate={(rating, featureAllocations) => handleRating(rating, featureAllocations)}
                   onStepChange={setCurrentRatingStep}
                 />
               </Box>
             </Suspense>
           )}
 
-          {/* Call Controls */}
           <HStack spacing={4} justify="center" flexWrap="wrap">
             {peer ? (
               <>
@@ -730,7 +763,6 @@ function VideoCall() {
             )}
           </HStack>
 
-          {/* Status Indicators */}
           <VStack spacing={2} w="100%">
             {roomId && (
               <HStack
