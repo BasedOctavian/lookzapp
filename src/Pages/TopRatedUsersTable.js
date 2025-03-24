@@ -1,65 +1,131 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { collection, onSnapshot } from "firebase/firestore";
+import {
+  collection,
+  onSnapshot
+} from "firebase/firestore";
 import { db } from "../firebase";
-import { Text, Spinner, Box, Container, VStack, Heading, Flex, HStack, Button } from "@chakra-ui/react";
+import {
+  Text,
+  Spinner,
+  Box,
+  Container,
+  VStack,
+  Heading,
+  Flex,
+  HStack,
+  Button
+} from "@chakra-ui/react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "@chakra-ui/toast";
 import { FiSearch, FiVideo, FiLogOut } from "react-icons/fi";
 import { Input, InputGroup, InputLeftElement } from "@chakra-ui/input";
-import { Table, Thead, Tbody, Tr, Th, Td, TableContainer } from "@chakra-ui/table";
+import {
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  TableContainer
+} from "@chakra-ui/table";
 
 export default function TopRatedUsersGrid() {
+  // Separate state for users and streamers.
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [streamers, setStreamers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [loadingStreamers, setLoadingStreamers] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const toast = useToast();
 
+  // Subscribe to the "users" collection.
   useEffect(() => {
-    const unsubscribe = onSnapshot(
+    const unsubscribeUsers = onSnapshot(
       collection(db, "users"),
       (snapshot) => {
         const usersData = snapshot.docs.map((doc) => ({
           id: doc.id,
           displayName: doc.data().displayName || "Unknown User",
-          averageRating: doc.data().timesRanked > 0
-            ? (doc.data().ranking || 0) / (doc.data().timesRanked || 1)
-            : 0,
+          // Calculate average rating if rated at least once.
+          averageRating:
+            (doc.data().timesRanked > 0
+              ? (doc.data().ranking || 0) / (doc.data().timesRanked || 1)
+              : 0) || 0,
           totalRatings: doc.data().timesRanked || 0,
+          type: "user"
         }));
         setUsers(usersData);
-        setLoading(false);
+        setLoadingUsers(false);
       },
       (err) => {
         console.error("Error fetching users:", err);
         setError(err.message);
-        setLoading(false);
+        setLoadingUsers(false);
       }
     );
-    return () => unsubscribe();
+    return () => unsubscribeUsers();
   }, []);
 
+  // Subscribe to the "streamers" collection.
+  useEffect(() => {
+    const unsubscribeStreamers = onSnapshot(
+      collection(db, "streamers"),
+      (snapshot) => {
+        const streamersData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          // Use "name" field for streamers (or fallback if needed).
+          displayName: doc.data().name || "Unknown Influencer",
+          averageRating:
+            (doc.data().timesRanked > 0
+              ? (doc.data().ranking || 0) / (doc.data().timesRanked || 1)
+              : 0) || 0,
+          totalRatings: doc.data().timesRanked || 0,
+          type: "streamer"
+        }));
+        setStreamers(streamersData);
+        setLoadingStreamers(false);
+      },
+      (err) => {
+        console.error("Error fetching streamers:", err);
+        setError(err.message);
+        setLoadingStreamers(false);
+      }
+    );
+    return () => unsubscribeStreamers();
+  }, []);
+
+  // Combine the two datasets and sort by averageRating descending.
+  const combinedUsers = useMemo(() => {
+    const allUsers = [...users, ...streamers];
+    return allUsers.sort((a, b) => b.averageRating - a.averageRating);
+  }, [users, streamers]);
+
+  // Filter the combined list based on the search query.
   const filteredUsers = useMemo(() => {
-    return users.filter(user =>
+    return combinedUsers.filter((user) =>
       user.displayName.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [users, searchQuery]);
+  }, [combinedUsers, searchQuery]);
 
   const columns = [
-    { 
-      key: "displayName", 
-      name: "User", 
+    {
+      key: "displayName",
+      name: "User",
       formatter: ({ row }) => (
-        <Link to={`/profile/${row.id}`} style={{ color: "#3182ce", fontWeight: "bold" }}>
+        <Link
+          to={`/profile/${row.id}`}
+          style={{ color: "#3182ce", fontWeight: "bold" }}
+        >
           {row.displayName}
         </Link>
       )
     },
-    { 
-      key: "averageRating", 
+    {
+      key: "averageRating",
       name: "Rating",
       formatter: ({ row }) => row.averageRating.toFixed(1)
     },
@@ -77,10 +143,12 @@ export default function TopRatedUsersGrid() {
         description: "An error occurred while signing out",
         status: "error",
         duration: 3000,
-        isClosable: true,
+        isClosable: true
       });
     }
   };
+
+  const isLoading = loadingUsers || loadingStreamers;
 
   return (
     <Flex direction="column" minH="100vh" bg="gray.50">
@@ -108,10 +176,20 @@ export default function TopRatedUsersGrid() {
               Lookzapp
             </Heading>
             <HStack spacing={4}>
-              <Button leftIcon={<FiVideo />} onClick={() => navigate("/video-call")} colorScheme="blue" variant="ghost">
+              <Button
+                leftIcon={<FiVideo />}
+                onClick={() => navigate("/video-call")}
+                colorScheme="blue"
+                variant="ghost"
+              >
                 Video Chat
               </Button>
-              <Button leftIcon={<FiLogOut />} onClick={handleSignOut} colorScheme="red" variant="solid">
+              <Button
+                leftIcon={<FiLogOut />}
+                onClick={handleSignOut}
+                colorScheme="red"
+                variant="solid"
+              >
                 Sign Out
               </Button>
             </HStack>
@@ -122,7 +200,7 @@ export default function TopRatedUsersGrid() {
       <Container maxW="container.xl" py={8} flex={1}>
         <VStack spacing={6} align="stretch">
           <Heading size="xl">Top Rated Users</Heading>
-          
+
           {/* Search Input */}
           <InputGroup>
             <InputLeftElement pointerEvents="none">
@@ -138,7 +216,7 @@ export default function TopRatedUsersGrid() {
           </InputGroup>
 
           {/* Table */}
-          {loading ? (
+          {isLoading ? (
             <Spinner size="xl" alignSelf="center" />
           ) : error ? (
             <Text color="red.500" textAlign="center">
@@ -147,27 +225,46 @@ export default function TopRatedUsersGrid() {
           ) : filteredUsers.length === 0 ? (
             <Text textAlign="center">No users found.</Text>
           ) : (
-            <Box border="1px" borderColor="gray.200" borderRadius="xl" boxShadow="md" bg="white">
+            <Box
+              border="1px"
+              borderColor="gray.200"
+              borderRadius="xl"
+              boxShadow="md"
+              bg="white"
+            >
               <TableContainer>
                 <Table variant="striped" colorScheme="gray">
                   <Thead bg="gray.50">
                     <Tr>
-                      {columns.map(column => (
-                        <Th key={column.key} textAlign="left" px={6} py={4} fontSize="md">
+                      {columns.map((column) => (
+                        <Th
+                          key={column.key}
+                          textAlign="left"
+                          px={6}
+                          py={4}
+                          fontSize="md"
+                        >
                           {column.name}
                         </Th>
                       ))}
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {filteredUsers.map(user => (
+                    {filteredUsers.map((user) => (
                       <Tr key={user.id} _hover={{ bg: "gray.100" }}>
-                        {columns.map(column => {
+                        {columns.map((column) => {
                           const cellValue = user[column.key];
                           const formatter = column.formatter;
                           return (
-                            <Td key={column.key} px={6} py={4} borderColor="gray.200">
-                              {formatter ? formatter({ row: user }) : cellValue}
+                            <Td
+                              key={column.key}
+                              px={6}
+                              py={4}
+                              borderColor="gray.200"
+                            >
+                              {formatter
+                                ? formatter({ row: user })
+                                : cellValue}
                             </Td>
                           );
                         })}

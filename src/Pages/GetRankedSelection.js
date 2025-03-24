@@ -6,46 +6,59 @@ function GetRankedSelection() {
   const navigate = useNavigate();
 
   const handleSelection = (category) => {
-    // Navigate to the ranking page with the selected category as a query parameter
     navigate(`/ranking?category=${category}`);
   };
 
   return (
-    <Box minH="100vh" bgGradient="linear(to-br, gray.50, blue.100)" py={10} px={5}>
-      <Container maxW="container.md">
-        <VStack spacing={8} align="center">
-          <Heading as="h1" size="2xl" color="blue.700">
+    <Box 
+      minH="100vh" 
+      bg="gray.100" 
+      display="flex" 
+      alignItems="center" 
+      justifyContent="center" 
+      p={4}
+    >
+      <Box 
+        bg="white" 
+        p={8} 
+        borderRadius="lg" 
+        boxShadow="lg" 
+        maxW="lg" 
+        w="full"
+      >
+        <VStack spacing={6} align="stretch">
+          <Heading as="h1" size="xl" textAlign="center" color="blue.600">
             Get Ranked
           </Heading>
-          <Text fontSize="lg" color="gray.700" textAlign="center">
+          <Text fontSize="lg" color="gray.600" textAlign="center">
             Choose who you want to be ranked against:
           </Text>
-          <Button
+          <Button 
+            variant="solid" 
+            colorScheme="blue" 
+            size="lg" 
             onClick={() => handleSelection('other-users')}
-            colorScheme="blue"
-            size="lg"
-            w="full"
           >
             Other Users
           </Button>
-          <Button
+          <Button 
+            variant="solid" 
+            colorScheme="blue" 
+            size="lg" 
             onClick={() => handleSelection('influencers')}
-            colorScheme="blue"
-            size="lg"
-            w="full"
           >
             Influencers
           </Button>
-          <Button
+          <Button 
+            variant="solid" 
+            colorScheme="blue" 
+            size="lg" 
             onClick={() => handleSelection('celebs')}
-            colorScheme="blue"
-            size="lg"
-            w="full"
           >
             Celebs
           </Button>
         </VStack>
-      </Container>
+      </Box>
     </Box>
   );
 }

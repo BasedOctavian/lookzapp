@@ -30,22 +30,42 @@ function GetRanked() {
   const [influencersList, setInfluencersList] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-  const [ratingKey, setRatingKey] = useState(0); // To reset RatingScale
+  const [ratingKey, setRatingKey] = useState(0); // used to reset the RatingScale component
   const localVideoRef = useRef(null);
   const toast = useToast();
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const { userData, rating: localRating, loading: userLoading } = useUserData();
+  const [influencerRating, setInfluencerRating] = useState(null);
 
   const currentInfluencer =
-    influencersList.length > 0 && currentIndex >= 0 && currentIndex < influencersList.length
+    influencersList.length > 0 &&
+    currentIndex >= 0 &&
+    currentIndex < influencersList.length
       ? influencersList[currentIndex]
       : null;
 
-  const { influencerData, rating: influencerRating, loading: ratingLoading, error: ratingError } =
-    useInfluencerRatingData(currentInfluencer?.id || null);
+  // Use the influencer's ID if available, otherwise null.
+  const {
+    influencerData,
+    submitRating,
+    loading: ratingLoading,
+    error: ratingError,
+  } = useInfluencerRatingData(currentInfluencer?.id || null);
 
-  // Set up local video feed
+  useEffect(() => {
+    if (currentInfluencer) {
+        console.log(currentInfluencer);
+        if (currentInfluencer.timesRanked > 0) {
+          setInfluencerRating(currentInfluencer.ranking / currentInfluencer.timesRanked);
+        }
+        else {
+          setInfluencerRating(0);
+        }
+    }
+  }, [currentInfluencer]);
+
+  // Set up local video feed.
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: false })
@@ -65,14 +85,17 @@ function GetRanked() {
       });
   }, [toast]);
 
-  // Fetch influencers when category is "influencers"
+  // Fetch influencers when the category is "influencers".
   useEffect(() => {
     const loadInfluencers = async () => {
       if (category === 'influencers') {
         setIsLoading(true);
         try {
           const querySnapshot = await getDocs(collection(db, 'streamers'));
-          const influencers = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+          const influencers = querySnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
           setInfluencersList(influencers);
           setCurrentIndex(0);
         } catch (error) {
@@ -94,7 +117,7 @@ function GetRanked() {
     loadInfluencers();
   }, [category, toast]);
 
-  // Handle sign-out
+  // Handle sign-out.
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -111,29 +134,51 @@ function GetRanked() {
     }
   };
 
-  // Handle rating submission and reset
+  // Handle rating submission: update Firestore using the hook, then move to the next influencer.
   const handleRatingSubmit = async (rating, featureAllocations) => {
-    // Placeholder for rating submission logic (e.g., updating Firestore)
-    toast({
-      title: 'Rating Submitted',
-      description: `You rated ${currentInfluencer.name}: ${rating}`,
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
-    });
-    setRatingKey((prevKey) => prevKey + 1); // Reset RatingScale
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % influencersList.length); // Next influencer
+    if (!currentInfluencer) return;
+    try {
+      await submitRating(rating, featureAllocations);
+      toast({
+        title: 'Rating Submitted',
+        description: `You rated ${currentInfluencer.name}: ${rating}`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      // Reset the RatingScale component state.
+      setRatingKey((prevKey) => prevKey + 1);
+      // Move to the next influencer.
+      setCurrentIndex((prevIndex) =>
+        influencersList.length > 0 ? (prevIndex + 1) % influencersList.length : prevIndex
+      );
+    } catch (error) {
+      console.error('Error submitting rating:', error);
+      toast({
+        title: 'Rating Error',
+        description: 'Failed to update rating. Please try again.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
   };
 
-  // Navigation handlers
+  // Navigation handlers.
   const handleNextPhoto = () => {
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % influencersList.length);
-    setRatingKey((prevKey) => prevKey + 1); // Reset RatingScale
+    setCurrentIndex((prevIndex) =>
+      influencersList.length > 0 ? (prevIndex + 1) % influencersList.length : prevIndex
+    );
+    setRatingKey((prevKey) => prevKey + 1);
   };
 
   const handlePreviousPhoto = () => {
-    setCurrentIndex((prevIndex) => (prevIndex - 1 + influencersList.length) % influencersList.length);
-    setRatingKey((prevKey) => prevKey + 1); // Reset RatingScale
+    setCurrentIndex((prevIndex) =>
+      influencersList.length > 0
+        ? (prevIndex - 1 + influencersList.length) % influencersList.length
+        : prevIndex
+    );
+    setRatingKey((prevKey) => prevKey + 1);
   };
 
   return (
@@ -186,12 +231,10 @@ function GetRanked() {
       {/* Main Content */}
       <Container maxW="container.xl" py={{ base: 4, md: 6 }}>
         <VStack spacing={{ base: 4, md: 6 }} align="stretch">
-          {/* Category Display */}
           <Heading as="h2" size="lg" textAlign="center">
             Ranking against: {category}
           </Heading>
 
-          {/* Video and Photo Section */}
           <Flex
             direction={['column', 'row']}
             w="100%"
@@ -302,18 +345,25 @@ function GetRanked() {
                       ? currentInfluencer.name
                       : 'Placeholder User'}
                   </Text>
-                  {category === 'influencers' && currentInfluencer && !ratingLoading && !ratingError ? (
-                    <HStack spacing={1}>
-                      <Star sx={{ fontSize: 16, color: '#FFD700' }} />
+                  {category === 'influencers' &&
+                    currentInfluencer &&
+                    !ratingLoading &&
+                    !ratingError && (
+                      <HStack spacing={1}>
+                        <Star sx={{ fontSize: 16, color: '#FFD700' }} />
+                        <Text fontSize="sm" fontWeight="medium">
+                          {influencerRating?.toFixed(1)}
+                        </Text>
+                      </HStack>
+                    )}
+                  {category === 'influencers' &&
+                    currentInfluencer &&
+                    !ratingLoading &&
+                    ratingError && (
                       <Text fontSize="sm" fontWeight="medium">
-                        {influencerRating.toFixed(1)}
+                        Rating unavailable
                       </Text>
-                    </HStack>
-                  ) : category === 'influencers' && currentInfluencer && !ratingLoading && ratingError ? (
-                    <Text fontSize="sm" fontWeight="medium">
-                      Rating unavailable
-                    </Text>
-                  ) : null}
+                    )}
                 </HStack>
               </Box>
 
@@ -329,13 +379,15 @@ function GetRanked() {
                     </Text>
                     <Text>
                       Height:{' '}
-                      {currentInfluencer.height != null && !isNaN(currentInfluencer.height)
+                      {currentInfluencer.height != null &&
+                      !isNaN(currentInfluencer.height)
                         ? `${currentInfluencer.height} cm`
                         : 'N/A'}
                     </Text>
                     <Text>
                       Weight:{' '}
-                      {currentInfluencer.weight != null && !isNaN(currentInfluencer.weight)
+                      {currentInfluencer.weight != null &&
+                      !isNaN(currentInfluencer.weight)
                         ? `${currentInfluencer.weight} kg`
                         : 'N/A'}
                     </Text>
@@ -349,17 +401,14 @@ function GetRanked() {
           <Suspense fallback={<Text>Loading rating interface...</Text>}>
             <Box w="100%" bg="white" p={6} borderRadius="2xl" boxShadow="xl">
               {category === 'influencers' && currentInfluencer ? (
-                <RatingScale
-                  key={ratingKey} // Reset component state
-                  onRate={handleRatingSubmit}
-                />
+                <RatingScale key={ratingKey} onRate={handleRatingSubmit} />
               ) : (
                 <Text>Rating is only available for influencers.</Text>
               )}
             </Box>
           </Suspense>
 
-          {/* Action Buttons */}
+          {/* Navigation Buttons */}
           <HStack spacing={4} justify="center" flexWrap="wrap">
             {category === 'influencers' && influencersList.length > 0 && (
               <>

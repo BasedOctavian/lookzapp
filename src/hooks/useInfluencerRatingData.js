@@ -33,7 +33,10 @@ export function useInfluencerRatingData(influencerId) {
   const rating = useMemo(() => {
     if (!influencerData) return 0;
     const totalRanking = influencerData.ranking || 0;
+    console.log('Total ranking:', totalRanking);
     const timesRanked = influencerData.timesRanked || 0;
+    console.log('Times ranked:', timesRanked);
+    console.log('Should be returned', timesRanked > 0 ? totalRanking / timesRanked : 0);
     return timesRanked > 0 ? totalRanking / timesRanked : 0;
   }, [influencerData]);
 
