@@ -18,12 +18,13 @@ import {
 } from '@chakra-ui/react';
 import { useInfluencerRatingData } from '../hooks/useInfluencerRatingData';
 import { useInfluencerDailyRatings } from '../hooks/useInfluencerDailyRatings';
-import { CircularProgress, CircularProgressLabel } from '@chakra-ui/progress';
-import { FiMail, FiAward, FiLogOut, FiStar, FiUsers } from 'react-icons/fi';
+import { CircularProgress } from '@chakra-ui/progress';
+import { FiAward, FiLogOut, FiStar, FiUsers } from 'react-icons/fi';
 import Avatar from '@mui/material/Avatar';
 import { Divider } from '@mui/material';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { useEffect } from 'react';
+import TopBar from '../Components/TopBar';
 
 function InfluencerProfile() {
   const { influencerId } = useParams();
@@ -43,6 +44,23 @@ function InfluencerProfile() {
       console.error('Error signing out:', error);
     }
   };
+
+  // Parse dailyRatings to ensure averageRating is a number
+  const parsedDailyRatings = dailyRatings.map((rating) => ({
+    date: rating.date,
+    averageRating: parseFloat(rating.averageRating),
+  }));
+
+  // Debugging logs
+  useEffect(() => {
+    if (influencerData) {
+      console.log('Influencer data:', influencerData);
+    }
+  }, [influencerData]);
+
+  useEffect(() => {
+    console.log('dailyRatings:', dailyRatings);
+  }, [dailyRatings]);
 
   let profileContent;
   if (loading) {
@@ -227,11 +245,11 @@ function InfluencerProfile() {
             </Heading>
             {dailyRatingsLoading ? (
               <Spinner size="lg" color="blue.500" thickness="3px" />
-            ) : dailyRatings.length > 0 ? (
+            ) : parsedDailyRatings.length > 0 ? (
               <Box w="100%" h="400px">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
-                    data={dailyRatings}
+                    data={parsedDailyRatings}
                     margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
@@ -291,55 +309,16 @@ function InfluencerProfile() {
   }
 
   return (
+    <>
+    <TopBar />
     <Flex direction="column" minH="100vh" bg="gray.50">
-      {/* Sticky Header */}
-      <Box
-        position="sticky"
-        top="0"
-        w="100%"
-        bg={headerBg}
-        backdropFilter="blur(10px)"
-        zIndex="sticky"
-        borderBottomWidth="1px"
-      >
-        <Container maxW="container.xl" py={4}>
-          <Flex justify="space-between" align="center">
-            <Heading
-              as="h1"
-              size="lg"
-              color="blue.600"
-              fontWeight="black"
-              onClick={() => navigate('/')}
-            >
-              Lookzapp
-            </Heading>
-            <HStack spacing={4}>
-              <Button
-                leftIcon={<FiAward />}
-                onClick={() => navigate('/top-rated-users')}
-                variant="ghost"
-                colorScheme="blue"
-              >
-                Top Rated
-              </Button>
-              <Button
-                leftIcon={<FiLogOut />}
-                onClick={handleSignOut}
-                variant="solid"
-                colorScheme="red"
-              >
-                Sign Out
-              </Button>
-            </HStack>
-          </Flex>
-        </Container>
-      </Box>
 
       {/* Main Content */}
       <Flex flex={1} justify="center" p={4}>
         {profileContent}
       </Flex>
     </Flex>
+    </>
   );
 }
 

@@ -23,6 +23,7 @@ import { FiMail, FiAward, FiLogOut, FiStar, FiUsers } from 'react-icons/fi';
 import Avatar from '@mui/material/Avatar';
 import { Divider } from '@mui/material';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import TopBar from '../Components/TopBar';
 
 function Profile() {
   const { userId } = useParams();
@@ -295,50 +296,15 @@ function Profile() {
   }
 
   return (
-    <Flex direction="column" minH="100vh" bg="gray.50">
-      {/* Sticky Header */}
-      <Box
-        position="sticky"
-        top="0"
-        w="100%"
-        bg={headerBg}
-        backdropFilter="blur(10px)"
-        zIndex="sticky"
-        borderBottomWidth="1px"
-      >
-        <Container maxW="container.xl" py={4}>
-          <Flex justify="space-between" align="center">
-            <Heading as="h1" size="lg" color="blue.600" fontWeight="black"
-              onClick={() => navigate('/')}>
-              Lookzapp
-            </Heading>
-            <HStack spacing={4}>
-              <Button 
-                leftIcon={<FiAward />}
-                onClick={() => navigate('/top-rated-users')}
-                variant="ghost"
-                colorScheme="blue"
-              >
-                Top Rated
-              </Button>
-              <Button 
-                leftIcon={<FiLogOut />}
-                onClick={handleSignOut}
-                variant="solid"
-                colorScheme="red"
-              >
-                Sign Out
-              </Button>
-            </HStack>
-          </Flex>
-        </Container>
-      </Box>
-
+    <>
+    <TopBar />
+    <Flex direction="column" minH="100vh" bg="gray.50">   
       {/* Main Content */}
       <Flex flex={1} justify="center" p={4}>
         {profileContent}
       </Flex>
     </Flex>
+    </>
   );
 }
 

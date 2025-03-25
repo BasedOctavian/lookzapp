@@ -16,7 +16,8 @@ export function useInfluencerDailyRatings(influencerId) {
 
       try {
         const dailyRatingsRef = collection(db, 'streamers', influencerId, 'dailyRatings');
-        const q = query(dailyRatingsRef, orderBy('date', 'asc'));
+        // Order by document ID using '__name__' instead of FieldPath.documentId()
+        const q = query(dailyRatingsRef, orderBy('__name__', 'asc'));
         const querySnapshot = await getDocs(q);
         const ratings = querySnapshot.docs.map((doc) => ({
           date: doc.id,

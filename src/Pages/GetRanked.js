@@ -9,13 +9,14 @@ import {
   HStack,
   Heading,
   Spinner,
+  useBreakpointValue,
 } from '@chakra-ui/react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUserData } from '../hooks/useUserData';
 import { Star } from '@mui/icons-material';
 import { useToast } from '@chakra-ui/toast';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useInfluencerRatingData } from '../hooks/useInfluencerRatingData';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -25,7 +26,7 @@ const RatingScale = lazy(() => import('../Components/RatingScale'));
 
 // Utility function to shuffle an array using Fisher-Yates algorithm
 function shuffleArray(array) {
-  const shuffled = [...array]; // Create a copy to avoid mutating the original
+  const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
@@ -53,6 +54,8 @@ function GetRanked() {
   const navigate = useNavigate();
   const { userData, rating: localRating, loading: userLoading } = useUserData();
   const [influencerRating, setInfluencerRating] = useState(null);
+
+  const isMobile = useBreakpointValue({ base: true, md: false });
 
   const currentInfluencer =
     influencersList.length > 0 &&
@@ -102,34 +105,31 @@ function GetRanked() {
       });
   }, [toast]);
 
-  // Fetch and shuffle influencers once
+  // Fetch and shuffle influencers based on category
   useEffect(() => {
     const loadInfluencers = async () => {
-      if (category === 'influencers') {
-        setIsLoading(true);
-        try {
-          const querySnapshot = await getDocs(collection(db, 'streamers'));
-          const influencers = querySnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-          const shuffled = shuffleArray(influencers);
-          setShuffledInfluencers(shuffled);
-        } catch (error) {
-          console.error('Error fetching influencers:', error);
-          toast({
-            title: 'Fetch Error',
-            description: 'Failed to load influencers.',
-            status: 'error',
-            duration: 3000,
-            isClosable: true,
-          });
-          setShuffledInfluencers([]);
-        }
-        setIsLoading(false);
-      } else {
+      setIsLoading(true);
+      try {
+        const q = query(collection(db, 'streamers'), where('category', '==', category));
+        const querySnapshot = await getDocs(q);
+        const influencers = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        const shuffled = shuffleArray(influencers);
+        setShuffledInfluencers(shuffled);
+      } catch (error) {
+        console.error('Error fetching influencers:', error);
+        toast({
+          title: 'Fetch Error',
+          description: 'Failed to load influencers.',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
         setShuffledInfluencers([]);
       }
+      setIsLoading(false);
     };
     loadInfluencers();
   }, [category, toast]);
@@ -143,7 +143,7 @@ function GetRanked() {
       );
     }
     setInfluencersList(filteredList);
-    setCurrentIndex(0); // Reset to start of filtered list
+    setCurrentIndex(0);
   }, [shuffledInfluencers, genderFilter]);
 
   const handleSignOut = async () => {
@@ -227,55 +227,55 @@ function GetRanked() {
   return (
     <>
       <TopBar />
-      <Flex direction="column" minH="100vh" bg="gray.50">
-        <Container maxW="container.xl" py={{ base: 4, md: 6 }}>
-          {/* Gender Filter Buttons */}
+      <Flex direction="column" minH="100vh" bg="gray.50" overflowX="hidden">
+        <Container maxW="container.xl" py={{ base: 4, md: 6 }} overflow="hidden">
+          {/* Gender Filter Buttons - Adjusted for mobile */}
           <VStack align="center" mb={4}>
             <Text fontSize="lg" fontWeight="bold">Filter by Gender</Text>
-            <HStack spacing={2}>
-              <Button
-                onClick={() => setGenderFilter('male')}
-                colorScheme={genderFilter === 'male' ? 'blue' : 'gray'}
-              >
-                Male
-              </Button>
-              <Button
-                onClick={() => setGenderFilter('female')}
-                colorScheme={genderFilter === 'female' ? 'blue' : 'gray'}
-              >
-                Female
-              </Button>
-              <Button
-                onClick={() => setGenderFilter('both')}
-                colorScheme={genderFilter === 'both' ? 'blue' : 'gray'}
-              >
-                Both
-              </Button>
-            </HStack>
+            <Flex
+              wrap="wrap"
+              gap={2}
+              justify="center"
+              width={{ base: '100%', md: 'auto' }}
+            >
+              {['male', 'female', 'both'].map((gender) => (
+                <Button
+                  key={gender}
+                  onClick={() => setGenderFilter(gender)}
+                  colorScheme={genderFilter === gender ? 'blue' : 'gray'}
+                  size="sm"
+                  flex={{ base: '1 0 30%', md: 'none' }}
+                >
+                  {gender.charAt(0).toUpperCase() + gender.slice(1)}
+                </Button>
+              ))}
+            </Flex>
           </VStack>
+
           <VStack spacing={{ base: 4, md: 6 }} align="stretch">
-            {/* Sticky Video and Photo Section */}
+            {/* Adjusted sticky header for mobile */}
             <Box
-              position="sticky"
-              top="0"
+              position={{ base: 'static', md: 'sticky' }}
+              top={{ md: '0' }}
               zIndex="10"
               bg="white"
               borderRadius="2xl"
-              boxShadow="xl"
+              boxShadow={{ md: 'xl' }}
               p={4}
-              maxH="85vh"
+              maxH={{ base: 'auto', md: '85vh' }}
+              mb={{ base: 4, md: 0 }}
             >
               <Flex
-                direction={['column', 'row']}
+                direction={{ base: 'column', md: 'row' }}
                 w="100%"
                 justify="center"
                 align="flex-start"
                 gap={6}
               >
-                {/* Video Stream */}
+                {/* Video Stream - Adjusted height for mobile */}
                 <Box
-                  w={['100%', '45%']}
-                  h={['auto', '50vh']}
+                  w={{ base: '100%', md: '45%' }}
+                  h={{ base: '40vh', md: '50vh' }}
                   borderWidth="2px"
                   borderColor="gray.100"
                   borderRadius="xl"
@@ -316,142 +316,127 @@ function GetRanked() {
                   </HStack>
                 </Box>
 
-                {/* Influencer's Photo and Info */}
-                <VStack w={['100%', '45%']} spacing={4} align="stretch">
-                  <Box
-                    w="100%"
-                    h={['auto', '50vh']}
-                    borderWidth="2px"
-                    borderColor="gray.100"
-                    borderRadius="xl"
-                    overflow="hidden"
-                    boxShadow="lg"
-                    bg="gray.200"
-                    position="relative"
+                {/* Influencer's Photo - Adjusted height for mobile */}
+                <Box
+                  w={{ base: '100%', md: '45%' }}
+                  h={{ base: '40vh', md: '50vh' }}
+                  borderWidth="2px"
+                  borderColor="gray.100"
+                  borderRadius="xl"
+                  overflow="hidden"
+                  boxShadow="lg"
+                  bg="gray.200"
+                  position="relative"
+                >
+                  {isLoading || ratingLoading ? (
+                    <Spinner size="xl" color="blue.500" />
+                  ) : currentInfluencer ? (
+                    <img
+                      src={currentInfluencer.photo_url}
+                      alt={currentInfluencer.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <Text fontSize="lg" color="gray.500">
+                      No influencers available for the selected filter
+                    </Text>
+                  )}
+                  <HStack
+                    position="absolute"
+                    bottom="2"
+                    left="2"
+                    color="white"
+                    bg="rgba(0, 0, 0, 0.6)"
+                    px={2}
+                    py={1}
+                    borderRadius="md"
+                    spacing={1}
                   >
-                    {category === 'influencers' ? (
-                      isLoading || ratingLoading ? (
-                        <Spinner size="xl" color="blue.500" />
-                      ) : currentInfluencer ? (
-                        <img
-                          src={currentInfluencer.photo_url}
-                          alt={currentInfluencer.name}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <Text fontSize="lg" color="gray.500">
-                          No influencers available for the selected filter
+                    <Text fontSize="sm" fontWeight="medium">
+                      {currentInfluencer ? currentInfluencer.name : 'No User'}
+                    </Text>
+                    {currentInfluencer && !ratingLoading && !ratingError && (
+                      <HStack spacing={1}>
+                        <Star sx={{ fontSize: 16, color: '#FFD700' }} />
+                        <Text fontSize="sm" fontWeight="medium">
+                          {influencerRating?.toFixed(1)}
                         </Text>
-                      )
-                    ) : (
-                      <img
-                        src="https://via.placeholder.com/640x480?text=Photo+Placeholder"
-                        alt="Placeholder User"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
+                      </HStack>
                     )}
-                    <HStack
-                      position="absolute"
-                      bottom="2"
-                      left="2"
-                      color="white"
-                      bg="rgba(0, 0, 0, 0.6)"
-                      px={2}
-                      py={1}
-                      borderRadius="md"
-                      spacing={1}
-                    >
+                    {currentInfluencer && !ratingLoading && ratingError && (
                       <Text fontSize="sm" fontWeight="medium">
-                        {category === 'influencers' && currentInfluencer
-                          ? currentInfluencer.name
-                          : 'Placeholder User'}
+                        Rating unavailable
                       </Text>
-                      {category === 'influencers' &&
-                        currentInfluencer &&
-                        !ratingLoading &&
-                        !ratingError && (
-                          <HStack spacing={1}>
-                            <Star sx={{ fontSize: 16, color: '#FFD700' }} />
-                            <Text fontSize="sm" fontWeight="medium">
-                              {influencerRating?.toFixed(1)}
-                            </Text>
-                          </HStack>
-                        )}
-                      {category === 'influencers' &&
-                        currentInfluencer &&
-                        !ratingLoading &&
-                        ratingError && (
-                          <Text fontSize="sm" fontWeight="medium">
-                            Rating unavailable
-                          </Text>
-                        )}
-                    </HStack>
-                  </Box>
-                </VStack>
+                    )}
+                  </HStack>
+                </Box>
               </Flex>
             </Box>
 
-            {/* Feature Comparison Chart */}
-            {!userLoading &&
-              !ratingLoading &&
-              userData &&
-              influencerData &&
-              category === 'influencers' && (
-                userData.timesRanked > 0 && influencerData.timesRanked > 0 ? (
-                  <Box w="100%" p={4} bg="white" borderRadius="2xl" boxShadow="xl">
-                    <Heading as="h3" size="md" mb={4}>
-                      Feature Rating Comparison
-                    </Heading>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="feature" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="user" fill="#8884d8" name="Your Average" />
-                        <Bar
-                          dataKey="influencer"
-                          fill="#82ca9d"
-                          name={`${currentInfluencer.name}'s Average`}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </Box>
-                ) : (
-                  <Text textAlign="center" color="gray.500">
-                    Comparison unavailable:{' '}
-                    {userData.timesRanked === 0 ? 'You have' : `${currentInfluencer.name} has`}{' '}
-                    not been rated yet.
-                  </Text>
-                )
-              )}
+            {/* Chart container - Adjusted for mobile */}
+            {!userLoading && !ratingLoading && userData && influencerData && (
+              <Box
+                w="100%"
+                p={4}
+                bg="white"
+                borderRadius="2xl"
+                boxShadow={{ md: 'xl' }}
+                mt={{ base: 4, md: 0 }}
+              >
+                <Heading as="h3" size="md" mb={4}>
+                  Feature Rating Comparison
+                </Heading>
+                <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="feature" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="user" fill="#8884d8" name="Your Average" />
+                    <Bar
+                      dataKey="influencer"
+                      fill="#82ca9d"
+                      name={`${currentInfluencer?.name || 'Influencer'}'s Average`}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Box>
+            )}
 
-            <Suspense fallback={<Text>Loading rating interface...</Text>}>
-              <Box w="100%" bg="white" p={6} borderRadius="2xl" boxShadow="xl">
-                {category === 'influencers' ? (
-                  currentInfluencer ? (
-                    <RatingScale key={ratingKey} onRate={handleRatingSubmit} />
-                  ) : (
-                    <Text>No influencers available for the selected filter.</Text>
-                  )
+            {/* Rating Scale - Improved mobile padding */}
+            <Suspense fallback={<Spinner />}>
+              <Box
+                w="100%"
+                bg="white"
+                p={{ base: 4, md: 6 }}
+                borderRadius="2xl"
+                boxShadow={{ md: 'xl' }}
+              >
+                {currentInfluencer ? (
+                  <RatingScale key={ratingKey} onRate={handleRatingSubmit} />
                 ) : (
-                  <Text>Rating is only available for influencers.</Text>
+                  <Text>No influencers available for the selected filter.</Text>
                 )}
               </Box>
             </Suspense>
 
-            <HStack spacing={4} justify="center" flexWrap="wrap">
-              {category === 'influencers' && influencersList.length > 0 && (
+            {/* Navigation Buttons - Stack vertically on mobile */}
+            <Flex
+              direction={{ base: 'column', md: 'row' }}
+              gap={4}
+              justify="center"
+              mt={{ base: 2, md: 0 }}
+            >
+              {influencersList.length > 0 && (
                 <>
                   <Button
                     colorScheme="teal"
                     size="lg"
                     px={8}
                     onClick={handlePreviousPhoto}
-                    boxShadow="md"
-                    _hover={{ transform: 'scale(1.05)' }}
-                    transition="all 0.2s cubic-bezier(.27,.67,.47,1.6)"
+                    _hover={{ transform: { md: 'scale(1.05)' } }}
+                    width={{ base: '100%', md: 'auto' }}
                   >
                     Previous Photo
                   </Button>
@@ -460,15 +445,14 @@ function GetRanked() {
                     size="lg"
                     px={8}
                     onClick={handleNextPhoto}
-                    boxShadow="md"
-                    _hover={{ transform: 'scale(1.05)' }}
-                    transition="all 0.2s cubic-bezier(.27,.67,.47,1.6)"
+                    _hover={{ transform: { md: 'scale(1.05)' } }}
+                    width={{ base: '100%', md: 'auto' }}
                   >
                     Next Photo
                   </Button>
                 </>
               )}
-            </HStack>
+            </Flex>
           </VStack>
         </Container>
       </Flex>

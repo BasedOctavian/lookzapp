@@ -82,31 +82,39 @@ export function useInfluencerRatingData(influencerId) {
     const updatedRanking = currentRanking + newRating;
     const updatedAverageRating = updatedTimesRanked > 0 ? updatedRanking / updatedTimesRanked : 0;
 
-    await updateDoc(influencerDocRef, {
-      eyesRating: updatedEyes,
-      smileRating: updatedSmile,
-      facialRating: updatedFacial,
-      hairRating: updatedHair,
-      bodyRating: updatedBody,
-      ranking: updatedRanking,
-      timesRanked: updatedTimesRanked,
-    });
+    try {
+      // Update the main influencer document
+      await updateDoc(influencerDocRef, {
+        eyesRating: updatedEyes,
+        smileRating: updatedSmile,
+        facialRating: updatedFacial,
+        hairRating: updatedHair,
+        bodyRating: updatedBody,
+        ranking: updatedRanking,
+        timesRanked: updatedTimesRanked,
+      });
 
-    const currentDate = new Date().toISOString().split('T')[0];
-    await setDoc(doc(db, 'streamers', strInfluencerId, 'dailyRatings', currentDate), {
-      averageRating: updatedAverageRating.toFixed(1),
-    });
+      // Set the daily average rating
+      const currentDate = new Date().toISOString().split('T')[0];
+      await setDoc(doc(db, 'streamers', strInfluencerId, 'dailyRatings', currentDate), {
+        averageRating: updatedAverageRating, // Store as number
+      });
 
-    setInfluencerData((prev) => ({
-      ...prev,
-      eyesRating: updatedEyes,
-      smileRating: updatedSmile,
-      facialRating: updatedFacial,
-      hairRating: updatedHair,
-      bodyRating: updatedBody,
-      ranking: updatedRanking,
-      timesRanked: updatedTimesRanked,
-    }));
+      // Update local state
+      setInfluencerData((prev) => ({
+        ...prev,
+        eyesRating: updatedEyes,
+        smileRating: updatedSmile,
+        facialRating: updatedFacial,
+        hairRating: updatedHair,
+        bodyRating: updatedBody,
+        ranking: updatedRanking,
+        timesRanked: updatedTimesRanked,
+      }));
+    } catch (error) {
+      console.error('Error submitting rating:', error);
+      // Optionally, handle the error (e.g., show a notification to the user)
+    }
   };
 
   return { influencerData, rating, submitRating, loading };
