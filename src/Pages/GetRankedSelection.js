@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Container, VStack, Heading, Button, Text } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
+import TopBar from '../Components/TopBar';
 
 function GetRankedSelection() {
   const navigate = useNavigate();
@@ -10,6 +11,8 @@ function GetRankedSelection() {
   };
 
   return (
+    <>
+    <TopBar />
     <Box 
       minH="100vh" 
       bg="gray.100" 
@@ -60,6 +63,7 @@ function GetRankedSelection() {
         </VStack>
       </Box>
     </Box>
+    </>
   );
 }
 

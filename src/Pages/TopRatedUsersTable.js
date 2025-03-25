@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import {
-  collection,
-  onSnapshot
-} from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 import {
   Text,
@@ -12,14 +9,14 @@ import {
   VStack,
   Heading,
   Flex,
-  HStack,
   Button
 } from "@chakra-ui/react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "@chakra-ui/toast";
-import { FiSearch, FiVideo, FiLogOut } from "react-icons/fi";
+import { FiSearch, FiLogOut } from "react-icons/fi";
 import { Input, InputGroup, InputLeftElement } from "@chakra-ui/input";
+import TopBar from "../Components/TopBar";
 import {
   Table,
   Thead,
@@ -31,7 +28,7 @@ import {
 } from "@chakra-ui/table";
 
 export default function TopRatedUsersGrid() {
-  // Separate state for users and streamers.
+  // State for users and streamers
   const [users, setUsers] = useState([]);
   const [streamers, setStreamers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
@@ -42,7 +39,7 @@ export default function TopRatedUsersGrid() {
   const { signOut } = useAuth();
   const toast = useToast();
 
-  // Subscribe to the "users" collection.
+  // Fetch users from Firestore
   useEffect(() => {
     const unsubscribeUsers = onSnapshot(
       collection(db, "users"),
@@ -50,7 +47,6 @@ export default function TopRatedUsersGrid() {
         const usersData = snapshot.docs.map((doc) => ({
           id: doc.id,
           displayName: doc.data().displayName || "Unknown User",
-          // Calculate average rating if rated at least once.
           averageRating:
             (doc.data().timesRanked > 0
               ? (doc.data().ranking || 0) / (doc.data().timesRanked || 1)
@@ -70,14 +66,13 @@ export default function TopRatedUsersGrid() {
     return () => unsubscribeUsers();
   }, []);
 
-  // Subscribe to the "streamers" collection.
+  // Fetch streamers from Firestore
   useEffect(() => {
     const unsubscribeStreamers = onSnapshot(
       collection(db, "streamers"),
       (snapshot) => {
         const streamersData = snapshot.docs.map((doc) => ({
           id: doc.id,
-          // Use "name" field for streamers (or fallback if needed).
           displayName: doc.data().name || "Unknown Influencer",
           averageRating:
             (doc.data().timesRanked > 0
@@ -98,26 +93,27 @@ export default function TopRatedUsersGrid() {
     return () => unsubscribeStreamers();
   }, []);
 
-  // Combine the two datasets and sort by averageRating descending.
+  // Combine and sort users and streamers by rating
   const combinedUsers = useMemo(() => {
     const allUsers = [...users, ...streamers];
     return allUsers.sort((a, b) => b.averageRating - a.averageRating);
   }, [users, streamers]);
 
-  // Filter the combined list based on the search query.
+  // Filter based on search query
   const filteredUsers = useMemo(() => {
     return combinedUsers.filter((user) =>
       user.displayName.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [combinedUsers, searchQuery]);
 
+  // Define table columns with conditional linking
   const columns = [
     {
       key: "displayName",
       name: "User",
       formatter: ({ row }) => (
         <Link
-          to={`/profile/${row.id}`}
+          to={row.type === "streamer" ? `/influencer-profile/${row.id}` : `/profile/${row.id}`}
           style={{ color: "#3182ce", fontWeight: "bold" }}
         >
           {row.displayName}
@@ -132,6 +128,7 @@ export default function TopRatedUsersGrid() {
     { key: "totalRatings", name: "Total Ratings" }
   ];
 
+  // Sign out handler
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -151,132 +148,88 @@ export default function TopRatedUsersGrid() {
   const isLoading = loadingUsers || loadingStreamers;
 
   return (
-    <Flex direction="column" minH="100vh" bg="gray.50">
-      {/* Sticky Header */}
-      <Box
-        position="sticky"
-        top="0"
-        w="100%"
-        bg="white"
-        backdropFilter="blur(10px)"
-        zIndex="sticky"
-        borderBottomWidth="1px"
-        boxShadow="sm"
-      >
-        <Container maxW="container.xl" py={4}>
-          <Flex justify="space-between" align="center">
-            <Heading
-              as="h1"
-              size="lg"
-              color="blue.600"
-              fontWeight="bold"
-              cursor="pointer"
-              onClick={() => navigate("/")}
-            >
-              Lookzapp
-            </Heading>
-            <HStack spacing={4}>
-              <Button
-                leftIcon={<FiVideo />}
-                onClick={() => navigate("/video-call")}
-                colorScheme="blue"
-                variant="ghost"
+    <>
+      <TopBar />
+      <Flex direction="column" minH="100vh" bg="gray.50">
+        <Container maxW="container.xl" py={8} flex={1}>
+          <VStack spacing={6} align="stretch">
+            <Heading size="xl">Top Rated Users</Heading>
+
+            {/* Search Input */}
+            <InputGroup>
+              <InputLeftElement pointerEvents="none">
+                <FiSearch color="gray.300" style={{ marginTop: 4 }} />
+              </InputLeftElement>
+              <Input
+                style={{ marginLeft: 30 }}
+                placeholder="Search users..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                borderRadius="lg"
+              />
+            </InputGroup>
+
+            {/* Table */}
+            {isLoading ? (
+              <Spinner size="xl" alignSelf="center" />
+            ) : error ? (
+              <Text color="red.500" textAlign="center">
+                Error: {error}
+              </Text>
+            ) : filteredUsers.length === 0 ? (
+              <Text textAlign="center">No users found.</Text>
+            ) : (
+              <Box
+                border="1px"
+                borderColor="gray.200"
+                borderRadius="xl"
+                boxShadow="md"
+                bg="white"
               >
-                Video Chat
-              </Button>
-              <Button
-                leftIcon={<FiLogOut />}
-                onClick={handleSignOut}
-                colorScheme="red"
-                variant="solid"
-              >
-                Sign Out
-              </Button>
-            </HStack>
-          </Flex>
-        </Container>
-      </Box>
-
-      <Container maxW="container.xl" py={8} flex={1}>
-        <VStack spacing={6} align="stretch">
-          <Heading size="xl">Top Rated Users</Heading>
-
-          {/* Search Input */}
-          <InputGroup>
-            <InputLeftElement pointerEvents="none">
-              <FiSearch color="gray.300" style={{ marginTop: 4 }} />
-            </InputLeftElement>
-            <Input
-              style={{ marginLeft: 30 }}
-              placeholder="Search users..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              borderRadius="lg"
-            />
-          </InputGroup>
-
-          {/* Table */}
-          {isLoading ? (
-            <Spinner size="xl" alignSelf="center" />
-          ) : error ? (
-            <Text color="red.500" textAlign="center">
-              Error: {error}
-            </Text>
-          ) : filteredUsers.length === 0 ? (
-            <Text textAlign="center">No users found.</Text>
-          ) : (
-            <Box
-              border="1px"
-              borderColor="gray.200"
-              borderRadius="xl"
-              boxShadow="md"
-              bg="white"
-            >
-              <TableContainer>
-                <Table variant="striped" colorScheme="gray">
-                  <Thead bg="gray.50">
-                    <Tr>
-                      {columns.map((column) => (
-                        <Th
-                          key={column.key}
-                          textAlign="left"
-                          px={6}
-                          py={4}
-                          fontSize="md"
-                        >
-                          {column.name}
-                        </Th>
-                      ))}
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {filteredUsers.map((user) => (
-                      <Tr key={user.id} _hover={{ bg: "gray.100" }}>
-                        {columns.map((column) => {
-                          const cellValue = user[column.key];
-                          const formatter = column.formatter;
-                          return (
-                            <Td
-                              key={column.key}
-                              px={6}
-                              py={4}
-                              borderColor="gray.200"
-                            >
-                              {formatter
-                                ? formatter({ row: user })
-                                : cellValue}
-                            </Td>
-                          );
-                        })}
+                <TableContainer>
+                  <Table variant="striped" colorScheme="gray">
+                    <Thead bg="gray.50">
+                      <Tr>
+                        {columns.map((column) => (
+                          <Th
+                            key={column.key}
+                            textAlign="left"
+                            px={6}
+                            py={4}
+                            fontSize="md"
+                          >
+                            {column.name}
+                          </Th>
+                        ))}
                       </Tr>
-                    ))}
-                  </Tbody>
-                </Table>
-              </TableContainer>
-            </Box>
-          )}
-        </VStack>
-      </Container>
-    </Flex>
+                    </Thead>
+                    <Tbody>
+                      {filteredUsers.map((user) => (
+                        <Tr key={user.id} _hover={{ bg: "gray.100" }}>
+                          {columns.map((column) => {
+                            const cellValue = user[column.key];
+                            const formatter = column.formatter;
+                            return (
+                              <Td
+                                key={column.key}
+                                px={6}
+                                py={4}
+                                borderColor="gray.200"
+                              >
+                                {formatter ? formatter({ row: user }) : cellValue}
+                              </Td>
+                            );
+                          })}
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            )}
+          </VStack>
+        </Container>
+      </Flex>
+    </>
   );
 }

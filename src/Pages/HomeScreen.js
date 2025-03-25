@@ -1,18 +1,11 @@
+// HomeScreen.js
 import React, { useEffect, useState } from 'react';
-import { 
-  Box, 
-  Container, 
-  VStack, 
-  Heading, 
-  Icon, 
-  Text, 
-  SimpleGrid, 
-  Button, 
-  Spinner 
-} from '@chakra-ui/react';
+import { Box, Container, VStack, Heading, Icon, Text, SimpleGrid, Button, Spinner } from '@chakra-ui/react';
 import { FaVideo, FaStar, FaMapMarkedAlt, FaGamepad, FaEnvelope, FaTrophy } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
+import TopBar from '../Components/TopBar';
+
 
 function HomeScreen() {
   const navigate = useNavigate();
@@ -81,8 +74,12 @@ function HomeScreen() {
   }
 
   return (
+    <>
+    <TopBar />
     <Box minH="100vh" bgGradient="linear(to-br, gray.50, blue.100)" py={10} px={5}>
       <Container maxW="container.xl">
+        
+
         <VStack spacing={10} align="center">
           <Heading 
             as="h1" 
@@ -133,6 +130,7 @@ function HomeScreen() {
         </VStack>
       </Container>
     </Box>
+    </>
   );
 }
 

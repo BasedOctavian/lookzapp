@@ -36,6 +36,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
 import { IconButton } from '@mui/material';
 import { LoadScript, GoogleMap, Marker } from '@react-google-maps/api';
+import TopBar from '../Components/TopBar';
 
 const mapContainerStyle = {
   width: '100%',
@@ -659,43 +660,10 @@ function GeoCall() {
   };
 
   return (
+    <>
+    <TopBar />
     <Flex direction="column" minH="100vh" bg="gray.50">
-      {/* Header */}
-      <Box
-        position="sticky"
-        top="0"
-        w="100%"
-        bg="rgba(255, 255, 255, 0.8)"
-        backdropFilter="blur(10px)"
-        zIndex="sticky"
-        borderBottomWidth="1px"
-      >
-        <Container maxW="container.xl" py={4}>
-          <Flex justify="space-between" align="center">
-            <Heading
-              as="h1"
-              size="xl"
-              color="blue.700"
-              fontWeight="bold"
-              textShadow="1px 1px 2px rgba(0, 0, 0, 0.1)"
-              onClick={() => navigate('/')}
-            >
-              Lookzapp
-            </Heading>
-            <HStack spacing={4}>
-              <Button
-                variant="link"
-                color="red.500"
-                fontWeight="medium"
-                onClick={handleSignOut}
-              >
-                Sign Out
-              </Button>
-            </HStack>
-          </Flex>
-        </Container>
-      </Box>
-
+      
       {/* Rules Section */}
       {showRules && (
         <Container maxW="container.xl" py={2}>
@@ -1011,6 +979,7 @@ function GeoCall() {
         </VStack>
       </Container>
     </Flex>
+    </>
   );
 }
 

@@ -49,6 +49,7 @@ import Confetti from 'react-confetti';
 import { FormControl, FormErrorMessage } from '@chakra-ui/form-control';
 import { Skeleton } from '@chakra-ui/skeleton';
 import { Progress } from '@chakra-ui/progress';
+import TopBar from '../Components/TopBar';
 
 // Memoized StatementInput Component to Prevent Unnecessary Re-renders
 const StatementInput = React.memo(({ stmt, index, onChange, isDisabled, isSelected }) => {
@@ -909,48 +910,13 @@ function TwoTruths() {
 
   // JSX Rendering
   return (
+    <>
+    <TopBar />
     <Flex direction="column" minH="100vh" bg="gray.50" fontFamily="Inter, system-ui">
       {roomData?.gameState === 'revealing_answers' && (
         <Confetti width={window.innerWidth} height={window.innerHeight} recycle={false} numberOfPieces={200} />
       )}
-      {/* Header */}
-      <Box
-        position="sticky"
-        top="0"
-        w="100%"
-        bg="linear-gradient(to right, #3182CE, #38B2AC)"
-        zIndex="sticky"
-        boxShadow="0 4px 6px -1px rgba(0, 0, 0, 0.1)"
-      >
-        <Container maxW="container.xl" py={4}>
-          <Flex justify="space-between" align="center">
-            <HStack spacing={3} cursor="pointer" onClick={() => navigate('/')}>
-              <IconButton
-                icon={<Gamepad />}
-                colorScheme="whiteAlpha"
-                variant="ghost"
-                size="lg"
-                aria-label="Game Icon"
-                _hover={{ transform: 'scale(1.1)' }}
-                transition="all 0.2s"
-              />
-              <Heading as="h1" size="xl" color="white" fontWeight="bold">
-                Lookzapp
-              </Heading>
-            </HStack>
-            <IconButton
-              aria-label="Sign Out"
-              icon={<Logout />}
-              variant="ghost"
-              colorScheme="whiteAlpha"
-              size="lg"
-              onClick={handleSignOut}
-              _hover={{ transform: 'scale(1.1)' }}
-              transition="all 0.2s"
-            />
-          </Flex>
-        </Container>
-      </Box>
+      
 
       {/* Main Content */}
       <Container maxW="container.xl" py={{ base: 6, md: 8 }}>
@@ -1162,6 +1128,7 @@ function TwoTruths() {
         </VStack>
       </Container>
     </Flex>
+    </>
   );
 }
 

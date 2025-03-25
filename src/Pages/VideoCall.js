@@ -41,6 +41,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
 import { useUserRatingData } from '../hooks/useUserRatingData';
+import TopBar from '../Components/TopBar';
 
 const RatingScale = lazy(() => import('../Components/RatingScale'));
 
@@ -541,50 +542,9 @@ function VideoCall() {
 
   // **JSX Return Statement**
   return (
+    <>
+    <TopBar />
     <Flex direction="column" minH="100vh" bg="gray.50">
-      <Box
-        position="sticky"
-        top="0"
-        w="100%"
-        bg="rgba(255, 255, 255, 0.8)"
-        backdropFilter="blur(10px)"
-        zIndex="sticky"
-        borderBottomWidth="1px"
-        boxShadow="sm"
-      >
-        <Container maxW="container.xl" py={4}>
-          <Flex justify="space-between" align="center">
-            <Heading
-              as="h1"
-              size="xl"
-              color="blue.700"
-              fontWeight="bold"
-              onClick={() => navigate('/')}
-              cursor="pointer"
-            >
-              Lookzapp
-            </Heading>
-            <HStack spacing={4}>
-              <Button
-                variant="link"
-                color="blue.500"
-                fontWeight="medium"
-                onClick={() => navigate('/top-rated-users')}
-              >
-                Top Rated Users
-              </Button>
-              <Button
-                variant="link"
-                color="red.500"
-                fontWeight="medium"
-                onClick={handleSignOut}
-              >
-                Sign Out
-              </Button>
-            </HStack>
-          </Flex>
-        </Container>
-      </Box>
 
       <Container maxW="container.xl" py={{ base: 4, md: 6 }}>
         <VStack spacing={{ base: 4, md: 6 }} align="stretch">
@@ -800,6 +760,7 @@ function VideoCall() {
         </VStack>
       </Container>
     </Flex>
+    </>
   );
 }
 

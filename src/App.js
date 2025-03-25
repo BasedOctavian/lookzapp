@@ -14,6 +14,7 @@ import GeoCall from './Pages/GeoCall';
 import TwoTruths from './Pages/TwoTruths';
 import GetRankedSelection from './Pages/GetRankedSelection';
 import GetRanked from './Pages/GetRanked';
+import InfluencerProfile from './Pages/InfluencerProfile';
 
 function App() {
   // State to show or hide the warning overlay
@@ -43,6 +44,7 @@ function App() {
           <Route path="/video-call" element={<PrivateRoute><VideoCall /></PrivateRoute>} />
           <Route path="/" element={<Navigate to="/home" />} />
           <Route path="/profile/:userId" element={<PrivateRoute><Profile /></PrivateRoute>} />
+          <Route path="/influencer-profile/:influencerId" element={<PrivateRoute><InfluencerProfile /></PrivateRoute>} />
           <Route path="/home" element={<PrivateRoute><HomeScreen /></PrivateRoute>} />
           <Route path="/updates" element={<PrivateRoute><Updates /></PrivateRoute>} />
           <Route path="/geo-call" element={<PrivateRoute><GeoCall /></PrivateRoute>} />

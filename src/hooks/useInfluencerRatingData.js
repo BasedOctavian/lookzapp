@@ -6,58 +6,51 @@ export function useInfluencerRatingData(influencerId) {
   const [influencerData, setInfluencerData] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Normalize influencerId to a string (or null if invalid)
+  const strInfluencerId = influencerId ? String(influencerId) : null;
+
   // Fetch influencer data from Firestore when influencerId changes
   useEffect(() => {
     const fetchInfluencerData = async () => {
-      // Check if influencerId is a string and not empty
-      console.log('influencerId', influencerId);
-      if (typeof influencerId === 'string' && influencerId) {
-        const influencerDocRef = doc(db, 'streamers', influencerId);
-        const influencerDocSnap = await getDoc(influencerDocRef);
-        if (influencerDocSnap.exists()) {
-          setInfluencerData({ id: influencerId, ...influencerDocSnap.data() });
-        } else {
-          setInfluencerData(null); // Reset if influencer doesn't exist
+      if (strInfluencerId) {
+        try {
+          const influencerDocRef = doc(db, 'streamers', strInfluencerId);
+          const influencerDocSnap = await getDoc(influencerDocRef);
+          if (influencerDocSnap.exists()) {
+            setInfluencerData({ id: strInfluencerId, ...influencerDocSnap.data() });
+          } else {
+            console.log(`No document found for influencerId: ${strInfluencerId}`);
+            setInfluencerData(null);
+          }
+        } catch (error) {
+          console.error('Error fetching influencer data:', error);
+          setInfluencerData(null);
         }
       } else {
-        console.error('Invalid influencerId:', influencerId);
-        setInfluencerData(null); // Reset data if influencerId is invalid
+        console.log('influencerId is null or invalid:', influencerId);
+        setInfluencerData(null);
       }
       setLoading(false);
     };
 
     fetchInfluencerData();
-  }, [influencerId]);
+  }, [strInfluencerId]); // Depend on strInfluencerId
 
   // Calculate the influencer's average rating
   const rating = useMemo(() => {
     if (!influencerData) return 0;
     const totalRanking = influencerData.ranking || 0;
-    console.log('Total ranking:', totalRanking);
     const timesRanked = influencerData.timesRanked || 0;
-    console.log('Times ranked:', timesRanked);
-    console.log('Should be returned', timesRanked > 0 ? totalRanking / timesRanked : 0);
     return timesRanked > 0 ? totalRanking / timesRanked : 0;
   }, [influencerData]);
 
-  /**
-   * Submit a new rating for the influencer and update Firestore.
-   *
-   * @param {number} newRating - The overall rating submitted (e.g., 8).
-   * @param {Object} featureAllocations - Points allocated to each feature from RatingScale.
-   *   Expected keys from RatingScale: 'Eyes', 'Smile', 'Jawline', 'Hair', 'Body'.
-   *   Values are the points (e.g., { Eyes: 2.4, Smile: 1.6, ... }).
-   */
   const submitRating = async (newRating, featureAllocations) => {
-    // Validate influencerId
-    const strInfluencerId = influencerId.toString();
-    if (typeof strInfluencerId !== 'string' || !influencerId) {
+    if (!strInfluencerId) {
       console.error('Invalid influencerId:', influencerId);
       return;
     }
     const influencerDocRef = doc(db, 'streamers', strInfluencerId);
 
-    // Define the key mapping from RatingScale to Firestore fields
     const keyMapping = {
       'Eyes': 'eyesRating',
       'Smile': 'smileRating',
@@ -66,18 +59,12 @@ export function useInfluencerRatingData(influencerId) {
       'Body': 'bodyRating',
     };
 
-    // Transform featureAllocations keys to match Firestore field names
     const mappedAllocations = {};
     for (const [feature, score] of Object.entries(featureAllocations)) {
       const mappedKey = keyMapping[feature];
-      if (mappedKey) {
-        mappedAllocations[mappedKey] = score;
-      } else {
-        console.warn(`No mapping found for feature: ${feature}`);
-      }
+      if (mappedKey) mappedAllocations[mappedKey] = score;
     }
 
-    // Get current cumulative ratings, defaulting to 0 if undefined
     const currentEyes = influencerData?.eyesRating || 0;
     const currentSmile = influencerData?.smileRating || 0;
     const currentFacial = influencerData?.facialRating || 0;
@@ -86,21 +73,15 @@ export function useInfluencerRatingData(influencerId) {
     const currentTimesRanked = influencerData?.timesRanked || 0;
     const currentRanking = influencerData?.ranking || 0;
 
-    // Update cumulative feature ratings with mapped values
     const updatedEyes = currentEyes + (mappedAllocations.eyesRating || 0);
     const updatedSmile = currentSmile + (mappedAllocations.smileRating || 0);
     const updatedFacial = currentFacial + (mappedAllocations.facialRating || 0);
     const updatedHair = currentHair + (mappedAllocations.hairRating || 0);
     const updatedBody = currentBody + (mappedAllocations.bodyRating || 0);
-
-    // Update overall ranking and times ranked
     const updatedTimesRanked = currentTimesRanked + 1;
     const updatedRanking = currentRanking + newRating;
-
-    // Calculate the new average rating
     const updatedAverageRating = updatedTimesRanked > 0 ? updatedRanking / updatedTimesRanked : 0;
 
-    // Update the influencer's document in Firestore
     await updateDoc(influencerDocRef, {
       eyesRating: updatedEyes,
       smileRating: updatedSmile,
@@ -111,13 +92,11 @@ export function useInfluencerRatingData(influencerId) {
       timesRanked: updatedTimesRanked,
     });
 
-    // Store the daily average rating in the 'dailyRatings' sub-collection
-    const currentDate = new Date().toISOString().split('T')[0]; // e.g., '2023-10-17'
+    const currentDate = new Date().toISOString().split('T')[0];
     await setDoc(doc(db, 'streamers', strInfluencerId, 'dailyRatings', currentDate), {
       averageRating: updatedAverageRating.toFixed(1),
     });
 
-    // Update local state for immediate UI feedback
     setInfluencerData((prev) => ({
       ...prev,
       eyesRating: updatedEyes,
