@@ -24,6 +24,7 @@ import Avatar from '@mui/material/Avatar';
 import { Divider } from '@mui/material';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import TopBar from '../Components/TopBar';
+import Footer from '../Components/Footer';
 
 function Profile() {
   const { userId } = useParams();
@@ -304,6 +305,7 @@ function Profile() {
         {profileContent}
       </Flex>
     </Flex>
+    <Footer />
     </>
   );
 }

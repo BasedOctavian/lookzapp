@@ -25,6 +25,7 @@ import { Divider } from '@mui/material';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { useEffect } from 'react';
 import TopBar from '../Components/TopBar';
+import Footer from '../Components/Footer';
 
 function InfluencerProfile() {
   const { influencerId } = useParams();
@@ -318,6 +319,7 @@ function InfluencerProfile() {
         {profileContent}
       </Flex>
     </Flex>
+    <Footer />
     </>
   );
 }

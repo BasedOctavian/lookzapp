@@ -14,13 +14,15 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUserData } from '../hooks/useUserData';
+import { useInfluencerRatingData } from '../hooks/useInfluencerRatingData';
+import { useUserRatingData } from '../hooks/useUserRatingData';
 import { Star } from '@mui/icons-material';
 import { useToast } from '@chakra-ui/toast';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import { useInfluencerRatingData } from '../hooks/useInfluencerRatingData';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import TopBar from '../Components/TopBar';
+import Footer from '../Components/Footer';
 
 const RatingScale = lazy(() => import('../Components/RatingScale'));
 
@@ -40,8 +42,8 @@ function GetRanked() {
   const category = queryParams.get('category') || 'Unknown Category';
 
   const [localStream, setLocalStream] = useState(null);
-  const [shuffledInfluencers, setShuffledInfluencers] = useState([]);
-  const [influencersList, setInfluencersList] = useState([]);
+  const [shuffledEntities, setShuffledEntities] = useState([]);
+  const [entitiesList, setEntitiesList] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [ratingKey, setRatingKey] = useState(0);
@@ -50,41 +52,55 @@ function GetRanked() {
   const localVideoRef = useRef(null);
 
   const toast = useToast();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { userData, rating: localRating, loading: userLoading } = useUserData();
-  const [influencerRating, setInfluencerRating] = useState(null);
 
   const isMobile = useBreakpointValue({ base: true, md: false });
 
-  const currentInfluencer =
-    influencersList.length > 0 &&
-    currentIndex >= 0 &&
-    currentIndex < influencersList.length
-      ? influencersList[currentIndex]
+  const currentEntity =
+    entitiesList.length > 0 && currentIndex >= 0 && currentIndex < entitiesList.length
+      ? entitiesList[currentIndex]
       : null;
 
-  const {
-    influencerData,
-    submitRating,
-    loading: ratingLoading,
-    error: ratingError,
-  } = useInfluencerRatingData(currentInfluencer?.id || null);
+  // Determine entity type for dynamic hook usage
+  const isStreamer = currentEntity?.type === 'streamer';
+  const isUser = currentEntity?.type === 'user';
+
+  // Use both hooks but pass ID conditionally based on entity type
+  const influencerRatingHook = useInfluencerRatingData(isStreamer ? currentEntity?.id : null);
+  const userRatingHook = useUserRatingData(isUser ? currentEntity?.id : null);
+
+  const ratedEntityData = isStreamer
+    ? influencerRatingHook.influencerData
+    : isUser
+    ? userRatingHook.userData
+    : null;
+  const entityRating = isStreamer
+    ? influencerRatingHook.rating
+    : isUser
+    ? userRatingHook.rating
+    : null;
+  const submitRating = isStreamer
+    ? influencerRatingHook.submitRating
+    : isUser
+    ? userRatingHook.submitRating
+    : null;
+  const ratingLoading = isStreamer
+    ? influencerRatingHook.loading
+    : isUser
+    ? userRatingHook.loading
+    : false;
+  const ratingError = isStreamer
+    ? influencerRatingHook.error
+    : isUser
+    ? userRatingHook.error
+    : null;
 
   useEffect(() => {
-    if (influencerData) console.log('Current Influencer Data:', influencerData);
+    if (ratedEntityData) console.log('Current Rated Entity Data:', ratedEntityData);
     if (userData) console.log('Current AuthUser Data:', userData);
-  }, [influencerData, userData]);
-
-  useEffect(() => {
-    if (currentInfluencer) {
-      if (currentInfluencer.timesRanked > 0) {
-        setInfluencerRating(currentInfluencer.ranking / currentInfluencer.timesRanked);
-      } else {
-        setInfluencerRating(0);
-      }
-    }
-  }, [currentInfluencer]);
+  }, [ratedEntityData, userData]);
 
   useEffect(() => {
     navigator.mediaDevices
@@ -105,46 +121,94 @@ function GetRanked() {
       });
   }, [toast]);
 
-  // Fetch and shuffle influencers based on category
+  // Fetch and shuffle entities based on category
   useEffect(() => {
-    const loadInfluencers = async () => {
+    const loadEntities = async () => {
+      // Require authentication for 'all' and 'other-users' categories
+      if ((category === 'all' || category === 'other-users') && !user) {
+        setShuffledEntities([]);
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(true);
       try {
-        const q = query(collection(db, 'streamers'), where('category', '==', category));
-        const querySnapshot = await getDocs(q);
-        const influencers = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        const shuffled = shuffleArray(influencers);
-        setShuffledInfluencers(shuffled);
+        let entities = [];
+        if (category === 'all') {
+          // Fetch all streamers (influencers and celebrities)
+          const streamersQuery = query(collection(db, 'streamers'));
+          const streamersSnapshot = await getDocs(streamersQuery);
+          const streamers = streamersSnapshot.docs.map((doc) => ({
+            id: doc.id,
+            type: 'streamer',
+            name: doc.data().name,
+            photo_url: doc.data().photo_url,
+            ...doc.data(),
+          }));
+          entities = [...entities, ...streamers];
+
+          // Fetch all users except the current one
+          const usersQuery = query(collection(db, 'users'), where('__name__', '!=', user.uid));
+          const usersSnapshot = await getDocs(usersQuery);
+          const users = usersSnapshot.docs.map((doc) => ({
+            id: doc.id,
+            type: 'user',
+            name: doc.data().displayName || 'Unknown User',
+            photo_url: doc.data().profilePicture || 'default_image_url',
+            ...doc.data(),
+          }));
+          entities = [...entities, ...users];
+        } else if (category === 'other-users') {
+          // Fetch all users except the current one
+          const usersQuery = query(collection(db, 'users'), where('__name__', '!=', user.uid));
+          const usersSnapshot = await getDocs(usersQuery);
+          const users = usersSnapshot.docs.map((doc) => ({
+            id: doc.id,
+            type: 'user',
+            name: doc.data().displayName || 'Unknown User',
+            photo_url: doc.data().profilePicture || 'default_image_url',
+            ...doc.data(),
+          }));
+          entities = [...entities, ...users];
+        } else {
+          // Fetch streamers for the specified category
+          const streamersQuery = query(collection(db, 'streamers'), where('category', '==', category));
+          const streamersSnapshot = await getDocs(streamersQuery);
+          const streamers = streamersSnapshot.docs.map((doc) => ({
+            id: doc.id,
+            type: 'streamer',
+            name: doc.data().name,
+            photo_url: doc.data().photo_url,
+            ...doc.data(),
+          }));
+          entities = [...entities, ...streamers];
+        }
+        const shuffled = shuffleArray(entities);
+        setShuffledEntities(shuffled);
       } catch (error) {
-        console.error('Error fetching influencers:', error);
+        console.error('Error fetching entities:', error);
         toast({
           title: 'Fetch Error',
-          description: 'Failed to load influencers.',
+          description: 'Failed to load entities.',
           status: 'error',
           duration: 3000,
           isClosable: true,
         });
-        setShuffledInfluencers([]);
+        setShuffledEntities([]);
       }
       setIsLoading(false);
     };
-    loadInfluencers();
-  }, [category, toast]);
+    loadEntities();
+  }, [category, toast, user]);
 
-  // Apply gender filter whenever shuffledInfluencers or genderFilter changes
+  // Apply gender filter whenever shuffledEntities or genderFilter changes
   useEffect(() => {
-    let filteredList = shuffledInfluencers;
+    let filteredList = shuffledEntities;
     if (genderFilter !== 'both') {
-      filteredList = shuffledInfluencers.filter(
-        (influencer) => influencer.gender === genderFilter
-      );
+      filteredList = shuffledEntities.filter((entity) => entity.gender === genderFilter);
     }
-    setInfluencersList(filteredList);
+    setEntitiesList(filteredList);
     setCurrentIndex(0);
-  }, [shuffledInfluencers, genderFilter]);
+  }, [shuffledEntities, genderFilter]);
 
   const handleSignOut = async () => {
     try {
@@ -163,19 +227,19 @@ function GetRanked() {
   };
 
   const handleRatingSubmit = async (rating, featureAllocations) => {
-    if (!currentInfluencer) return;
+    if (!currentEntity || !submitRating) return;
     try {
       await submitRating(rating, featureAllocations);
       toast({
         title: 'Rating Submitted',
-        description: `You rated ${currentInfluencer.name}: ${rating}`,
+        description: `You rated ${currentEntity.name}: ${rating}`,
         status: 'success',
         duration: 3000,
         isClosable: true,
       });
       setRatingKey((prevKey) => prevKey + 1);
       setCurrentIndex((prevIndex) =>
-        influencersList.length > 0 ? (prevIndex + 1) % influencersList.length : prevIndex
+        entitiesList.length > 0 ? (prevIndex + 1) % entitiesList.length : prevIndex
       );
     } catch (error) {
       console.error('Error submitting rating:', error);
@@ -191,22 +255,22 @@ function GetRanked() {
 
   const handleNextPhoto = () => {
     setCurrentIndex((prevIndex) =>
-      influencersList.length > 0 ? (prevIndex + 1) % influencersList.length : prevIndex
+      entitiesList.length > 0 ? (prevIndex + 1) % entitiesList.length : prevIndex
     );
     setRatingKey((prevKey) => prevKey + 1);
   };
 
   const handlePreviousPhoto = () => {
     setCurrentIndex((prevIndex) =>
-      influencersList.length > 0
-        ? (prevIndex - 1 + influencersList.length) % influencersList.length
+      entitiesList.length > 0
+        ? (prevIndex - 1 + entitiesList.length) % entitiesList.length
         : prevIndex
     );
     setRatingKey((prevKey) => prevKey + 1);
   };
 
   const chartData = useMemo(() => {
-    if (!userData || !influencerData) return [];
+    if (!userData || !ratedEntityData) return [];
     const featureMapping = {
       Eyes: 'eyesRating',
       Smile: 'smileRating',
@@ -216,28 +280,23 @@ function GetRanked() {
     };
     return Object.entries(featureMapping).map(([feature, field]) => {
       const userTimesRanked = userData.timesRanked || 0;
-      const influencerTimesRanked = influencerData.timesRanked || 0;
+      const entityTimesRanked = ratedEntityData.timesRanked || 0;
       const userAvg = userTimesRanked > 0 ? (userData[field] || 0) / userTimesRanked : 0;
-      const influencerAvg =
-        influencerTimesRanked > 0 ? (influencerData[field] || 0) / influencerTimesRanked : 0;
-      return { feature, user: userAvg, influencer: influencerAvg };
+      const entityAvg =
+        entityTimesRanked > 0 ? (ratedEntityData[field] || 0) / entityTimesRanked : 0;
+      return { feature, user: userAvg, influencer: entityAvg };
     });
-  }, [userData, influencerData]);
+  }, [userData, ratedEntityData]);
 
   return (
     <>
       <TopBar />
       <Flex direction="column" minH="100vh" bg="gray.50" overflowX="hidden">
         <Container maxW="container.xl" py={{ base: 4, md: 6 }} overflow="hidden">
-          {/* Gender Filter Buttons - Adjusted for mobile */}
+          {/* Gender Filter Buttons */}
           <VStack align="center" mb={4}>
             <Text fontSize="lg" fontWeight="bold">Filter by Gender</Text>
-            <Flex
-              wrap="wrap"
-              gap={2}
-              justify="center"
-              width={{ base: '100%', md: 'auto' }}
-            >
+            <Flex wrap="wrap" gap={2} justify="center" width={{ base: '100%', md: 'auto' }}>
               {['male', 'female', 'both'].map((gender) => (
                 <Button
                   key={gender}
@@ -253,7 +312,7 @@ function GetRanked() {
           </VStack>
 
           <VStack spacing={{ base: 4, md: 6 }} align="stretch">
-            {/* Adjusted sticky header for mobile */}
+            {/* Video and Photo Display */}
             <Box
               position={{ base: 'static', md: 'sticky' }}
               top={{ md: '0' }}
@@ -272,7 +331,7 @@ function GetRanked() {
                 align="flex-start"
                 gap={6}
               >
-                {/* Video Stream - Adjusted height for mobile */}
+                {/* User's Video Stream */}
                 <Box
                   w={{ base: '100%', md: '45%' }}
                   h={{ base: '40vh', md: '50vh' }}
@@ -316,7 +375,7 @@ function GetRanked() {
                   </HStack>
                 </Box>
 
-                {/* Influencer's Photo - Adjusted height for mobile */}
+                {/* Entity's Photo */}
                 <Box
                   w={{ base: '100%', md: '45%' }}
                   h={{ base: '40vh', md: '50vh' }}
@@ -330,15 +389,15 @@ function GetRanked() {
                 >
                   {isLoading || ratingLoading ? (
                     <Spinner size="xl" color="blue.500" />
-                  ) : currentInfluencer ? (
+                  ) : currentEntity ? (
                     <img
-                      src={currentInfluencer.photo_url}
-                      alt={currentInfluencer.name}
+                      src={currentEntity.photo_url}
+                      alt={currentEntity.name}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
                   ) : (
                     <Text fontSize="lg" color="gray.500">
-                      No influencers available for the selected filter
+                      No entities available for the selected filter
                     </Text>
                   )}
                   <HStack
@@ -353,17 +412,17 @@ function GetRanked() {
                     spacing={1}
                   >
                     <Text fontSize="sm" fontWeight="medium">
-                      {currentInfluencer ? currentInfluencer.name : 'No User'}
+                      {currentEntity ? currentEntity.name : 'No User'}
                     </Text>
-                    {currentInfluencer && !ratingLoading && !ratingError && (
+                    {currentEntity && !ratingLoading && !ratingError && (
                       <HStack spacing={1}>
                         <Star sx={{ fontSize: 16, color: '#FFD700' }} />
                         <Text fontSize="sm" fontWeight="medium">
-                          {influencerRating?.toFixed(1)}
+                          {entityRating?.toFixed(1)}
                         </Text>
                       </HStack>
                     )}
-                    {currentInfluencer && !ratingLoading && ratingError && (
+                    {currentEntity && !ratingLoading && ratingError && (
                       <Text fontSize="sm" fontWeight="medium">
                         Rating unavailable
                       </Text>
@@ -373,8 +432,8 @@ function GetRanked() {
               </Flex>
             </Box>
 
-            {/* Chart container - Adjusted for mobile */}
-            {!userLoading && !ratingLoading && userData && influencerData && (
+            {/* Feature Rating Comparison Chart */}
+            {!userLoading && !ratingLoading && userData && ratedEntityData && (
               <Box
                 w="100%"
                 p={4}
@@ -397,14 +456,14 @@ function GetRanked() {
                     <Bar
                       dataKey="influencer"
                       fill="#82ca9d"
-                      name={`${currentInfluencer?.name || 'Influencer'}'s Average`}
+                      name={`${currentEntity?.name || 'Entity'}'s Average`}
                     />
                   </BarChart>
                 </ResponsiveContainer>
               </Box>
             )}
 
-            {/* Rating Scale - Improved mobile padding */}
+            {/* Rating Scale */}
             <Suspense fallback={<Spinner />}>
               <Box
                 w="100%"
@@ -413,22 +472,22 @@ function GetRanked() {
                 borderRadius="2xl"
                 boxShadow={{ md: 'xl' }}
               >
-                {currentInfluencer ? (
+                {currentEntity ? (
                   <RatingScale key={ratingKey} onRate={handleRatingSubmit} />
                 ) : (
-                  <Text>No influencers available for the selected filter.</Text>
+                  <Text>No entities available for the selected filter.</Text>
                 )}
               </Box>
             </Suspense>
 
-            {/* Navigation Buttons - Stack vertically on mobile */}
+            {/* Navigation Buttons */}
             <Flex
               direction={{ base: 'column', md: 'row' }}
               gap={4}
               justify="center"
               mt={{ base: 2, md: 0 }}
             >
-              {influencersList.length > 0 && (
+              {entitiesList.length > 0 && (
                 <>
                   <Button
                     colorScheme="teal"
@@ -456,6 +515,7 @@ function GetRanked() {
           </VStack>
         </Container>
       </Flex>
+      <Footer />
     </>
   );
 }

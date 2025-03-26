@@ -26,6 +26,7 @@ import {
   Td,
   TableContainer
 } from "@chakra-ui/table";
+import Footer from "../Components/Footer";
 
 export default function TopRatedUsersGrid() {
   // State for users and streamers
@@ -230,6 +231,7 @@ export default function TopRatedUsersGrid() {
           </VStack>
         </Container>
       </Flex>
+      <Footer />
     </>
   );
 }

@@ -37,6 +37,7 @@ import { useUserData } from '../hooks/useUserData';
 import { IconButton } from '@mui/material';
 import { LoadScript, GoogleMap, Marker } from '@react-google-maps/api';
 import TopBar from '../Components/TopBar';
+import Footer from '../Components/Footer';
 
 const mapContainerStyle = {
   width: '100%',
@@ -979,6 +980,7 @@ function GeoCall() {
         </VStack>
       </Container>
     </Flex>
+    <Footer />
     </>
   );
 }

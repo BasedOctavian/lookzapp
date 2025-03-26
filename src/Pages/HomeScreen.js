@@ -5,6 +5,7 @@ import { FaVideo, FaStar, FaMapMarkedAlt, FaGamepad, FaEnvelope, FaTrophy } from
 import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
 import TopBar from '../Components/TopBar';
+import Footer from '../Components/Footer';
 
 
 function HomeScreen() {
@@ -130,6 +131,7 @@ function HomeScreen() {
         </VStack>
       </Container>
     </Box>
+    <Footer />
     </>
   );
 }

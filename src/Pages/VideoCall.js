@@ -42,6 +42,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
 import { useUserRatingData } from '../hooks/useUserRatingData';
 import TopBar from '../Components/TopBar';
+import Footer from '../Components/Footer';
 
 const RatingScale = lazy(() => import('../Components/RatingScale'));
 
@@ -760,6 +761,7 @@ function VideoCall() {
         </VStack>
       </Container>
     </Flex>
+    <Footer />
     </>
   );
 }

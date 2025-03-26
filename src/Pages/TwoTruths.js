@@ -50,6 +50,7 @@ import { FormControl, FormErrorMessage } from '@chakra-ui/form-control';
 import { Skeleton } from '@chakra-ui/skeleton';
 import { Progress } from '@chakra-ui/progress';
 import TopBar from '../Components/TopBar';
+import Footer from '../Components/Footer';
 
 // Memoized StatementInput Component to Prevent Unnecessary Re-renders
 const StatementInput = React.memo(({ stmt, index, onChange, isDisabled, isSelected }) => {
@@ -1128,6 +1129,7 @@ function TwoTruths() {
         </VStack>
       </Container>
     </Flex>
+    <Footer />
     </>
   );
 }
