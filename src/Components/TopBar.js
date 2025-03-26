@@ -10,7 +10,7 @@ import {
   Spacer, 
   useBreakpointValue 
 } from '@chakra-ui/react';
-import { FaVideo, FaGamepad, FaTrophy, FaStar, FaMapMarkedAlt, FaEnvelope, FaBars, FaHamburger } from 'react-icons/fa';
+import { FaVideo, FaGamepad, FaTrophy, FaStar, FaMapMarkedAlt, FaEnvelope, FaBars } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import Drawer from '@mui/material/Drawer';
 import MuiBox from '@mui/material/Box';
@@ -19,11 +19,9 @@ import Typography from '@mui/material/Typography';
 import MuiButton from '@mui/material/Button';
 import CloseIcon from '@mui/icons-material/Close';
 
-
 const TopBar = () => {
   const navigate = useNavigate();
 
-  // Navigation items array
   const navItems = [
     { title: 'Video Chat', icon: FaVideo, route: '/video-call' },
     { title: 'Other Games', icon: FaGamepad, route: '/two-truths' },
@@ -33,10 +31,7 @@ const TopBar = () => {
     { title: 'Messages', icon: FaEnvelope, route: '/messages' },
   ];
 
-  // Detect screen size
   const isDesktop = useBreakpointValue({ base: false, md: true });
-
-  // State for drawer open/close
   const [isOpen, setIsOpen] = useState(false);
   const handleToggle = () => setIsOpen(!isOpen);
 
@@ -50,18 +45,18 @@ const TopBar = () => {
       style={{ position: 'sticky', top: 0, zIndex: 100, marginTop: '-50' }}
     >
       <Flex align="center">
-        {/* Logo */}
-        <Text
-          fontSize={{ base: 'xl', md: '2xl' }}
-          fontWeight="bold"
-          cursor="pointer"
-          onClick={() => navigate('/')}
-        >
-          Lookzapp
-        </Text>
+        {/* Logo using image from public folder */}
+        <Box 
+          as="img" 
+          src="/lookzapp.png" 
+          alt="Lookzapp Logo" 
+          maxH="60px" 
+          cursor="pointer" 
+          onClick={() => navigate('/')} 
+          style={{ objectFit: 'contain', marginLeft: '-15px' }}
+        />
         <Spacer />
 
-        {/* Desktop Navigation */}
         {isDesktop ? (
           <HStack spacing={6}>
             {navItems.map((item) => (
@@ -84,26 +79,21 @@ const TopBar = () => {
             ))}
           </HStack>
         ) : (
-          /* Mobile Hamburger Icon */
           <MuiIconButton onClick={handleToggle}>
-                <FaBars />
-              </MuiIconButton>
+            <FaBars />
+          </MuiIconButton>
         )}
       </Flex>
 
-      {/* Mobile Drawer */}
       {!isDesktop && (
         <Drawer anchor="right" open={isOpen} onClose={handleToggle}>
           <MuiBox sx={{ width: 250 }} role="presentation">
-            {/* Drawer Header */}
             <MuiBox sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2 }}>
               <Typography variant="h6">Menu</Typography>
               <MuiIconButton onClick={handleToggle}>
                 <CloseIcon />
               </MuiIconButton>
             </MuiBox>
-
-            {/* Navigation Items */}
             <MuiBox sx={{ p: 2 }}>
               {navItems.map((item) => (
                 <MuiButton
