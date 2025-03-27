@@ -18,6 +18,7 @@ import {
 } from '@chakra-ui/react';
 import { useInfluencerRatingData } from '../hooks/useInfluencerRatingData';
 import { useInfluencerDailyRatings } from '../hooks/useInfluencerDailyRatings';
+import { useInfluencerBadges } from '../hooks/useInfluencerBadges';
 import { CircularProgress } from '@chakra-ui/progress';
 import { FiAward, FiLogOut, FiStar, FiUsers } from 'react-icons/fi';
 import Avatar from '@mui/material/Avatar';
@@ -26,12 +27,15 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { useEffect } from 'react';
 import TopBar from '../Components/TopBar';
 import Footer from '../Components/Footer';
+import InfluencerGalleryCircle from '../Components/InfluencerGalleryCircle';
+import Badges from '../Components/Badges'; // Import the new Badges component
 
 function InfluencerProfile() {
   const { influencerId } = useParams();
   const navigate = useNavigate();
-  const { influencerData, rating, loading } = useInfluencerRatingData(influencerId);
+  const { influencerData, rating, loading: ratingLoading } = useInfluencerRatingData(influencerId);
   const { dailyRatings, loading: dailyRatingsLoading } = useInfluencerDailyRatings(influencerId);
+  const { earnedBadges, loading: badgesLoading } = useInfluencerBadges(influencerId);
   const isMobile = useBreakpointValue({ base: true, md: false });
   const cardBg = 'white';
   const headerBg = 'rgba(255, 255, 255, 0.8)';
@@ -64,7 +68,7 @@ function InfluencerProfile() {
   }, [dailyRatings]);
 
   let profileContent;
-  if (loading) {
+  if (ratingLoading || badgesLoading) {
     profileContent = (
       <VStack spacing={4} py={12}>
         <Spinner size="xl" thickness="3px" />
@@ -123,6 +127,21 @@ function InfluencerProfile() {
       { key: 'body', label: 'Physique', percent: percentages.body, icon: FiStar },
     ];
 
+    const timesRanked = influencerData.timesRanked || 0;
+    const featureAverages = features.map((feature) => ({
+      ...feature,
+      avg: timesRanked > 0 ? (influencerData[`${feature.key}Rating`] || 0) / timesRanked : 0,
+    }));
+
+    const bestFeature = featureAverages.reduce(
+      (max, feature) => (feature.avg > max.avg ? feature : max),
+      featureAverages[0]
+    );
+    const worstFeature = featureAverages.reduce(
+      (min, feature) => (feature.avg < min.avg ? feature : min),
+      featureAverages[0]
+    );
+
     profileContent = (
       <Box
         w="100%"
@@ -143,21 +162,27 @@ function InfluencerProfile() {
           borderTopLeftRadius="2xl"
           borderTopRightRadius="2xl"
         >
-          <Avatar
-            alt={influencerData.name}
-            src={influencerData.photo_url}
-            sx={{
-              width: 200,
-              height: 200,
-              border: '4px solid',
-              borderColor: cardBg,
-              position: 'absolute',
-              bottom: '-80px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-            }}
-          />
+          <Box
+            position="absolute"
+            bottom="-80px"
+            left="50%"
+            transform="translateX(-50%)"
+            width={200}
+            height={200}
+          >
+            <Avatar
+              alt={influencerData.name}
+              src={influencerData.photo_url}
+              sx={{
+                width: '100%',
+                height: '100%',
+                border: '4px solid',
+                borderColor: cardBg,
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+              }}
+            />
+            <InfluencerGalleryCircle name={influencerData.name} />
+          </Box>
         </Box>
 
         {/* Profile Content */}
@@ -166,6 +191,7 @@ function InfluencerProfile() {
             <Heading as="h1" size="2xl" fontWeight="extrabold" letterSpacing="tight">
               {influencerData.name}
             </Heading>
+            <Badges earnedBadges={earnedBadges} /> {/* Integrate the new Badges component */}
           </VStack>
 
           {/* Stats Grid */}
@@ -173,7 +199,7 @@ function InfluencerProfile() {
             {[
               { label: 'Global Rank', value: 'N/A', color: 'blue.500' },
               { label: 'Avg Rating', value: rating?.toFixed(1), color: 'purple.500' },
-              { label: 'Total Ratings', value: 'N/A', color: 'teal.500' },
+              { label: 'Total Ratings', value: influencerData.timesRanked || 0, color: 'teal.500' },
             ].map((stat) => (
               <GridItem key={stat.label}>
                 <VStack spacing={1}>
@@ -229,12 +255,35 @@ function InfluencerProfile() {
                       {feature.label}
                     </Text>
                     <Text fontSize="xs" color="gray.500">
-                      {influencerData[`${feature.key}Rating`]?.toFixed(1)} avg
+                      {timesRanked > 0
+                        ? ((influencerData[`${feature.key}Rating`] || 0) / timesRanked).toFixed(1)
+                        : '0.0'}{' '}
+                      avg
                     </Text>
                   </VStack>
                 </GridItem>
               ))}
             </Grid>
+            {timesRanked > 0 && (
+              <HStack spacing={8} justify="center" mt={4}>
+                <VStack>
+                  <Text fontSize="lg" fontWeight="bold" color="green.500">
+                    Best Feature
+                  </Text>
+                  <Text>
+                    {bestFeature.label}: {bestFeature.avg.toFixed(1)}
+                  </Text>
+                </VStack>
+                <VStack>
+                  <Text fontSize="lg" fontWeight="bold" color="red.500">
+                    Worst Feature
+                  </Text>
+                  <Text>
+                    {worstFeature.label}: {worstFeature.avg.toFixed(1)}
+                  </Text>
+                </VStack>
+              </HStack>
+            )}
           </VStack>
 
           <Divider />
@@ -257,7 +306,10 @@ function InfluencerProfile() {
                     <XAxis
                       dataKey="date"
                       tickFormatter={(date) =>
-                        new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                        new Date(date).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                        })
                       }
                       stroke="#718096"
                       tickLine={{ stroke: '#e2e8f0' }}
@@ -311,15 +363,14 @@ function InfluencerProfile() {
 
   return (
     <>
-    <TopBar />
-    <Flex direction="column" minH="100vh" bg="gray.50">
-
-      {/* Main Content */}
-      <Flex flex={1} justify="center" p={4}>
-        {profileContent}
+      <TopBar />
+      <Flex direction="column" minH="100vh" bg="gray.50">
+        {/* Main Content */}
+        <Flex flex={1} justify="center" p={4}>
+          {profileContent}
+        </Flex>
       </Flex>
-    </Flex>
-    <Footer />
+      <Footer />
     </>
   );
 }

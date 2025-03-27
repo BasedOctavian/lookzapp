@@ -8,21 +8,25 @@ import {
   VStack,
   HStack,
   Heading,
-  Spinner,
   useBreakpointValue,
+  IconButton,
 } from '@chakra-ui/react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUserData } from '../hooks/useUserData';
 import { useInfluencerRatingData } from '../hooks/useInfluencerRatingData';
 import { useUserRatingData } from '../hooks/useUserRatingData';
-import { Star } from '@mui/icons-material';
+import { ArrowLeft, ArrowRight, Star, Videocam, VideocamOff } from '@mui/icons-material';
 import { useToast } from '@chakra-ui/toast';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import TopBar from '../Components/TopBar';
 import Footer from '../Components/Footer';
+import InfluencerGalleryCircle from '../Components/InfluencerGalleryCircle';
+import { Spinner } from '@heroui/react';
+
+
 
 const RatingScale = lazy(() => import('../Components/RatingScale'));
 
@@ -48,6 +52,7 @@ function GetRanked() {
   const [isLoading, setIsLoading] = useState(false);
   const [ratingKey, setRatingKey] = useState(0);
   const [genderFilter, setGenderFilter] = useState('both');
+  const [isComparisonToggled, setIsComparisonToggled] = useState(false);
 
   const localVideoRef = useRef(null);
 
@@ -63,11 +68,9 @@ function GetRanked() {
       ? entitiesList[currentIndex]
       : null;
 
-  // Determine entity type for dynamic hook usage
   const isStreamer = currentEntity?.type === 'streamer';
   const isUser = currentEntity?.type === 'user';
 
-  // Use both hooks but pass ID conditionally based on entity type
   const influencerRatingHook = useInfluencerRatingData(isStreamer ? currentEntity?.id : null);
   const userRatingHook = useUserRatingData(isUser ? currentEntity?.id : null);
 
@@ -121,10 +124,8 @@ function GetRanked() {
       });
   }, [toast]);
 
-  // Fetch and shuffle entities based on category
   useEffect(() => {
     const loadEntities = async () => {
-      // Require authentication for 'all' and 'other-users' categories
       if ((category === 'all' || category === 'other-users') && !user) {
         setShuffledEntities([]);
         setIsLoading(false);
@@ -134,7 +135,6 @@ function GetRanked() {
       try {
         let entities = [];
         if (category === 'all') {
-          // Fetch all streamers (influencers and celebrities)
           const streamersQuery = query(collection(db, 'streamers'));
           const streamersSnapshot = await getDocs(streamersQuery);
           const streamers = streamersSnapshot.docs.map((doc) => ({
@@ -146,7 +146,6 @@ function GetRanked() {
           }));
           entities = [...entities, ...streamers];
 
-          // Fetch all users except the current one
           const usersQuery = query(collection(db, 'users'), where('__name__', '!=', user.uid));
           const usersSnapshot = await getDocs(usersQuery);
           const users = usersSnapshot.docs.map((doc) => ({
@@ -158,7 +157,6 @@ function GetRanked() {
           }));
           entities = [...entities, ...users];
         } else if (category === 'other-users') {
-          // Fetch all users except the current one
           const usersQuery = query(collection(db, 'users'), where('__name__', '!=', user.uid));
           const usersSnapshot = await getDocs(usersQuery);
           const users = usersSnapshot.docs.map((doc) => ({
@@ -170,7 +168,6 @@ function GetRanked() {
           }));
           entities = [...entities, ...users];
         } else {
-          // Fetch streamers for the specified category
           const streamersQuery = query(collection(db, 'streamers'), where('category', '==', category));
           const streamersSnapshot = await getDocs(streamersQuery);
           const streamers = streamersSnapshot.docs.map((doc) => ({
@@ -200,7 +197,6 @@ function GetRanked() {
     loadEntities();
   }, [category, toast, user]);
 
-  // Apply gender filter whenever shuffledEntities or genderFilter changes
   useEffect(() => {
     let filteredList = shuffledEntities;
     if (genderFilter !== 'both') {
@@ -293,26 +289,56 @@ function GetRanked() {
       <TopBar />
       <Flex direction="column" minH="100vh" bg="gray.50" overflowX="hidden">
         <Container maxW="container.xl" py={{ base: 4, md: 6 }} overflow="hidden">
-          {/* Gender Filter Buttons */}
-          <VStack align="center" mb={4}>
-            <Text fontSize="lg" fontWeight="bold">Filter by Gender</Text>
-            <Flex wrap="wrap" gap={2} justify="center" width={{ base: '100%', md: 'auto' }}>
-              {['male', 'female', 'both'].map((gender) => (
-                <Button
-                  key={gender}
-                  onClick={() => setGenderFilter(gender)}
-                  colorScheme={genderFilter === gender ? 'blue' : 'gray'}
-                  size="sm"
-                  flex={{ base: '1 0 30%', md: 'none' }}
-                >
-                  {gender.charAt(0).toUpperCase() + gender.slice(1)}
-                </Button>
-              ))}
-            </Flex>
-          </VStack>
-
           <VStack spacing={{ base: 4, md: 6 }} align="stretch">
-            {/* Video and Photo Display */}
+            {/* Gender Filter */}
+            <VStack align="center" mb={4}>
+              <Text fontSize="lg" fontWeight="bold">Filter by Gender</Text>
+              <Flex wrap="wrap" gap={2} justify="center" width={{ base: '100%', md: 'auto' }}>
+                {['male', 'female', 'both'].map((gender) => (
+                  <Button
+                    key={gender}
+                    onClick={() => setGenderFilter(gender)}
+                    colorScheme={genderFilter === gender ? 'blue' : 'gray'}
+                    size="sm"
+                    flex={{ base: '1 0 30%', md: 'none' }}
+                  >
+                    {gender.charAt(0).toUpperCase() + gender.slice(1)}
+                  </Button>
+                ))}
+              </Flex>
+            </VStack>
+
+            {/* Feature Rating Comparison (Hidden when comparison is toggled) */}
+            {!isComparisonToggled && !userLoading && !ratingLoading && userData && ratedEntityData && (
+              <Box
+                w="100%"
+                p={4}
+                bg="white"
+                borderRadius="2xl"
+                boxShadow={{ md: 'xl' }}
+              >
+                <Heading as="h3" size="md" mb={4}>
+                  Feature Rating Comparison
+                </Heading>
+                <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="feature" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="user" fill="#8884d8" name="Your Average" />
+                    <Bar
+                      dataKey="influencer"
+                      fill="#82ca9d"
+                      name={`${currentEntity?.name || 'Entity'}'s Average`}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Box>
+            )}
+
+            {/* Video and Photo Section */}
             <Box
               position={{ base: 'static', md: 'sticky' }}
               top={{ md: '0' }}
@@ -331,51 +357,7 @@ function GetRanked() {
                 align="flex-start"
                 gap={6}
               >
-                {/* User's Video Stream */}
-                <Box
-                  w={{ base: '100%', md: '45%' }}
-                  h={{ base: '40vh', md: '50vh' }}
-                  borderWidth="2px"
-                  borderColor="gray.100"
-                  borderRadius="xl"
-                  overflow="hidden"
-                  boxShadow="lg"
-                  bg="black"
-                  position="relative"
-                >
-                  <video
-                    ref={localVideoRef}
-                    autoPlay
-                    muted
-                    playsInline
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                  <HStack
-                    position="absolute"
-                    bottom="2"
-                    left="2"
-                    color="white"
-                    bg="rgba(0, 0, 0, 0.6)"
-                    px={2}
-                    py={1}
-                    borderRadius="md"
-                    spacing={1}
-                  >
-                    <Text fontSize="sm" fontWeight="medium">
-                      {userData?.displayName || 'You'}
-                    </Text>
-                    {!userLoading && (
-                      <HStack spacing={1}>
-                        <Star sx={{ fontSize: 16, color: '#FFD700' }} />
-                        <Text fontSize="sm" fontWeight="medium">
-                          {localRating?.toFixed(1) || 'N/A'}
-                        </Text>
-                      </HStack>
-                    )}
-                  </HStack>
-                </Box>
-
-                {/* Entity's Photo */}
+                {/* Conditional Video or Comparison */}
                 <Box
                   w={{ base: '100%', md: '45%' }}
                   h={{ base: '40vh', md: '50vh' }}
@@ -386,6 +368,94 @@ function GetRanked() {
                   boxShadow="lg"
                   bg="gray.200"
                   position="relative"
+                >
+                  {isComparisonToggled ? (
+                    !userLoading && !ratingLoading && userData && ratedEntityData ? (
+                      <Box p={4}>
+                        <Heading as="h3" size="md" mb={4}>
+                          Feature Rating Comparison
+                        </Heading>
+                        <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
+                          <BarChart data={chartData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="feature" />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend />
+                            <Bar dataKey="user" fill="#8884d8" name="Your Average" />
+                            <Bar
+                              dataKey="influencer"
+                              fill="#82ca9d"
+                              name={`${currentEntity?.name || 'Entity'}'s Average`}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </Box>
+                    ) : (
+                      <Spinner size="xl" color="blue.500" />
+                    )
+                  ) : (
+                    <Box w="100%" h="100%" bg="black">
+                      <video
+                        ref={localVideoRef}
+                        autoPlay
+                        muted
+                        playsInline
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                      <HStack
+                        position="absolute"
+                        bottom="2"
+                        left="2"
+                        color="white"
+                        bg="rgba(0, 0, 0, 0.6)"
+                        px={2}
+                        py={1}
+                        borderRadius="md"
+                        spacing={1}
+                      >
+                        <Text fontSize="sm" fontWeight="medium">
+                          {userData?.displayName || 'You'}
+                        </Text>
+                        {!userLoading && (
+                          <HStack spacing={1}>
+                            <Star sx={{ fontSize: 16, color: '#FFD700' }} />
+                            <Text fontSize="sm" fontWeight="medium">
+                              {localRating?.toFixed(1) || 'N/A'}
+                            </Text>
+                          </HStack>
+                        )}
+                      </HStack>
+                    </Box>
+                  )}
+                  <IconButton
+                    aria-label={isComparisonToggled ? 'Switch to Video' : 'Switch to Comparison'}
+                    position="absolute"
+                    bottom="2"
+                    right="2"
+                    size="sm"
+                    borderRadius="full"
+                    onClick={() => setIsComparisonToggled(!isComparisonToggled)}
+                    zIndex="1"
+                    colorScheme="blue"
+                  >
+                    {isComparisonToggled ? <Videocam /> : <VideocamOff />}
+                  </IconButton>
+                </Box>
+
+                {/* Entity's Photo with Sticky Positioning on Mobile */}
+                <Box
+                  w={{ base: '100%', md: '45%' }}
+                  h={{ base: '40vh', md: '50vh' }}
+                  borderWidth="2px"
+                  borderColor="gray.100"
+                  borderRadius="xl"
+                  overflow="hidden"
+                  boxShadow="lg"
+                  bg="gray.200"
+                  position={{ base: 'sticky', md: 'relative' }}
+                  top={0}
+                  zIndex={1}
                 >
                   {isLoading || ratingLoading ? (
                     <Spinner size="xl" color="blue.500" />
@@ -428,60 +498,16 @@ function GetRanked() {
                       </Text>
                     )}
                   </HStack>
+                  {currentEntity && currentEntity.type === 'streamer' && (
+                    <InfluencerGalleryCircle name={currentEntity.name} />
+                  )}
                 </Box>
               </Flex>
             </Box>
 
-            {/* Feature Rating Comparison Chart */}
-            {!userLoading && !ratingLoading && userData && ratedEntityData && (
-              <Box
-                w="100%"
-                p={4}
-                bg="white"
-                borderRadius="2xl"
-                boxShadow={{ md: 'xl' }}
-                mt={{ base: 4, md: 0 }}
-              >
-                <Heading as="h3" size="md" mb={4}>
-                  Feature Rating Comparison
-                </Heading>
-                <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="feature" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="user" fill="#8884d8" name="Your Average" />
-                    <Bar
-                      dataKey="influencer"
-                      fill="#82ca9d"
-                      name={`${currentEntity?.name || 'Entity'}'s Average`}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Box>
-            )}
-
-            {/* Rating Scale */}
-            <Suspense fallback={<Spinner />}>
-              <Box
-                w="100%"
-                bg="white"
-                p={{ base: 4, md: 6 }}
-                borderRadius="2xl"
-                boxShadow={{ md: 'xl' }}
-              >
-                {currentEntity ? (
-                  <RatingScale key={ratingKey} onRate={handleRatingSubmit} />
-                ) : (
-                  <Text>No entities available for the selected filter.</Text>
-                )}
-              </Box>
-            </Suspense>
-
-            {/* Navigation Buttons */}
+            {/* Navigation Buttons - Hidden on Mobile */}
             <Flex
+              display={{ base: 'none', md: 'flex' }} // Added to hide on mobile
               direction={{ base: 'column', md: 'row' }}
               gap={4}
               justify="center"
@@ -512,7 +538,54 @@ function GetRanked() {
                 </>
               )}
             </Flex>
+
+            {/* Rating Scale */}
+            <Suspense fallback={<Spinner />}>
+              <Box
+                w="100%"
+                bg="white"
+                p={{ base: 4, md: 6 }}
+                borderRadius="2xl"
+                boxShadow={{ md: 'xl' }}
+              >
+                {currentEntity ? (
+                  <RatingScale key={ratingKey} onRate={handleRatingSubmit} />
+                ) : (
+                  <Text>No entities available for the selected filter.</Text>
+                )}
+              </Box>
+            </Suspense>
           </VStack>
+
+          {/* Arrow Controls for Mobile */}
+          {isMobile && entitiesList.length > 0 && (
+            <>
+              <IconButton
+                aria-label="Previous Photo"
+                position="fixed"
+                bottom="10px"
+                left="10px"
+                size="lg"
+                colorScheme="teal"
+                onClick={handlePreviousPhoto}
+                zIndex="1000"
+              >
+                <ArrowLeft />
+              </IconButton>
+              <IconButton
+                aria-label="Next Photo"
+                position="fixed"
+                bottom="10px"
+                right="10px"
+                size="lg"
+                colorScheme="teal"
+                onClick={handleNextPhoto}
+                zIndex="1000"
+              >
+                <ArrowRight />
+              </IconButton>
+            </>
+          )}
         </Container>
       </Flex>
       <Footer />
