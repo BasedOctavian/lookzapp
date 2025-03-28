@@ -14,6 +14,7 @@ import {
   useBreakpointValue,
   GridItem,
   Grid,
+  HStack,
 } from '@chakra-ui/react';
 import { FiUsers } from 'react-icons/fi';
 import TopBar from '../Components/TopBar';
@@ -25,27 +26,20 @@ import { Divider } from '@mui/material';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { useInfluencerDailyRatings } from '../hooks/useInfluencerDailyRatings';
 import { useInfluencerBadges } from '../hooks/useInfluencerBadges';
+import InfluencerTopStats from '../Components/InfluencerTopStats';
+
 
 
 function InfluencerProfile() {
-  // Get the influencer ID from the URL parameters
   const { influencerId } = useParams();
-
-  // Fetch authenticated user's data
   const { userData: currentUserData, loading: currentUserLoading } = useUserData();
-
-  // Fetch influencer's rating data
   const { influencerData, rating, loading: ratingLoading } = useInfluencerRatingData(influencerId);
-
-  // Fetch additional influencer data (assumed hooks from the original context)
   const { dailyRatings, loading: dailyRatingsLoading } = useInfluencerDailyRatings(influencerId);
   const { earnedBadges, loading: badgesLoading } = useInfluencerBadges(influencerId);
 
-  // Determine if the view is mobile
   const isMobile = useBreakpointValue({ base: true, md: false });
   const cardBg = 'white';
 
-  // Compute chart data for FeatureRatingComparison using useMemo for efficiency
   const chartData = useMemo(() => {
     if (!currentUserData || !influencerData) return [];
     const featureMapping = {
@@ -64,13 +58,11 @@ function InfluencerProfile() {
     });
   }, [currentUserData, influencerData]);
 
-  // Parse dailyRatings to ensure averageRating is a number
   const parsedDailyRatings = dailyRatings.map((rating) => ({
     date: rating.date,
     averageRating: parseFloat(rating.averageRating),
   }));
 
-  // Determine the profile content based on loading states and data availability
   let profileContent;
   if (ratingLoading || badgesLoading || currentUserLoading) {
     profileContent = (
@@ -101,7 +93,6 @@ function InfluencerProfile() {
         mt={6}
         mx={4}
       >
-        {/* Enhanced Profile Header */}
         <Box
           h="160px"
           bgGradient="linear(to-r, blue.500, cyan.400)"
@@ -132,7 +123,6 @@ function InfluencerProfile() {
           </Box>
         </Box>
 
-        {/* Profile Content */}
         <VStack spacing={8} pt={24} px={{ base: 4, md: 8 }} pb={8}>
           <VStack spacing={2}>
             <Heading as="h1" size="2xl" fontWeight="extrabold" letterSpacing="tight">
@@ -141,7 +131,6 @@ function InfluencerProfile() {
             <Badges earnedBadges={earnedBadges} />
           </VStack>
 
-          {/* Stats Grid */}
           <Grid templateColumns="repeat(3, 1fr)" gap={8} w="100%" maxW="600px">
             {[
               { label: 'Global Rank', value: 'N/A', color: 'blue.500' },
@@ -161,9 +150,11 @@ function InfluencerProfile() {
             ))}
           </Grid>
 
+          {/* Add InfluencerTopStats here */}
+          <InfluencerTopStats influencerData={influencerData} />
+
           <Divider />
 
-          {/* Feature Rating Comparison Section */}
           {currentUserData && influencerData ? (
             <FeatureRatingComparison
               chartData={chartData}
@@ -176,7 +167,6 @@ function InfluencerProfile() {
 
           <Divider />
 
-          {/* Rating Progress Over Time */}
           <VStack spacing={6} w="100%">
             <Heading size="lg" fontWeight="semibold" alignSelf="start" letterSpacing="tight">
               Rating History
@@ -249,12 +239,10 @@ function InfluencerProfile() {
     );
   }
 
-  // Render the full page layout
   return (
     <>
       <TopBar />
       <Flex direction="column" minH="100vh" bg="gray.50">
-        {/* Main Content */}
         <Flex flex={1} justify="center" p={4}>
           {profileContent}
         </Flex>

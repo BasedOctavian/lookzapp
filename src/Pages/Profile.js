@@ -29,6 +29,7 @@ import Badges from '../Components/Badges';
 import { useMemo } from 'react';
 import { useUserData } from '../hooks/useUserData';
 import FeatureRatingComparison from '../Components/FeatureRatingComparison';
+import InfluencerTopStats from '../Components/InfluencerTopStats';
 
 function Profile() {
   const { userId } = useParams();
@@ -138,6 +139,8 @@ function Profile() {
           {/* Badges Component */}
           <Badges earnedBadges={earnedBadges} />
 
+          
+
           {/* Stats Grid */}
           <Grid templateColumns="repeat(3, 1fr)" gap={8} w="100%" maxW="600px">
             {[
@@ -157,6 +160,9 @@ function Profile() {
               </GridItem>
             ))}
           </Grid>
+
+          {/* InfluencerTopStats */}
+          <InfluencerTopStats influencerData={userData} />
 
           <Divider />
 

@@ -53,6 +53,7 @@ function GetRanked() {
   const [isComparisonToggled, setIsComparisonToggled] = useState(false);
 
   const localVideoRef = useRef(null);
+  const videoInitialized = useRef(false); // New ref to track initialization
 
   const toast = useToast();
   const { user, signOut } = useAuth();
@@ -103,12 +104,18 @@ function GetRanked() {
     if (userData) console.log('Current AuthUser Data:', userData);
   }, [ratedEntityData, userData]);
 
+  // Initialize video stream only once
   useEffect(() => {
+    if (videoInitialized.current) return; // Skip if already initialized
+
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: false })
       .then((stream) => {
         setLocalStream(stream);
-        if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+        videoInitialized.current = true; // Mark as initialized
       })
       .catch((err) => {
         console.error('Failed to access media devices:', err);
@@ -120,7 +127,14 @@ function GetRanked() {
           isClosable: true,
         });
       });
-  }, [toast]);
+
+    // Cleanup function to stop the stream when component unmounts
+    return () => {
+      if (localStream) {
+        localStream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [toast]); // Removed localStream from dependencies to prevent re-triggering
 
   useEffect(() => {
     const loadEntities = async () => {
@@ -342,6 +356,8 @@ function GetRanked() {
                   boxShadow="lg"
                   bg="gray.200"
                   position="relative"
+                  onClick={() => window.open(`http://lookzapp.com/profile/${user.uid}`, '_blank')}
+                  cursor="pointer"
                 >
                   {isComparisonToggled ? (
                     user && !userLoading && !ratingLoading && userData && ratedEntityData ? (
@@ -358,12 +374,7 @@ function GetRanked() {
                   ) : (
                     <Box w="100%" h="100%" bg="black">
                       <video
-                        ref={(el) => {
-                          localVideoRef.current = el;
-                          if (el && localStream) {
-                            el.srcObject = localStream;
-                          }
-                        }}
+                        ref={localVideoRef} // Simplified ref assignment
                         autoPlay
                         muted
                         playsInline
@@ -401,7 +412,10 @@ function GetRanked() {
                     right="2"
                     size="sm"
                     borderRadius="full"
-                    onClick={() => setIsComparisonToggled(!isComparisonToggled)}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent navigation when clicking the toggle button
+                      setIsComparisonToggled(!isComparisonToggled);
+                    }}
                     zIndex="1"
                     colorScheme="blue"
                   >
@@ -422,6 +436,14 @@ function GetRanked() {
                   position={{ base: 'sticky', md: 'relative' }}
                   top={0}
                   zIndex={1}
+                  onClick={() => {
+                    if (currentEntity?.type === 'user') {
+                      window.open(`http://lookzapp.com/profile/${currentEntity.id}`, '_blank');
+                    } else if (currentEntity?.type === 'streamer') {
+                      window.open(`http://lookzapp.com/influencer-profile/${currentEntity.id}`, '_blank');
+                    }
+                  }}
+                  cursor="pointer"
                 >
                   {isLoading || ratingLoading ? (
                     <Spinner size="xl" color="blue.500" />
