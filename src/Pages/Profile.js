@@ -18,26 +18,28 @@ import {
 } from '@chakra-ui/react';
 import { useUserRatingData } from '../hooks/useUserRatingData';
 import { useDailyRatings } from '../hooks/useDailyRatings';
-import { useUserBadges } from '../hooks/useUserBadges'; // Added import for badges hook
-import { CircularProgress } from "@chakra-ui/progress";
+import { useUserBadges } from '../hooks/useUserBadges';
 import { FiMail, FiAward, FiLogOut, FiStar, FiUsers } from 'react-icons/fi';
 import Avatar from '@mui/material/Avatar';
 import { Divider } from '@mui/material';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import TopBar from '../Components/TopBar';
 import Footer from '../Components/Footer';
-import Badges from '../Components/Badges'; // Added import for Badges component
+import Badges from '../Components/Badges';
+import { useMemo } from 'react';
+import { useUserData } from '../hooks/useUserData';
+import FeatureRatingComparison from '../Components/FeatureRatingComparison';
 
 function Profile() {
   const { userId } = useParams();
   const navigate = useNavigate();
   const { userData, rating, loading } = useUserRatingData(userId);
   const { dailyRatings, loading: dailyRatingsLoading } = useDailyRatings(userId);
-  const { earnedBadges, loading: badgesLoading } = useUserBadges(userId); // Fetch badges
+  const { earnedBadges, loading: badgesLoading } = useUserBadges(userId);
+  const { userData: currentUserData, loading: currentUserLoading } = useUserData();
   const isMobile = useBreakpointValue({ base: true, md: false });
   const cardBg = 'white';
   const headerBg = 'rgba(255, 255, 255, 0.8)';
-  const featureColors = ['blue.400', 'pink.400', 'purple.400', 'teal.400', 'orange.400'];
 
   const handleSignOut = async () => {
     try {
@@ -48,9 +50,27 @@ function Profile() {
     }
   };
 
+  // Compute chartData for FeatureRatingComparison
+  const chartData = useMemo(() => {
+    if (!currentUserData || !userData) return [];
+    const featureMapping = {
+      Eyes: 'eyesRating',
+      Smile: 'smileRating',
+      Jawline: 'facialRating',
+      Hair: 'hairRating',
+      Body: 'bodyRating',
+    };
+    return Object.entries(featureMapping).map(([feature, field]) => {
+      const currentUserTimesRanked = currentUserData.timesRanked || 0;
+      const profileUserTimesRanked = userData.timesRanked || 0;
+      const currentUserAvg = currentUserTimesRanked > 0 ? (currentUserData[field] || 0) / currentUserTimesRanked : 0;
+      const profileUserAvg = profileUserTimesRanked > 0 ? (userData[field] || 0) / profileUserTimesRanked : 0;
+      return { feature, user: currentUserAvg, entity: profileUserAvg };
+    });
+  }, [currentUserData, userData]);
+
   let profileContent;
-  // Updated loading condition to include badgesLoading
-  if (loading || badgesLoading) {
+  if (loading || badgesLoading || currentUserLoading) {
     profileContent = (
       <VStack spacing={4} py={12}>
         <Spinner size="xl" thickness="3px" />
@@ -67,59 +87,6 @@ function Profile() {
       </VStack>
     );
   } else {
-    const {
-      eyesRating = 0,
-      smileRating = 0,
-      facialRating = 0,
-      hairRating = 0,
-      bodyRating = 0,
-      timesRanked = 0,
-    } = userData;
-
-    // Calculate average ratings for each feature
-    const featureAverages = [
-      { key: 'eyes', label: 'Eyes', avg: timesRanked > 0 ? eyesRating / timesRanked : 0 },
-      { key: 'smile', label: 'Smile', avg: timesRanked > 0 ? smileRating / timesRanked : 0 },
-      { key: 'facial', label: 'Jawline', avg: timesRanked > 0 ? facialRating / timesRanked : 0 },
-      { key: 'hair', label: 'Hair', avg: timesRanked > 0 ? hairRating / timesRanked : 0 },
-      { key: 'body', label: 'Physique', avg: timesRanked > 0 ? bodyRating / timesRanked : 0 },
-    ];
-
-    // Determine best and worst features
-    const bestFeature = featureAverages.reduce((max, feature) => (feature.avg > max.avg ? feature : max), featureAverages[0]);
-    const worstFeature = featureAverages.reduce((min, feature) => (feature.avg < min.avg ? feature : min), featureAverages[0]);
-
-    const totalFeatureRating = eyesRating + smileRating + facialRating + hairRating + bodyRating;
-
-    let percentages = {
-      eyes: totalFeatureRating ? (eyesRating / totalFeatureRating) * 100 : 0,
-      smile: totalFeatureRating ? (smileRating / totalFeatureRating) * 100 : 0,
-      facial: totalFeatureRating ? (facialRating / totalFeatureRating) * 100 : 0,
-      hair: totalFeatureRating ? (hairRating / totalFeatureRating) * 100 : 0,
-      body: totalFeatureRating ? (bodyRating / totalFeatureRating) * 100 : 0,
-    };
-
-    // Adjust percentages to total 100%
-    const totalPercentage = Object.values(percentages).reduce((a, b) => a + b, 0);
-    const scale = totalPercentage > 0 ? 100 / totalPercentage : 1;
-    Object.keys(percentages).forEach(key => {
-      percentages[key] = Math.round(percentages[key] * scale);
-    });
-
-    let adjustedTotal = Object.values(percentages).reduce((a, b) => a + b, 0);
-    if (adjustedTotal !== 100) {
-      const maxKey = Object.keys(percentages).reduce((a, b) => percentages[a] > percentages[b] ? a : b);
-      percentages[maxKey] += 100 - adjustedTotal;
-    }
-
-    const features = [
-      { key: 'eyes', label: 'Eyes', percent: percentages.eyes, icon: FiStar },
-      { key: 'smile', label: 'Smile', percent: percentages.smile, icon: FiStar },
-      { key: 'facial', label: 'Jawline', percent: percentages.facial, icon: FiStar },
-      { key: 'hair', label: 'Hair', percent: percentages.hair, icon: FiStar },
-      { key: 'body', label: 'Physique', percent: percentages.body, icon: FiStar },
-    ];
-
     profileContent = (
       <Box 
         w="100%"
@@ -176,7 +143,7 @@ function Profile() {
             {[
               { label: 'Global Rank', value: 'N/A', color: 'blue.500' },
               { label: 'Avg Rating', value: rating?.toFixed(1), color: 'purple.500' },
-              { label: 'Total Ratings', value: timesRanked, color: 'teal.500' },
+              { label: 'Total Ratings', value: userData.timesRanked || 0, color: 'teal.500' },
             ].map((stat) => (
               <GridItem key={stat.label}>
                 <VStack spacing={1}>
@@ -193,72 +160,14 @@ function Profile() {
 
           <Divider />
 
-          {/* Feature Progress Grid */}
-          <VStack spacing={6} w="100%">
-            <Heading size="md" fontWeight="medium" alignSelf="start" color="gray.700">
-              Feature Breakdown
-            </Heading>
-            <Grid 
-              templateColumns={{ base: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }} 
-              gap={4}
-              w="100%"
-              maxW="800px"
-            >
-              {features.map((feature, index) => (
-                <GridItem key={feature.key} textAlign="center">
-                  <VStack spacing={2}>
-                    <Box position="relative" display="inline-block">
-                      <CircularProgress
-                        value={feature.percent}
-                        color={featureColors[index % featureColors.length]}
-                        size="60px"
-                        thickness="8px"
-                        trackColor="gray.100"
-                      />
-                      <Text
-                        position="absolute"
-                        top="50%"
-                        left="50%"
-                        transform="translate(-50%, -50%)"
-                        fontSize="sm"
-                        fontWeight="bold"
-                        color="gray.700"
-                        whiteSpace="nowrap"
-                      >
-                        {feature.percent}%
-                      </Text>
-                    </Box>
-                    <Text fontSize="sm" fontWeight="semibold" color="gray.700">
-                      {feature.label}
-                    </Text>
-                    <Text fontSize="xs" color="gray.500">
-                      {featureAverages.find(f => f.key === feature.key).avg.toFixed(1)} avg
-                    </Text>
-                  </VStack>
-                </GridItem>
-              ))}
-            </Grid>
-            {timesRanked > 0 && (
-              <HStack spacing={8} justify="center" mt={4}>
-                <VStack>
-                  <Text fontSize="lg" fontWeight="bold" color="green.500">
-                    Best Feature
-                  </Text>
-                  <Text>
-                    {bestFeature.label}: {bestFeature.avg.toFixed(1)}
-                  </Text>
-                </VStack>
-                <VStack>
-                  <Text fontSize="lg" fontWeight="bold" color="red.500">
-                    Worst Feature
-                  </Text>
-                  <Text>
-                    {worstFeature.label}: {worstFeature.avg.toFixed(1)}
-                  </Text>
-                </VStack>
-              </HStack>
-            )}
-          </VStack>
+          {/* Feature Rating Comparison */}
+          <Box w="100%" p={4} bg="white" borderRadius="2xl" boxShadow={{ md: 'xl' }}>
+            <FeatureRatingComparison
+              chartData={chartData}
+              entityName={userData.displayName}
+              isMobile={isMobile}
+            />
+          </Box>
 
           <Divider />
 

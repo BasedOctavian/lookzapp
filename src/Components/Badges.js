@@ -1,101 +1,30 @@
-// src/Components/Badges.js
-import { HStack, VStack, Text, Badge, Box } from '@chakra-ui/react';
+import { useState, useRef, useEffect } from 'react';
+import { HStack, VStack, Text, Box } from '@chakra-ui/react';
+import { Tooltip } from '@mui/material';
 
-// Variation 1: Classic Emoji with Text
-function BadgeVariation1({ earnedBadges }) {
-  return (
-    <HStack spacing={4} justify="center" mt={4}>
-      {earnedBadges.length > 0 ? (
-        earnedBadges.map((badge) => (
-          <VStack key={badge.name}>
-            <Text fontSize="2xl">{badge.emoji}</Text>
-            <Text fontSize="sm" color="gray.600">
-              {badge.name}
-            </Text>
-          </VStack>
-        ))
-      ) : (
-        <Text fontSize="sm" color="gray.500">
-          No badges yet
-        </Text>
-      )}
-    </HStack>
-  );
-}
-
-// Variation 2: Badge with Subtle Background
-function BadgeVariation2({ earnedBadges }) {
-  return (
-    <HStack spacing={6} justify="center" mt={4}>
-      {earnedBadges.length > 0 ? (
-        earnedBadges.map((badge) => (
-          <VStack key={badge.name}>
-            <Badge
-              variant="subtle"
-              colorScheme="blue"
-              px={3}
-              py={1}
-              borderRadius="full"
-              fontSize="lg"
-            >
-              {badge.emoji}
-            </Badge>
-            <Text fontSize="sm" color="gray.600" fontWeight="medium">
-              {badge.name}
-            </Text>
-          </VStack>
-        ))
-      ) : (
-        <Text fontSize="sm" color="gray.500" fontStyle="italic">
-          No badges yet
-        </Text>
-      )}
-    </HStack>
-  );
-}
-
-// Variation 3: Icon-Text Horizontal Layout
-function BadgeVariation3({ earnedBadges }) {
-  return (
-    <HStack spacing={4} justify="center" mt={4} flexWrap="wrap">
-      {earnedBadges.length > 0 ? (
-        earnedBadges.map((badge) => (
-          <HStack key={badge.name} spacing={2}>
-            <Text fontSize="xl">{badge.emoji}</Text>
-            <Text fontSize="md" color="gray.700" fontWeight="medium">
-              {badge.name}
-            </Text>
-          </HStack>
-        ))
-      ) : (
-        <Text fontSize="sm" color="gray.500">
-          No badges yet
-        </Text>
-      )}
-    </HStack>
-  );
-}
-
-// Variation 4: Card-Style Badges
+// Variation 4: Card-Style Badges with MUI Tooltip for Description
 function BadgeVariation4({ earnedBadges }) {
+  const [maxDimensions, setMaxDimensions] = useState({ width: 0, height: 0 });
+
+  // Callback to update max dimensions based on badge sizes
+  const updateMaxDimensions = (width, height) => {
+    setMaxDimensions((prev) => ({
+      width: Math.max(prev.width, width),
+      height: Math.max(prev.height, height),
+    }));
+  };
+
   return (
     <HStack spacing={4} justify="center" mt={4} flexWrap="wrap">
       {earnedBadges.length > 0 ? (
         earnedBadges.map((badge) => (
-          <Box
+          <BadgeWithTooltip
             key={badge.name}
-            bg="gray.50"
-            p={3}
-            borderRadius="md"
-            boxShadow="sm"
-            textAlign="center"
-            minW="100px"
-          >
-            <Text fontSize="2xl">{badge.emoji}</Text>
-            <Text fontSize="sm" color="gray.700" fontWeight="medium" mt={1}>
-              {badge.name}
-            </Text>
-          </Box>
+            badge={badge}
+            updateMaxDimensions={updateMaxDimensions}
+            maxWidth={maxDimensions.width}
+            maxHeight={maxDimensions.height}
+          />
         ))
       ) : (
         <Text fontSize="sm" color="gray.500">
@@ -103,6 +32,51 @@ function BadgeVariation4({ earnedBadges }) {
         </Text>
       )}
     </HStack>
+  );
+}
+
+// Component to handle MUI Tooltip for each badge
+function BadgeWithTooltip({ badge, updateMaxDimensions, maxWidth, maxHeight }) {
+  const badgeRef = useRef(null);
+
+  useEffect(() => {
+    if (badgeRef.current) {
+      const { offsetWidth, offsetHeight } = badgeRef.current;
+      updateMaxDimensions(offsetWidth, offsetHeight);
+    }
+  }, [badge, updateMaxDimensions]);
+
+  return (
+    <Tooltip title={badge.description} arrow placement="bottom">
+      <Box
+        ref={badgeRef}
+        cursor="pointer"
+        bg="gray.50"
+        p={3}
+        borderRadius="md"
+        boxShadow="sm"
+        textAlign="center"
+        width={maxWidth > 0 ? `${maxWidth}px` : 'auto'} // Apply max width if set
+        height={maxHeight > 0 ? `${maxHeight}px` : 'auto'} // Apply max height if set
+        display="flex"
+        flexDirection="column"
+        justifyContent="center"
+        alignItems="center"
+        role="button"
+        tabIndex={0}
+      >
+        <Text fontSize="2xl">{badge.emoji}</Text>
+        <Text
+          fontSize="sm"
+          color="gray.700"
+          fontWeight="medium"
+          mt={1}
+          whiteSpace="nowrap"
+        >
+          {badge.name}
+        </Text>
+      </Box>
+    </Tooltip>
   );
 }
 

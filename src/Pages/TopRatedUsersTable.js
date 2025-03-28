@@ -27,87 +27,48 @@ import {
   TableContainer
 } from "@chakra-ui/table";
 import Footer from "../Components/Footer";
+import { useTopRatedData } from "../hooks/useTopRatedData"; // Added new hook import
 
 export default function TopRatedUsersGrid() {
-  // State for users and streamers
-  const [users, setUsers] = useState([]);
-  const [streamers, setStreamers] = useState([]);
-  const [loadingUsers, setLoadingUsers] = useState(true);
-  const [loadingStreamers, setLoadingStreamers] = useState(true);
-  const [error, setError] = useState(null);
+  // State for search and sorting
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("averageRating"); // Default sort by averageRating
+  const [sortOrder, setSortOrder] = useState("desc");    // Default descending order
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const toast = useToast();
 
-  // Fetch users from Firestore
-  useEffect(() => {
-    const unsubscribeUsers = onSnapshot(
-      collection(db, "users"),
-      (snapshot) => {
-        const usersData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          displayName: doc.data().displayName || "Unknown User",
-          averageRating:
-            (doc.data().timesRanked > 0
-              ? (doc.data().ranking || 0) / (doc.data().timesRanked || 1)
-              : 0) || 0,
-          totalRatings: doc.data().timesRanked || 0,
-          type: "user"
-        }));
-        setUsers(usersData);
-        setLoadingUsers(false);
-      },
-      (err) => {
-        console.error("Error fetching users:", err);
-        setError(err.message);
-        setLoadingUsers(false);
+  // Fetch data using the new hook
+  const { data, loading, error } = useTopRatedData();
+
+  // Sort data based on sortBy and sortOrder
+  const sortedData = useMemo(() => {
+    return [...data].sort((a, b) => {
+      let aValue = a[sortBy];
+      let bValue = b[sortBy];
+
+      if (sortBy === "displayName") {
+        // String sorting (case-insensitive)
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+        if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
+        return 0;
+      } else {
+        // Numerical sorting
+        return sortOrder === "desc" ? bValue - aValue : aValue - bValue;
       }
-    );
-    return () => unsubscribeUsers();
-  }, []);
+    });
+  }, [data, sortBy, sortOrder]);
 
-  // Fetch streamers from Firestore
-  useEffect(() => {
-    const unsubscribeStreamers = onSnapshot(
-      collection(db, "streamers"),
-      (snapshot) => {
-        const streamersData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          displayName: doc.data().name || "Unknown Influencer",
-          averageRating:
-            (doc.data().timesRanked > 0
-              ? (doc.data().ranking || 0) / (doc.data().timesRanked || 1)
-              : 0) || 0,
-          totalRatings: doc.data().timesRanked || 0,
-          type: "streamer"
-        }));
-        setStreamers(streamersData);
-        setLoadingStreamers(false);
-      },
-      (err) => {
-        console.error("Error fetching streamers:", err);
-        setError(err.message);
-        setLoadingStreamers(false);
-      }
-    );
-    return () => unsubscribeStreamers();
-  }, []);
-
-  // Combine and sort users and streamers by rating
-  const combinedUsers = useMemo(() => {
-    const allUsers = [...users, ...streamers];
-    return allUsers.sort((a, b) => b.averageRating - a.averageRating);
-  }, [users, streamers]);
-
-  // Filter based on search query
+  // Filter sorted data based on search query
   const filteredUsers = useMemo(() => {
-    return combinedUsers.filter((user) =>
+    return sortedData.filter((user) =>
       user.displayName.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [combinedUsers, searchQuery]);
+  }, [sortedData, searchQuery]);
 
-  // Define table columns with conditional linking
+  // Define table columns, including feature ratings
   const columns = [
     {
       key: "displayName",
@@ -119,14 +80,39 @@ export default function TopRatedUsersGrid() {
         >
           {row.displayName}
         </Link>
-      )
+      ),
     },
     {
       key: "averageRating",
       name: "Rating",
-      formatter: ({ row }) => row.averageRating.toFixed(1)
+      formatter: ({ row }) => row.averageRating.toFixed(1),
     },
-    { key: "totalRatings", name: "Total Ratings" }
+    { key: "totalRatings", name: "Total Ratings" },
+    {
+      key: "eyesAverage",
+      name: "Eyes",
+      formatter: ({ row }) => row.eyesAverage.toFixed(1),
+    },
+    {
+      key: "smileAverage",
+      name: "Smile",
+      formatter: ({ row }) => row.smileAverage.toFixed(1),
+    },
+    {
+      key: "jawlineAverage",
+      name: "Jawline",
+      formatter: ({ row }) => row.jawlineAverage.toFixed(1),
+    },
+    {
+      key: "hairAverage",
+      name: "Hair",
+      formatter: ({ row }) => row.hairAverage.toFixed(1),
+    },
+    {
+      key: "bodyAverage",
+      name: "Body",
+      formatter: ({ row }) => row.bodyAverage.toFixed(1),
+    },
   ];
 
   // Sign out handler
@@ -141,12 +127,10 @@ export default function TopRatedUsersGrid() {
         description: "An error occurred while signing out",
         status: "error",
         duration: 3000,
-        isClosable: true
+        isClosable: true,
       });
     }
   };
-
-  const isLoading = loadingUsers || loadingStreamers;
 
   return (
     <>
@@ -171,22 +155,14 @@ export default function TopRatedUsersGrid() {
             </InputGroup>
 
             {/* Table */}
-            {isLoading ? (
+            {loading ? (
               <Spinner size="xl" alignSelf="center" />
             ) : error ? (
-              <Text color="red.500" textAlign="center">
-                Error: {error}
-              </Text>
+              <Text color="red.500" textAlign="center">Error: {error}</Text>
             ) : filteredUsers.length === 0 ? (
               <Text textAlign="center">No users found.</Text>
             ) : (
-              <Box
-                border="1px"
-                borderColor="gray.200"
-                borderRadius="xl"
-                boxShadow="md"
-                bg="white"
-              >
+              <Box border="1px" borderColor="gray.200" borderRadius="xl" boxShadow="md" bg="white">
                 <TableContainer>
                   <Table variant="striped" colorScheme="gray">
                     <Thead bg="gray.50">
@@ -198,8 +174,18 @@ export default function TopRatedUsersGrid() {
                             px={6}
                             py={4}
                             fontSize="md"
+                            onClick={() => {
+                              if (sortBy === column.key) {
+                                setSortOrder(sortOrder === "desc" ? "asc" : "desc");
+                              } else {
+                                setSortBy(column.key);
+                                setSortOrder("desc");
+                              }
+                            }}
+                            cursor="pointer"
                           >
                             {column.name}
+                            {sortBy === column.key && (sortOrder === "desc" ? " ↓" : " ↑")}
                           </Th>
                         ))}
                       </Tr>
@@ -211,12 +197,7 @@ export default function TopRatedUsersGrid() {
                             const cellValue = user[column.key];
                             const formatter = column.formatter;
                             return (
-                              <Td
-                                key={column.key}
-                                px={6}
-                                py={4}
-                                borderColor="gray.200"
-                              >
+                              <Td key={column.key} px={6} py={4} borderColor="gray.200">
                                 {formatter ? formatter({ row: user }) : cellValue}
                               </Td>
                             );

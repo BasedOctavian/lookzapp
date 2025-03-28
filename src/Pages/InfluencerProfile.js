@@ -1,54 +1,67 @@
-import { useParams, useNavigate } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { db, auth } from '../firebase';
+import React, { useMemo } from 'react';
+import { useParams } from 'react-router-dom';
+import { useUserData } from '../hooks/useUserData';
+import { useInfluencerRatingData } from '../hooks/useInfluencerRatingData';
+import FeatureRatingComparison from '../Components/FeatureRatingComparison';
 import {
   Flex,
   Box,
   Heading,
   Text,
   Spinner,
-  HStack,
-  Button,
-  Container,
   VStack,
   Icon,
-  Grid,
-  GridItem,
   useBreakpointValue,
+  GridItem,
+  Grid,
 } from '@chakra-ui/react';
-import { useInfluencerRatingData } from '../hooks/useInfluencerRatingData';
-import { useInfluencerDailyRatings } from '../hooks/useInfluencerDailyRatings';
-import { useInfluencerBadges } from '../hooks/useInfluencerBadges';
-import { CircularProgress } from '@chakra-ui/progress';
-import { FiAward, FiLogOut, FiStar, FiUsers } from 'react-icons/fi';
-import Avatar from '@mui/material/Avatar';
-import { Divider } from '@mui/material';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { useEffect } from 'react';
+import { FiUsers } from 'react-icons/fi';
 import TopBar from '../Components/TopBar';
 import Footer from '../Components/Footer';
 import InfluencerGalleryCircle from '../Components/InfluencerGalleryCircle';
-import Badges from '../Components/Badges'; // Import the new Badges component
+import Badges from '../Components/Badges';
+import Avatar from '@mui/material/Avatar';
+import { Divider } from '@mui/material';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { useInfluencerDailyRatings } from '../hooks/useInfluencerDailyRatings';
+import { useInfluencerBadges } from '../hooks/useInfluencerBadges';
 
 function InfluencerProfile() {
+  // Get the influencer ID from the URL parameters
   const { influencerId } = useParams();
-  const navigate = useNavigate();
+
+  // Fetch authenticated user's data
+  const { userData: currentUserData, loading: currentUserLoading } = useUserData();
+
+  // Fetch influencer's rating data
   const { influencerData, rating, loading: ratingLoading } = useInfluencerRatingData(influencerId);
+
+  // Fetch additional influencer data (assumed hooks from the original context)
   const { dailyRatings, loading: dailyRatingsLoading } = useInfluencerDailyRatings(influencerId);
   const { earnedBadges, loading: badgesLoading } = useInfluencerBadges(influencerId);
+
+  // Determine if the view is mobile
   const isMobile = useBreakpointValue({ base: true, md: false });
   const cardBg = 'white';
-  const headerBg = 'rgba(255, 255, 255, 0.8)';
-  const featureColors = ['blue.400', 'pink.400', 'purple.400', 'teal.400', 'orange.400'];
 
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      navigate('/signin');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
+  // Compute chart data for FeatureRatingComparison using useMemo for efficiency
+  const chartData = useMemo(() => {
+    if (!currentUserData || !influencerData) return [];
+    const featureMapping = {
+      Eyes: 'eyesRating',
+      Smile: 'smileRating',
+      Jawline: 'facialRating',
+      Hair: 'hairRating',
+      Body: 'bodyRating',
+    };
+    return Object.entries(featureMapping).map(([feature, field]) => {
+      const userTimesRanked = currentUserData.timesRanked || 0;
+      const influencerTimesRanked = influencerData.timesRanked || 0;
+      const userAvg = userTimesRanked > 0 ? (currentUserData[field] || 0) / userTimesRanked : 0;
+      const influencerAvg = influencerTimesRanked > 0 ? (influencerData[field] || 0) / influencerTimesRanked : 0;
+      return { feature, user: userAvg, entity: influencerAvg };
+    });
+  }, [currentUserData, influencerData]);
 
   // Parse dailyRatings to ensure averageRating is a number
   const parsedDailyRatings = dailyRatings.map((rating) => ({
@@ -56,19 +69,9 @@ function InfluencerProfile() {
     averageRating: parseFloat(rating.averageRating),
   }));
 
-  // Debugging logs
-  useEffect(() => {
-    if (influencerData) {
-      console.log('Influencer data:', influencerData);
-    }
-  }, [influencerData]);
-
-  useEffect(() => {
-    console.log('dailyRatings:', dailyRatings);
-  }, [dailyRatings]);
-
+  // Determine the profile content based on loading states and data availability
   let profileContent;
-  if (ratingLoading || badgesLoading) {
+  if (ratingLoading || badgesLoading || currentUserLoading) {
     profileContent = (
       <VStack spacing={4} py={12}>
         <Spinner size="xl" thickness="3px" />
@@ -85,63 +88,6 @@ function InfluencerProfile() {
       </VStack>
     );
   } else {
-    const {
-      eyesRating = 0,
-      smileRating = 0,
-      facialRating = 0,
-      hairRating = 0,
-      bodyRating = 0,
-    } = influencerData;
-
-    const totalFeatureRating =
-      eyesRating + smileRating + facialRating + hairRating + bodyRating;
-
-    let percentages = {
-      eyes: totalFeatureRating ? (eyesRating / totalFeatureRating) * 100 : 0,
-      smile: totalFeatureRating ? (smileRating / totalFeatureRating) * 100 : 0,
-      facial: totalFeatureRating ? (facialRating / totalFeatureRating) * 100 : 0,
-      hair: totalFeatureRating ? (hairRating / totalFeatureRating) * 100 : 0,
-      body: totalFeatureRating ? (bodyRating / totalFeatureRating) * 100 : 0,
-    };
-
-    // Adjust percentages to total 100%
-    const totalPercentage = Object.values(percentages).reduce((a, b) => a + b, 0);
-    const scale = totalPercentage > 0 ? 100 / totalPercentage : 1;
-    Object.keys(percentages).forEach((key) => {
-      percentages[key] = Math.round(percentages[key] * scale);
-    });
-
-    let adjustedTotal = Object.values(percentages).reduce((a, b) => a + b, 0);
-    if (adjustedTotal !== 100) {
-      const maxKey = Object.keys(percentages).reduce((a, b) =>
-        percentages[a] > percentages[b] ? a : b
-      );
-      percentages[maxKey] += 100 - adjustedTotal;
-    }
-
-    const features = [
-      { key: 'eyes', label: 'Eyes', percent: percentages.eyes, icon: FiStar },
-      { key: 'smile', label: 'Smile', percent: percentages.smile, icon: FiStar },
-      { key: 'facial', label: 'Jawline', percent: percentages.facial, icon: FiStar },
-      { key: 'hair', label: 'Hair', percent: percentages.hair, icon: FiStar },
-      { key: 'body', label: 'Physique', percent: percentages.body, icon: FiStar },
-    ];
-
-    const timesRanked = influencerData.timesRanked || 0;
-    const featureAverages = features.map((feature) => ({
-      ...feature,
-      avg: timesRanked > 0 ? (influencerData[`${feature.key}Rating`] || 0) / timesRanked : 0,
-    }));
-
-    const bestFeature = featureAverages.reduce(
-      (max, feature) => (feature.avg > max.avg ? feature : max),
-      featureAverages[0]
-    );
-    const worstFeature = featureAverages.reduce(
-      (min, feature) => (feature.avg < min.avg ? feature : min),
-      featureAverages[0]
-    );
-
     profileContent = (
       <Box
         w="100%"
@@ -191,7 +137,7 @@ function InfluencerProfile() {
             <Heading as="h1" size="2xl" fontWeight="extrabold" letterSpacing="tight">
               {influencerData.name}
             </Heading>
-            <Badges earnedBadges={earnedBadges} /> {/* Integrate the new Badges component */}
+            <Badges earnedBadges={earnedBadges} />
           </VStack>
 
           {/* Stats Grid */}
@@ -216,75 +162,16 @@ function InfluencerProfile() {
 
           <Divider />
 
-          {/* Feature Progress Grid */}
-          <VStack spacing={6} w="100%">
-            <Heading size="md" fontWeight="medium" alignSelf="start" color="gray.700">
-              Feature Breakdown
-            </Heading>
-            <Grid
-              templateColumns={{ base: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }}
-              gap={4}
-              w="100%"
-              maxW="800px"
-            >
-              {features.map((feature, index) => (
-                <GridItem key={feature.key} textAlign="center">
-                  <VStack spacing={2}>
-                    <Box position="relative" display="inline-block">
-                      <CircularProgress
-                        value={feature.percent}
-                        color={featureColors[index % featureColors.length]}
-                        size="60px"
-                        thickness="8px"
-                        trackColor="gray.100"
-                      />
-                      <Text
-                        position="absolute"
-                        top="50%"
-                        left="50%"
-                        transform="translate(-50%, -50%)"
-                        fontSize="sm"
-                        fontWeight="bold"
-                        color="gray.700"
-                        whiteSpace="nowrap"
-                      >
-                        {feature.percent}%
-                      </Text>
-                    </Box>
-                    <Text fontSize="sm" fontWeight="semibold" color="gray.700">
-                      {feature.label}
-                    </Text>
-                    <Text fontSize="xs" color="gray.500">
-                      {timesRanked > 0
-                        ? ((influencerData[`${feature.key}Rating`] || 0) / timesRanked).toFixed(1)
-                        : '0.0'}{' '}
-                      avg
-                    </Text>
-                  </VStack>
-                </GridItem>
-              ))}
-            </Grid>
-            {timesRanked > 0 && (
-              <HStack spacing={8} justify="center" mt={4}>
-                <VStack>
-                  <Text fontSize="lg" fontWeight="bold" color="green.500">
-                    Best Feature
-                  </Text>
-                  <Text>
-                    {bestFeature.label}: {bestFeature.avg.toFixed(1)}
-                  </Text>
-                </VStack>
-                <VStack>
-                  <Text fontSize="lg" fontWeight="bold" color="red.500">
-                    Worst Feature
-                  </Text>
-                  <Text>
-                    {worstFeature.label}: {worstFeature.avg.toFixed(1)}
-                  </Text>
-                </VStack>
-              </HStack>
-            )}
-          </VStack>
+          {/* Feature Rating Comparison Section */}
+          {currentUserData && influencerData ? (
+            <FeatureRatingComparison
+              chartData={chartData}
+              entityName={influencerData.name}
+              isMobile={isMobile}
+            />
+          ) : (
+            <Text>No comparison data available</Text>
+          )}
 
           <Divider />
 
@@ -361,6 +248,7 @@ function InfluencerProfile() {
     );
   }
 
+  // Render the full page layout
   return (
     <>
       <TopBar />

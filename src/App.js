@@ -45,12 +45,12 @@ function App() {
           <Route path="/" element={<Navigate to="/home" />} />
           <Route path="/profile/:userId" element={<PrivateRoute><Profile /></PrivateRoute>} />
           <Route path="/influencer-profile/:influencerId" element={<PrivateRoute><InfluencerProfile /></PrivateRoute>} />
-          <Route path="/home" element={<PrivateRoute><HomeScreen /></PrivateRoute>} />
+          <Route path="/home" element={<HomeScreen />} />
           <Route path="/updates" element={<PrivateRoute><Updates /></PrivateRoute>} />
           <Route path="/geo-call" element={<PrivateRoute><GeoCall /></PrivateRoute>} />
           <Route path="/two-truths" element={<PrivateRoute><TwoTruths /></PrivateRoute>} />
-          <Route path="/get-ranked-selection" element={<PrivateRoute><GetRankedSelection /></PrivateRoute>} />
-          <Route path="/ranking" element={<PrivateRoute><GetRanked /></PrivateRoute>} />
+          <Route path="/get-ranked-selection" element={<GetRankedSelection />} />
+          <Route path="/ranking" element={<GetRanked />} />
         </Routes>
 
         {/* Custom warning overlay */}

@@ -20,13 +20,11 @@ import { ArrowLeft, ArrowRight, Star, Videocam, VideocamOff } from '@mui/icons-m
 import { useToast } from '@chakra-ui/toast';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import TopBar from '../Components/TopBar';
 import Footer from '../Components/Footer';
 import InfluencerGalleryCircle from '../Components/InfluencerGalleryCircle';
 import { Spinner } from '@heroui/react';
-
-
+import FeatureRatingComparison from '../Components/FeatureRatingComparison';
 
 const RatingScale = lazy(() => import('../Components/RatingScale'));
 
@@ -126,11 +124,6 @@ function GetRanked() {
 
   useEffect(() => {
     const loadEntities = async () => {
-      if ((category === 'all' || category === 'other-users') && !user) {
-        setShuffledEntities([]);
-        setIsLoading(false);
-        return;
-      }
       setIsLoading(true);
       try {
         let entities = [];
@@ -146,7 +139,7 @@ function GetRanked() {
           }));
           entities = [...entities, ...streamers];
 
-          const usersQuery = query(collection(db, 'users'), where('__name__', '!=', user.uid));
+          const usersQuery = query(collection(db, 'users'));
           const usersSnapshot = await getDocs(usersQuery);
           const users = usersSnapshot.docs.map((doc) => ({
             id: doc.id,
@@ -157,7 +150,7 @@ function GetRanked() {
           }));
           entities = [...entities, ...users];
         } else if (category === 'other-users') {
-          const usersQuery = query(collection(db, 'users'), where('__name__', '!=', user.uid));
+          const usersQuery = query(collection(db, 'users'));
           const usersSnapshot = await getDocs(usersQuery);
           const users = usersSnapshot.docs.map((doc) => ({
             id: doc.id,
@@ -195,7 +188,7 @@ function GetRanked() {
       setIsLoading(false);
     };
     loadEntities();
-  }, [category, toast, user]);
+  }, [category, toast]);
 
   useEffect(() => {
     let filteredList = shuffledEntities;
@@ -266,7 +259,7 @@ function GetRanked() {
   };
 
   const chartData = useMemo(() => {
-    if (!userData || !ratedEntityData) return [];
+    if (!user || !userData || !ratedEntityData) return [];
     const featureMapping = {
       Eyes: 'eyesRating',
       Smile: 'smileRating',
@@ -280,9 +273,9 @@ function GetRanked() {
       const userAvg = userTimesRanked > 0 ? (userData[field] || 0) / userTimesRanked : 0;
       const entityAvg =
         entityTimesRanked > 0 ? (ratedEntityData[field] || 0) / entityTimesRanked : 0;
-      return { feature, user: userAvg, influencer: entityAvg };
+      return { feature, user: userAvg, entity: entityAvg };
     });
-  }, [userData, ratedEntityData]);
+  }, [user, userData, ratedEntityData]);
 
   return (
     <>
@@ -308,33 +301,14 @@ function GetRanked() {
               </Flex>
             </VStack>
 
-            {/* Feature Rating Comparison (Hidden when comparison is toggled) */}
-            {!isComparisonToggled && !userLoading && !ratingLoading && userData && ratedEntityData && (
-              <Box
-                w="100%"
-                p={4}
-                bg="white"
-                borderRadius="2xl"
-                boxShadow={{ md: 'xl' }}
-              >
-                <Heading as="h3" size="md" mb={4}>
-                  Feature Rating Comparison
-                </Heading>
-                <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="feature" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="user" fill="#8884d8" name="Your Average" />
-                    <Bar
-                      dataKey="influencer"
-                      fill="#82ca9d"
-                      name={`${currentEntity?.name || 'Entity'}'s Average`}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+            {/* Feature Rating Comparison (Hidden when comparison is toggled or user is not signed in) */}
+            {!isComparisonToggled && user && !userLoading && !ratingLoading && userData && ratedEntityData && (
+              <Box w="100%" p={4} bg="white" borderRadius="2xl" boxShadow={{ md: 'xl' }}>
+                <FeatureRatingComparison
+                  chartData={chartData}
+                  entityName={currentEntity?.name || 'Entity'}
+                  isMobile={isMobile}
+                />
               </Box>
             )}
 
@@ -370,26 +344,13 @@ function GetRanked() {
                   position="relative"
                 >
                   {isComparisonToggled ? (
-                    !userLoading && !ratingLoading && userData && ratedEntityData ? (
+                    user && !userLoading && !ratingLoading && userData && ratedEntityData ? (
                       <Box p={4}>
-                        <Heading as="h3" size="md" mb={4}>
-                          Feature Rating Comparison
-                        </Heading>
-                        <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
-                          <BarChart data={chartData}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="feature" />
-                            <YAxis />
-                            <Tooltip />
-                            <Legend />
-                            <Bar dataKey="user" fill="#8884d8" name="Your Average" />
-                            <Bar
-                              dataKey="influencer"
-                              fill="#82ca9d"
-                              name={`${currentEntity?.name || 'Entity'}'s Average`}
-                            />
-                          </BarChart>
-                        </ResponsiveContainer>
+                        <FeatureRatingComparison
+                          chartData={chartData}
+                          entityName={currentEntity?.name || 'Entity'}
+                          isMobile={isMobile}
+                        />
                       </Box>
                     ) : (
                       <Spinner size="xl" color="blue.500" />
@@ -415,9 +376,9 @@ function GetRanked() {
                         spacing={1}
                       >
                         <Text fontSize="sm" fontWeight="medium">
-                          {userData?.displayName || 'You'}
+                          {user ? userData?.displayName || 'You' : 'Guest'}
                         </Text>
-                        {!userLoading && (
+                        {user && !userLoading && (
                           <HStack spacing={1}>
                             <Star sx={{ fontSize: 16, color: '#FFD700' }} />
                             <Text fontSize="sm" fontWeight="medium">
@@ -463,7 +424,7 @@ function GetRanked() {
                     <img
                       src={currentEntity.photo_url}
                       alt={currentEntity.name}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                     />
                   ) : (
                     <Text fontSize="lg" color="gray.500">
@@ -507,7 +468,7 @@ function GetRanked() {
 
             {/* Navigation Buttons - Hidden on Mobile */}
             <Flex
-              display={{ base: 'none', md: 'flex' }} // Added to hide on mobile
+              display={{ base: 'none', md: 'flex' }}
               direction={{ base: 'column', md: 'row' }}
               gap={4}
               justify="center"
@@ -569,6 +530,12 @@ function GetRanked() {
                 colorScheme="teal"
                 onClick={handlePreviousPhoto}
                 zIndex="1000"
+                rounded="full"
+                style={{ 
+                  backgroundColor: 'rgba(0, 128, 128, 0.3)',  // Teal with 30% transparency
+                  marginBottom: 55 
+                }}
+                variant="ghost"
               >
                 <ArrowLeft />
               </IconButton>
@@ -581,6 +548,12 @@ function GetRanked() {
                 colorScheme="teal"
                 onClick={handleNextPhoto}
                 zIndex="1000"
+                rounded="full"
+                style={{ 
+                  backgroundColor: 'rgba(0, 128, 128, 0.3)',  // Teal with 30% transparency
+                  marginBottom: 55 
+                }}
+                variant="ghost"
               >
                 <ArrowRight />
               </IconButton>

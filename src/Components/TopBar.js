@@ -8,7 +8,8 @@ import {
   Text, 
   Button, 
   Spacer, 
-  useBreakpointValue 
+  useBreakpointValue, 
+  Popover
 } from '@chakra-ui/react';
 import { FaVideo, FaGamepad, FaTrophy, FaStar, FaMapMarkedAlt, FaEnvelope, FaBars } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
@@ -18,9 +19,14 @@ import MuiIconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import MuiButton from '@mui/material/Button';
 import CloseIcon from '@mui/icons-material/Close';
+import { useAuth } from '../hooks/useAuth'; // Import useAuth hook
+
+
+
 
 const TopBar = () => {
   const navigate = useNavigate();
+  const { user, signOut } = useAuth(); // Get user and signOut from useAuth
 
   const navItems = [
     { title: 'Video Chat', icon: FaVideo, route: '/video-call' },
@@ -35,6 +41,16 @@ const TopBar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const handleToggle = () => setIsOpen(!isOpen);
 
+  // Handle sign-out action
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/'); // Navigate to home page after sign-out
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
   return (
     <Box 
       bg="white" 
@@ -45,7 +61,7 @@ const TopBar = () => {
       style={{ position: 'sticky', top: 0, zIndex: 100, marginTop: '-50' }}
     >
       <Flex align="center">
-        {/* Logo using image from public folder */}
+        {/* Logo */}
         <Box 
           as="img" 
           src="/lookzapp.png" 
@@ -53,7 +69,7 @@ const TopBar = () => {
           maxH="60px" 
           cursor="pointer" 
           onClick={() => navigate('/')} 
-          style={{ objectFit: 'contain', marginLeft: '-15px' }}
+          style={{ objectFit: 'contain', marginLeft: '-70px' }}
         />
         <Spacer />
 
@@ -77,6 +93,16 @@ const TopBar = () => {
                 </HStack>
               </Button>
             ))}
+            {/* Sign In/Sign Out Button for Desktop */}
+            {user ? (
+              <Button variant="ghost" onClick={handleSignOut}>
+                Sign Out
+              </Button>
+            ) : (
+              <Button variant="ghost" onClick={() => navigate('/signin')}>
+                Sign In
+              </Button>
+            )}
           </HStack>
         ) : (
           <MuiIconButton onClick={handleToggle}>
@@ -110,6 +136,32 @@ const TopBar = () => {
                   {item.title}
                 </MuiButton>
               ))}
+              {/* Sign In/Sign Out Button for Mobile Drawer */}
+              {user ? (
+                <MuiButton
+                  fullWidth
+                  variant="text"
+                  onClick={() => {
+                    handleSignOut();
+                    handleToggle();
+                  }}
+                  sx={{ mb: 1 }}
+                >
+                  Sign Out
+                </MuiButton>
+              ) : (
+                <MuiButton
+                  fullWidth
+                  variant="text"
+                  onClick={() => {
+                    navigate('/signin');
+                    handleToggle();
+                  }}
+                  sx={{ mb: 1 }}
+                >
+                  Sign In
+                </MuiButton>
+              )}
             </MuiBox>
           </MuiBox>
         </Drawer>
