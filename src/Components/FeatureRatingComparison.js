@@ -3,10 +3,8 @@ import { Bar } from 'react-chartjs-2';
 import { Heading } from '@chakra-ui/react';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 
-
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
-
 
 const FeatureRatingComparison = ({ chartData, entityName, isMobile }) => {
   const data = {
@@ -24,7 +22,6 @@ const FeatureRatingComparison = ({ chartData, entityName, isMobile }) => {
       },
     ],
   };
-
 
   const options = {
     responsive: true,
@@ -44,11 +41,10 @@ const FeatureRatingComparison = ({ chartData, entityName, isMobile }) => {
     },
   };
 
-
   return (
     <>
       <Heading as="h3" size="md" mb={4}>
-      {entityName} Comparison
+        {entityName} Comparison
       </Heading>
       <div style={{ height: isMobile ? '250px' : '300px', width: '100%' }}>
         <Bar data={data} options={options} />
@@ -57,6 +53,4 @@ const FeatureRatingComparison = ({ chartData, entityName, isMobile }) => {
   );
 };
 
-
 export default FeatureRatingComparison;
-

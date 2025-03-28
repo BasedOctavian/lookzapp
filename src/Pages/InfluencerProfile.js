@@ -26,6 +26,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { useInfluencerDailyRatings } from '../hooks/useInfluencerDailyRatings';
 import { useInfluencerBadges } from '../hooks/useInfluencerBadges';
 
+
 function InfluencerProfile() {
   // Get the influencer ID from the URL parameters
   const { influencerId } = useParams();

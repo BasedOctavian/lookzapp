@@ -16,7 +16,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useUserData } from '../hooks/useUserData';
 import { useInfluencerRatingData } from '../hooks/useInfluencerRatingData';
 import { useUserRatingData } from '../hooks/useUserRatingData';
-import { ArrowLeft, ArrowRight, Star, Videocam, VideocamOff } from '@mui/icons-material';
+import { ArrowLeft, ArrowRight, Star, Videocam, BarChart } from '@mui/icons-material';
 import { useToast } from '@chakra-ui/toast';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -358,7 +358,12 @@ function GetRanked() {
                   ) : (
                     <Box w="100%" h="100%" bg="black">
                       <video
-                        ref={localVideoRef}
+                        ref={(el) => {
+                          localVideoRef.current = el;
+                          if (el && localStream) {
+                            el.srcObject = localStream;
+                          }
+                        }}
                         autoPlay
                         muted
                         playsInline
@@ -400,7 +405,7 @@ function GetRanked() {
                     zIndex="1"
                     colorScheme="blue"
                   >
-                    {isComparisonToggled ? <Videocam /> : <VideocamOff />}
+                    {isComparisonToggled ? <Videocam /> : <BarChart />}
                   </IconButton>
                 </Box>
 
