@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
 import { useInfluencerRatingData } from '../hooks/useInfluencerRatingData';
+import { useInfluencerComments } from '../hooks/useInfluencerComments'; // New import
 import FeatureRatingComparison from '../Components/FeatureRatingComparison';
 import {
   Flex,
@@ -15,6 +16,8 @@ import {
   GridItem,
   Grid,
   HStack,
+  Textarea,
+  Button,
 } from '@chakra-ui/react';
 import { FiUsers } from 'react-icons/fi';
 import TopBar from '../Components/TopBar';
@@ -22,12 +25,13 @@ import Footer from '../Components/Footer';
 import InfluencerGalleryCircle from '../Components/InfluencerGalleryCircle';
 import Badges from '../Components/Badges';
 import Avatar from '@mui/material/Avatar';
-import { Divider } from '@mui/material';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { useInfluencerDailyRatings } from '../hooks/useInfluencerDailyRatings';
 import { useInfluencerBadges } from '../hooks/useInfluencerBadges';
 import InfluencerTopStats from '../Components/InfluencerTopStats';
-
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore'; // New imports
+import { db } from '../firebase'; // Ensure db is imported
+import { Divider, FormControl } from '@mui/material';
 
 
 function InfluencerProfile() {
@@ -36,6 +40,9 @@ function InfluencerProfile() {
   const { influencerData, rating, loading: ratingLoading } = useInfluencerRatingData(influencerId);
   const { dailyRatings, loading: dailyRatingsLoading } = useInfluencerDailyRatings(influencerId);
   const { earnedBadges, loading: badgesLoading } = useInfluencerBadges(influencerId);
+  const { comments, loading: commentsLoading } = useInfluencerComments(influencerId); // New hook usage
+  const [commentText, setCommentText] = useState(''); // State for comment input
+  const [isSubmitting, setIsSubmitting] = useState(false); // State for submission status
 
   const isMobile = useBreakpointValue({ base: true, md: false });
   const cardBg = 'white';
@@ -62,6 +69,34 @@ function InfluencerProfile() {
     date: rating.date,
     averageRating: parseFloat(rating.averageRating),
   }));
+
+  // Function to add a new comment
+  const addComment = async () => {
+    if (!currentUserData) {
+      alert('Please log in to comment.');
+      return;
+    }
+    if (!commentText.trim()) {
+      alert('Comment cannot be empty.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const commentsRef = collection(db, 'streamers', influencerId, 'comments');
+      await addDoc(commentsRef, {
+        text: commentText,
+        userId: currentUserData.uid,
+        userName: currentUserData.displayName,
+        timestamp: serverTimestamp(),
+      });
+      setCommentText(''); // Clear input after submission
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      alert('Failed to add comment.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   let profileContent;
   if (ratingLoading || badgesLoading || currentUserLoading) {
@@ -150,7 +185,6 @@ function InfluencerProfile() {
             ))}
           </Grid>
 
-          {/* Add InfluencerTopStats here */}
           <InfluencerTopStats influencerData={influencerData} />
 
           <Divider />
@@ -232,6 +266,57 @@ function InfluencerProfile() {
               <Text color="gray.500" fontSize="lg">
                 No rating history available
               </Text>
+            )}
+          </VStack>
+
+          {/* New Comments Section */}
+          <Divider />
+          <VStack spacing={6} w="100%">
+            <Heading size="lg" fontWeight="semibold" alignSelf="start" letterSpacing="tight">
+              Comments
+            </Heading>
+            {commentsLoading ? (
+              <Spinner size="lg" color="blue.500" thickness="3px" />
+            ) : comments.length === 0 ? (
+              <Text color="gray.500" fontSize="lg">
+                No comments yet
+              </Text>
+            ) : (
+              <VStack spacing={4} align="start" w="100%">
+                {comments.map(comment => (
+                  <Box key={comment.id} p={4} bg="gray.100" borderRadius="md" w="100%">
+                    <HStack spacing={2}>
+                      <Avatar size="sm" name={comment.userName} />
+                      <Text fontWeight="bold">{comment.userName}</Text>
+                      <Text color="gray.500" fontSize="sm">
+                        {new Date(comment.timestamp.toDate()).toLocaleString()}
+                      </Text>
+                    </HStack>
+                    <Text mt={2}>{comment.text}</Text>
+                  </Box>
+                ))}
+              </VStack>
+            )}
+            {currentUserData ? (
+              <FormControl>
+                <Textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Add a comment..."
+                  size="sm"
+                />
+                <Button
+                  mt={2}
+                  colorScheme="blue"
+                  onClick={addComment}
+                  isLoading={isSubmitting}
+                  loadingText="Submitting"
+                >
+                  Submit
+                </Button>
+              </FormControl>
+            ) : (
+              <Text>Please log in to comment.</Text>
             )}
           </VStack>
         </VStack>

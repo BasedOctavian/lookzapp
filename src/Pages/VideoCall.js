@@ -43,6 +43,7 @@ import { useUserData } from '../hooks/useUserData';
 import { useUserRatingData } from '../hooks/useUserRatingData';
 import TopBar from '../Components/TopBar';
 import Footer from '../Components/Footer';
+import useVideoStream from '../hooks/useVideoStream'; // Added import for the custom hook
 
 const RatingScale = lazy(() => import('../Components/RatingScale'));
 
@@ -53,7 +54,6 @@ function VideoCall() {
   const [error, setError] = useState('');
   const [peer, setPeer] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('');
-  const [localStream, setLocalStream] = useState(null);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [remoteUserName, setRemoteUserName] = useState('');
@@ -74,6 +74,16 @@ function VideoCall() {
     rating: remoteRating,
     loading: ratingLoading,
   } = useUserRatingData(remoteUserId);
+
+  // Use the custom hook to get the local stream
+  const localStream = useVideoStream();
+
+  // Set the stream to the local video element
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream]);
 
   useEffect(() => {
     if (localRating) {
@@ -414,19 +424,6 @@ function VideoCall() {
 
   // **useEffect Hooks**
   useEffect(() => {
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        setLocalStream(stream);
-        if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-      })
-      .catch((err) => {
-        console.error('Failed to access media devices:', err);
-        setError('Failed to access camera/microphone. Please check your permissions and try again.');
-      });
-  }, []);
-
-  useEffect(() => {
     if (!peer) {
       setConnectionStatus('');
       return;
@@ -544,103 +541,41 @@ function VideoCall() {
   // **JSX Return Statement**
   return (
     <>
-    <TopBar />
-    <Flex direction="column" minH="100vh" bg="gray.50">
-
-      <Container maxW="container.xl" py={{ base: 4, md: 6 }}>
-        <VStack spacing={{ base: 4, md: 6 }} align="stretch">
-          <Flex
-            direction={['column', 'row']}
-            w="100%"
-            h={['75vh', 'auto']}
-            justify="center"
-            align="center"
-            gap={6}
-            p={4}
-            bg="white"
-            borderRadius="2xl"
-            boxShadow="xl"
-          >
-            <Box
-              w={['100%', '45%']}
-              h={['auto', '60vh']}
-              flex={['1', 'none']}
-              borderWidth="2px"
-              borderColor="gray.100"
-              borderRadius="xl"
-              overflow="hidden"
-              boxShadow="lg"
-              bg="black"
-              position="relative"
+      <TopBar />
+      <Flex direction="column" minH="100vh" bg="gray.50">
+        <Container maxW="container.xl" py={{ base: 4, md: 6 }}>
+          <VStack spacing={{ base: 4, md: 6 }} align="stretch">
+            <Flex
+              direction={['column', 'row']}
+              w="100%"
+              h={['75vh', 'auto']}
+              justify="center"
+              align="center"
+              gap={6}
+              p={4}
+              bg="white"
+              borderRadius="2xl"
+              boxShadow="xl"
             >
-              <video
-                ref={localVideoRef}
-                autoPlay
-                muted
-                playsInline
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-              <HStack
-                position="absolute"
-                bottom="2"
-                left="2"
-                color="white"
-                bg="rgba(0, 0, 0, 0.6)"
-                px={2}
-                py={1}
-                borderRadius="md"
-                spacing={1}
+              <Box
+                w={['100%', '45%']}
+                h={['auto', '60vh']}
+                flex={['1', 'none']}
+                borderWidth="2px"
+                borderColor="gray.100"
+                borderRadius="xl"
+                overflow="hidden"
+                boxShadow="lg"
+                bg="black"
+                position="relative"
               >
-                <Text fontSize="sm" fontWeight="medium">
-                  {userData?.displayName || 'You'}
-                </Text>
-                {!loading && (
-                  <HStack spacing={1}>
-                    <Star sx={{ fontSize: 16, color: '#FFD700' }} />
-                    <Text fontSize="sm" fontWeight="medium">
-                      {localRating.toFixed(1)}
-                    </Text>
-                  </HStack>
-                )}
-              </HStack>
-            </Box>
-
-            <Box
-              w={['100%', '45%']}
-              h={['auto', '60vh']}
-              flex={['1', 'none']}
-              borderWidth="2px"
-              borderColor="gray.100"
-              borderRadius="xl"
-              overflow="hidden"
-              boxShadow="lg"
-              bg="black"
-              position="relative"
-            >
-              <video
-                ref={remoteVideoRef}
-                autoPlay
-                playsInline
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-              {!peer && (
-                <Text
-                  position="absolute"
-                  top="50%"
-                  left="50%"
-                  transform="translate(-50%, -50%)"
-                  color="white"
-                  bg="rgba(0, 0, 0, 0.6)"
-                  px={4}
-                  py={2}
-                  borderRadius="md"
-                  fontSize="md"
-                  fontWeight="medium"
-                >
-                  Waiting for connection...
-                </Text>
-              )}
-              {peer && (
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
                 <HStack
                   position="absolute"
                   bottom="2"
@@ -653,115 +588,176 @@ function VideoCall() {
                   spacing={1}
                 >
                   <Text fontSize="sm" fontWeight="medium">
-                    {remoteUserName || 'Stranger'}
+                    {userData?.displayName || 'You'}
                   </Text>
-                  {remoteUserId && !ratingLoading && (
+                  {!loading && (
                     <HStack spacing={1}>
                       <Star sx={{ fontSize: 16, color: '#FFD700' }} />
                       <Text fontSize="sm" fontWeight="medium">
-                        {remoteRating.toFixed(1)}
+                        {localRating.toFixed(1)}
                       </Text>
                     </HStack>
                   )}
                 </HStack>
-              )}
-            </Box>
-          </Flex>
-
-          {peer && !hasRated && (
-            <Suspense fallback={<Text>Loading rating interface...</Text>}>
-              <Box w="100%" bg="white" p={6} borderRadius="2xl" boxShadow="xl">
-                <RatingScale
-                  onRate={(rating, featureAllocations) => handleRating(rating, featureAllocations)}
-                  onStepChange={setCurrentRatingStep}
-                />
               </Box>
-            </Suspense>
-          )}
 
-          <HStack spacing={4} justify="center" flexWrap="wrap">
-            {peer ? (
-              <>
-                <IconButton
-                  aria-label={isAudioMuted ? 'Unmute Audio' : 'Mute Audio'}
-                  onClick={toggleAudio}
-                  color={isAudioMuted ? 'error' : 'primary'}
-                >
-                  {isAudioMuted ? <MicOff /> : <Mic />}
-                </IconButton>
-                <IconButton
-                  aria-label={isVideoMuted ? 'Enable Video' : 'Disable Video'}
-                  onClick={toggleVideo}
-                  color={isVideoMuted ? 'error' : 'primary'}
-                >
-                  {isVideoMuted ? <VideocamOff /> : <Videocam />}
-                </IconButton>
+              <Box
+                w={['100%', '45%']}
+                h={['auto', '60vh']}
+                flex={['1', 'none']}
+                borderWidth="2px"
+                borderColor="gray.100"
+                borderRadius="xl"
+                overflow="hidden"
+                boxShadow="lg"
+                bg="black"
+                position="relative"
+              >
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+                {!peer && (
+                  <Text
+                    position="absolute"
+                    top="50%"
+                    left="50%"
+                    transform="translate(-50%, -50%)"
+                    color="white"
+                    bg="rgba(0, 0, 0, 0.6)"
+                    px={4}
+                    py={2}
+                    borderRadius="md"
+                    fontSize="md"
+                    fontWeight="medium"
+                  >
+                    Waiting for connection...
+                  </Text>
+                )}
+                {peer && (
+                  <HStack
+                    position="absolute"
+                    bottom="2"
+                    left="2"
+                    color="white"
+                    bg="rgba(0, 0, 0, 0.6)"
+                    px={2}
+                    py={1}
+                    borderRadius="md"
+                    spacing={1}
+                  >
+                    <Text fontSize="sm" fontWeight="medium">
+                      {remoteUserName || 'Stranger'}
+                    </Text>
+                    {remoteUserId && !ratingLoading && (
+                      <HStack spacing={1}>
+                        <Star sx={{ fontSize: 16, color: '#FFD700' }} />
+                        <Text fontSize="sm" fontWeight="medium">
+                          {remoteRating.toFixed(1)}
+                        </Text>
+                      </HStack>
+                    )}
+                  </HStack>
+                )}
+              </Box>
+            </Flex>
+
+            {peer && !hasRated && (
+              <Suspense fallback={<Text>Loading rating interface...</Text>}>
+                <Box w="100%" bg="white" p={6} borderRadius="2xl" boxShadow="xl">
+                  <RatingScale
+                    onRate={(rating, featureAllocations) => handleRating(rating, featureAllocations)}
+                    onStepChange={setCurrentRatingStep}
+                  />
+                </Box>
+              </Suspense>
+            )}
+
+            <HStack spacing={4} justify="center" flexWrap="wrap">
+              {peer ? (
+                <>
+                  <IconButton
+                    aria-label={isAudioMuted ? 'Unmute Audio' : 'Mute Audio'}
+                    onClick={toggleAudio}
+                    color={isAudioMuted ? 'error' : 'primary'}
+                  >
+                    {isAudioMuted ? <MicOff /> : <Mic />}
+                  </IconButton>
+                  <IconButton
+                    aria-label={isVideoMuted ? 'Enable Video' : 'Disable Video'}
+                    onClick={toggleVideo}
+                    color={isVideoMuted ? 'error' : 'primary'}
+                  >
+                    {isVideoMuted ? <VideocamOff /> : <Videocam />}
+                  </IconButton>
+                  <Button
+                    leftIcon={<Close />}
+                    colorScheme="red"
+                    size="lg"
+                    px={8}
+                    onClick={handleEndCall}
+                    boxShadow="md"
+                    _hover={{ transform: 'scale(1.05)' }}
+                  >
+                    Move on
+                  </Button>
+                </>
+              ) : (
                 <Button
-                  leftIcon={<Close />}
-                  colorScheme="red"
+                  leftIcon={<Phone />}
+                  colorScheme="teal"
                   size="lg"
                   px={8}
-                  onClick={handleEndCall}
+                  onClick={handleStart}
                   boxShadow="md"
                   _hover={{ transform: 'scale(1.05)' }}
+                  transition="all 0.2s cubic-bezier(.27,.67,.47,1.6)"
                 >
-                  Move on
+                  Start Random Call
                 </Button>
-              </>
-            ) : (
-              <Button
-                leftIcon={<Phone />}
-                colorScheme="teal"
-                size="lg"
-                px={8}
-                onClick={handleStart}
-                boxShadow="md"
-                _hover={{ transform: 'scale(1.05)' }}
-                transition="all 0.2s cubic-bezier(.27,.67,.47,1.6)"
-              >
-                Start Random Call
-              </Button>
-            )}
-          </HStack>
+              )}
+            </HStack>
 
-          <VStack spacing={2} w="100%">
-            {roomId && (
-              <HStack
-                fontSize="sm"
-                color="gray.600"
-                textAlign="center"
-                bg="white"
-                p={3}
-                borderRadius="lg"
-                boxShadow="sm"
-                justify="center"
-              >
-                <CheckCircle color="success" />
-                <Text>
-                  Connection ID: <strong>{roomId}</strong> • {connectionStatus}
-                </Text>
-              </HStack>
-            )}
-            {error && (
-              <HStack
-                fontSize="sm"
-                color="red.600"
-                textAlign="center"
-                bg="red.50"
-                p={3}
-                borderRadius="lg"
-                boxShadow="sm"
-                justify="center"
-              >
-                <Error color="error" />
-                <Text>{error}</Text>
-              </HStack>
-            )}
+            <VStack spacing={2} w="100%">
+              {roomId && (
+                <HStack
+                  fontSize="sm"
+                  color="gray.600"
+                  textAlign="center"
+                  bg="white"
+                  p={3}
+                  borderRadius="lg"
+                  boxShadow="sm"
+                  justify="center"
+                >
+                  <CheckCircle color="success" />
+                  <Text>
+                    Connection ID: <strong>{roomId}</strong> • {connectionStatus}
+                  </Text>
+                </HStack>
+              )}
+              {error && (
+                <HStack
+                  fontSize="sm"
+                  color="red.600"
+                  textAlign="center"
+                  bg="red.50"
+                  p={3}
+                  borderRadius="lg"
+                  boxShadow="sm"
+                  justify="center"
+                >
+                  <Error color="error" />
+                  <Text>{error}</Text>
+                </HStack>
+              )}
+            </VStack>
           </VStack>
-        </VStack>
-      </Container>
-    </Flex>
-    <Footer />
+        </Container>
+      </Flex>
+      <Footer />
     </>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, Suspense, lazy, useMemo } from 'react';
+import React, { useState, useRef, Suspense, lazy, useMemo, useEffect } from 'react';
 import {
   Container,
   Flex,
@@ -14,204 +14,61 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUserData } from '../hooks/useUserData';
-import { useInfluencerRatingData } from '../hooks/useInfluencerRatingData';
-import { useUserRatingData } from '../hooks/useUserRatingData';
 import { ArrowLeft, ArrowRight, Star, Videocam, BarChart } from '@mui/icons-material';
 import { useToast } from '@chakra-ui/toast';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../firebase';
 import TopBar from '../Components/TopBar';
 import Footer from '../Components/Footer';
 import InfluencerGalleryCircle from '../Components/InfluencerGalleryCircle';
 import { Spinner } from '@heroui/react';
 import FeatureRatingComparison from '../Components/FeatureRatingComparison';
+import useVideoStream from '../hooks/useVideoStream';
+import useEntities from '../hooks/useEntities';
+import useEntityRating from '../hooks/useEntityRating';
 
 const RatingScale = lazy(() => import('../Components/RatingScale'));
-
-// Utility function to shuffle an array using Fisher-Yates algorithm
-function shuffleArray(array) {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
 
 function GetRanked() {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const category = queryParams.get('category') || 'Unknown Category';
 
-  const [localStream, setLocalStream] = useState(null);
-  const [shuffledEntities, setShuffledEntities] = useState([]);
-  const [entitiesList, setEntitiesList] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const [ratingKey, setRatingKey] = useState(0);
   const [genderFilter, setGenderFilter] = useState('both');
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [ratingKey, setRatingKey] = useState(0);
   const [isComparisonToggled, setIsComparisonToggled] = useState(false);
 
   const localVideoRef = useRef(null);
-  const videoInitialized = useRef(false); // New ref to track initialization
-
   const toast = useToast();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { userData, rating: localRating, loading: userLoading } = useUserData();
-
   const isMobile = useBreakpointValue({ base: true, md: false });
 
-  const currentEntity =
-    entitiesList.length > 0 && currentIndex >= 0 && currentIndex < entitiesList.length
-      ? entitiesList[currentIndex]
-      : null;
+  // Custom hooks
+  const localStream = useVideoStream();
+  const { entities: entitiesList, isLoading } = useEntities(category, genderFilter);
+  const currentEntity = entitiesList.length > 0 ? entitiesList[currentIndex] : null;
+  const {
+    ratedEntityData,
+    entityRating,
+    submitRating,
+    ratingLoading,
+    ratingError,
+  } = useEntityRating(currentEntity);
 
-  const isStreamer = currentEntity?.type === 'streamer';
-  const isUser = currentEntity?.type === 'user';
+  // Callback ref to set srcObject when video element is mounted
+  const setVideoRef = (element) => {
+    if (element && localStream) {
+      element.srcObject = localStream;
+    }
+    localVideoRef.current = element;
+  };
 
-  const influencerRatingHook = useInfluencerRatingData(isStreamer ? currentEntity?.id : null);
-  const userRatingHook = useUserRatingData(isUser ? currentEntity?.id : null);
-
-  const ratedEntityData = isStreamer
-    ? influencerRatingHook.influencerData
-    : isUser
-    ? userRatingHook.userData
-    : null;
-  const entityRating = isStreamer
-    ? influencerRatingHook.rating
-    : isUser
-    ? userRatingHook.rating
-    : null;
-  const submitRating = isStreamer
-    ? influencerRatingHook.submitRating
-    : isUser
-    ? userRatingHook.submitRating
-    : null;
-  const ratingLoading = isStreamer
-    ? influencerRatingHook.loading
-    : isUser
-    ? userRatingHook.loading
-    : false;
-  const ratingError = isStreamer
-    ? influencerRatingHook.error
-    : isUser
-    ? userRatingHook.error
-    : null;
-
+  // Log data for debugging
   useEffect(() => {
     if (ratedEntityData) console.log('Current Rated Entity Data:', ratedEntityData);
     if (userData) console.log('Current AuthUser Data:', userData);
   }, [ratedEntityData, userData]);
-
-  // Initialize video stream only once
-  useEffect(() => {
-    if (videoInitialized.current) return; // Skip if already initialized
-
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: false })
-      .then((stream) => {
-        setLocalStream(stream);
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-        videoInitialized.current = true; // Mark as initialized
-      })
-      .catch((err) => {
-        console.error('Failed to access media devices:', err);
-        toast({
-          title: 'Media Error',
-          description: 'Failed to access camera. Please check your permissions.',
-          status: 'error',
-          duration: 3000,
-          isClosable: true,
-        });
-      });
-
-    // Cleanup function to stop the stream when component unmounts
-    return () => {
-      if (localStream) {
-        localStream.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, [toast]); // Removed localStream from dependencies to prevent re-triggering
-
-  useEffect(() => {
-    const loadEntities = async () => {
-      setIsLoading(true);
-      try {
-        let entities = [];
-        if (category === 'all') {
-          const streamersQuery = query(collection(db, 'streamers'));
-          const streamersSnapshot = await getDocs(streamersQuery);
-          const streamers = streamersSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            type: 'streamer',
-            name: doc.data().name,
-            photo_url: doc.data().photo_url,
-            ...doc.data(),
-          }));
-          entities = [...entities, ...streamers];
-
-          const usersQuery = query(collection(db, 'users'));
-          const usersSnapshot = await getDocs(usersQuery);
-          const users = usersSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            type: 'user',
-            name: doc.data().displayName || 'Unknown User',
-            photo_url: doc.data().profilePicture || 'default_image_url',
-            ...doc.data(),
-          }));
-          entities = [...entities, ...users];
-        } else if (category === 'other-users') {
-          const usersQuery = query(collection(db, 'users'));
-          const usersSnapshot = await getDocs(usersQuery);
-          const users = usersSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            type: 'user',
-            name: doc.data().displayName || 'Unknown User',
-            photo_url: doc.data().profilePicture || 'default_image_url',
-            ...doc.data(),
-          }));
-          entities = [...entities, ...users];
-        } else {
-          const streamersQuery = query(collection(db, 'streamers'), where('category', '==', category));
-          const streamersSnapshot = await getDocs(streamersQuery);
-          const streamers = streamersSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            type: 'streamer',
-            name: doc.data().name,
-            photo_url: doc.data().photo_url,
-            ...doc.data(),
-          }));
-          entities = [...entities, ...streamers];
-        }
-        const shuffled = shuffleArray(entities);
-        setShuffledEntities(shuffled);
-      } catch (error) {
-        console.error('Error fetching entities:', error);
-        toast({
-          title: 'Fetch Error',
-          description: 'Failed to load entities.',
-          status: 'error',
-          duration: 3000,
-          isClosable: true,
-        });
-        setShuffledEntities([]);
-      }
-      setIsLoading(false);
-    };
-    loadEntities();
-  }, [category, toast]);
-
-  useEffect(() => {
-    let filteredList = shuffledEntities;
-    if (genderFilter !== 'both') {
-      filteredList = shuffledEntities.filter((entity) => entity.gender === genderFilter);
-    }
-    setEntitiesList(filteredList);
-    setCurrentIndex(0);
-  }, [shuffledEntities, genderFilter]);
 
   const handleSignOut = async () => {
     try {
@@ -315,7 +172,7 @@ function GetRanked() {
               </Flex>
             </VStack>
 
-            {/* Feature Rating Comparison (Hidden when comparison is toggled or user is not signed in) */}
+            {/* Feature Rating Comparison */}
             {!isComparisonToggled && user && !userLoading && !ratingLoading && userData && ratedEntityData && (
               <Box w="100%" p={4} bg="white" borderRadius="2xl" boxShadow={{ md: 'xl' }}>
                 <FeatureRatingComparison
@@ -345,7 +202,7 @@ function GetRanked() {
                 align="flex-start"
                 gap={6}
               >
-                {/* Conditional Video or Comparison */}
+                {/* Video or Comparison */}
                 <Box
                   w={{ base: '100%', md: '45%' }}
                   h={{ base: '40vh', md: '50vh' }}
@@ -361,7 +218,7 @@ function GetRanked() {
                 >
                   {isComparisonToggled ? (
                     user && !userLoading && !ratingLoading && userData && ratedEntityData ? (
-                      <Box p={4}>
+                      <Box width="100%" height="100%" overflow="auto">
                         <FeatureRatingComparison
                           chartData={chartData}
                           entityName={currentEntity?.name || 'Entity'}
@@ -374,7 +231,7 @@ function GetRanked() {
                   ) : (
                     <Box w="100%" h="100%" bg="black">
                       <video
-                        ref={localVideoRef} // Simplified ref assignment
+                        ref={setVideoRef}
                         autoPlay
                         muted
                         playsInline
@@ -413,7 +270,7 @@ function GetRanked() {
                     size="sm"
                     borderRadius="full"
                     onClick={(e) => {
-                      e.stopPropagation(); // Prevent navigation when clicking the toggle button
+                      e.stopPropagation();
                       setIsComparisonToggled(!isComparisonToggled);
                     }}
                     zIndex="1"
@@ -423,7 +280,7 @@ function GetRanked() {
                   </IconButton>
                 </Box>
 
-                {/* Entity's Photo with Sticky Positioning on Mobile */}
+                {/* Entity Photo */}
                 <Box
                   w={{ base: '100%', md: '45%' }}
                   h={{ base: '40vh', md: '50vh' }}
@@ -493,7 +350,7 @@ function GetRanked() {
               </Flex>
             </Box>
 
-            {/* Navigation Buttons - Hidden on Mobile */}
+            {/* Navigation Buttons */}
             <Flex
               display={{ base: 'none', md: 'flex' }}
               direction={{ base: 'column', md: 'row' }}
@@ -545,7 +402,7 @@ function GetRanked() {
             </Suspense>
           </VStack>
 
-          {/* Arrow Controls for Mobile */}
+          {/* Mobile Arrow Controls */}
           {isMobile && entitiesList.length > 0 && (
             <>
               <IconButton
@@ -559,7 +416,7 @@ function GetRanked() {
                 zIndex="1000"
                 rounded="full"
                 style={{ 
-                  backgroundColor: 'rgba(0, 128, 128, 0.3)',  // Teal with 30% transparency
+                  backgroundColor: 'rgba(0, 128, 128, 0.3)',
                   marginBottom: 55 
                 }}
                 variant="ghost"
@@ -577,7 +434,7 @@ function GetRanked() {
                 zIndex="1000"
                 rounded="full"
                 style={{ 
-                  backgroundColor: 'rgba(0, 128, 128, 0.3)',  // Teal with 30% transparency
+                  backgroundColor: 'rgba(0, 128, 128, 0.3)',
                   marginBottom: 55 
                 }}
                 variant="ghost"
