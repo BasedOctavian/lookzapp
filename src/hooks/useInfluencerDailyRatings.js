@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, getDocs, FieldPath } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export function useInfluencerDailyRatings(influencerId) {
@@ -19,7 +19,8 @@ export function useInfluencerDailyRatings(influencerId) {
 
       try {
         const dailyRatingsRef = collection(db, 'streamers', influencerId, 'dailyRatings');
-        const q = query(dailyRatingsRef, orderBy(FieldPath.documentId(), 'asc'));
+        // Use '__name__' instead of FieldPath.documentId()
+        const q = query(dailyRatingsRef, orderBy('__name__', 'asc'));
         const querySnapshot = await getDocs(q);
         if (isMounted) {
           const ratings = querySnapshot.docs.map((doc) => ({

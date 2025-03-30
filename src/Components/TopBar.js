@@ -96,11 +96,11 @@ const TopBar = () => {
             ))}
             {/* Sign In/Sign Out Button for Desktop */}
             {user ? (
-              <Button variant="ghost" onClick={handleSignOut} fontFamily={'Matt Light'}>
+              <Button variant="ghost" onClick={handleSignOut} fontFamily={'Matt Bold'}>
                 Sign Out
               </Button>
             ) : (
-              <Button variant="ghost" onClick={() => navigate('/signin')} fontFamily={'Matt Light'}>
+              <Button variant="ghost" onClick={() => navigate('/signin')} fontFamily={'Matt Bold'}>
                 Sign In
               </Button>
             )}

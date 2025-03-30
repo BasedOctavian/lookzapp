@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
 import { useInfluencerRatingData } from '../hooks/useInfluencerRatingData';
-import { useInfluencerComments } from '../hooks/useInfluencerComments'; // New import
+import { useInfluencerComments } from '../hooks/useInfluencerComments';
+import { useTopRatedData } from '../hooks/useTopRatedData'; // New import for global ranking
 import FeatureRatingComparison from '../Components/FeatureRatingComparison';
 import {
   Flex,
@@ -29,10 +30,10 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { useInfluencerDailyRatings } from '../hooks/useInfluencerDailyRatings';
 import { useInfluencerBadges } from '../hooks/useInfluencerBadges';
 import InfluencerTopStats from '../Components/InfluencerTopStats';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore'; // New imports
-import { db } from '../firebase'; // Ensure db is imported
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase';
 import { Divider, FormControl } from '@mui/material';
-import '../App.css'; 
+import '../App.css';
 
 function InfluencerProfile() {
   const { influencerId } = useParams();
@@ -40,13 +41,15 @@ function InfluencerProfile() {
   const { influencerData, rating, loading: ratingLoading } = useInfluencerRatingData(influencerId);
   const { dailyRatings, loading: dailyRatingsLoading } = useInfluencerDailyRatings(influencerId);
   const { earnedBadges, loading: badgesLoading } = useInfluencerBadges(influencerId);
-  const { comments, loading: commentsLoading } = useInfluencerComments(influencerId); // New hook usage
-  const [commentText, setCommentText] = useState(''); // State for comment input
-  const [isSubmitting, setIsSubmitting] = useState(false); // State for submission status
+  const { comments, loading: commentsLoading } = useInfluencerComments(influencerId);
+  const { data: topRatedData, loading: topRatedLoading, error: topRatedError } = useTopRatedData(); // New hook for global ranking
+  const [commentText, setCommentText] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isMobile = useBreakpointValue({ base: true, md: false });
   const cardBg = 'white';
 
+  // Memoized chart data for feature comparison
   const chartData = useMemo(() => {
     if (!currentUserData || !influencerData) return [];
     const featureMapping = {
@@ -65,10 +68,22 @@ function InfluencerProfile() {
     });
   }, [currentUserData, influencerData]);
 
+  // Parsed daily ratings for the chart
   const parsedDailyRatings = dailyRatings.map((rating) => ({
     date: rating.date,
     averageRating: parseFloat(rating.averageRating),
   }));
+
+  // Calculate global rank using top-rated data
+  const globalRank = useMemo(() => {
+    console.log("topRatedData:", topRatedData);
+    if (!topRatedData || topRatedData.length === 0) return 'N/A';
+    const ratedData = topRatedData.filter(item => item.totalRatings > 0);
+    const sortedData = [...ratedData].sort((a, b) => b.averageRating - a.averageRating);
+    const index = sortedData.findIndex(item => item.type === 'streamer' && item.id === influencerId);
+    if (index === -1) return 'N/A';
+    return `#${index + 1}`;
+  }, [topRatedData]);
 
   // Function to add a new comment
   const addComment = async () => {
@@ -89,7 +104,7 @@ function InfluencerProfile() {
         userName: currentUserData.displayName,
         timestamp: serverTimestamp(),
       });
-      setCommentText(''); // Clear input after submission
+      setCommentText('');
     } catch (error) {
       console.error('Error adding comment:', error);
       alert('Failed to add comment.');
@@ -99,7 +114,7 @@ function InfluencerProfile() {
   };
 
   let profileContent;
-  if (ratingLoading || badgesLoading || currentUserLoading) {
+  if (ratingLoading || badgesLoading || currentUserLoading || topRatedLoading) {
     profileContent = (
       <VStack spacing={4} py={12}>
         <Spinner size="xl" thickness="3px" />
@@ -168,7 +183,7 @@ function InfluencerProfile() {
 
           <Grid templateColumns="repeat(3, 1fr)" gap={8} w="100%" maxW="600px">
             {[
-              { label: 'Global Rank', value: 'N/A', color: 'blue.500' },
+              { label: 'Global Rank', value: globalRank, color: 'blue.500' }, // Updated with globalRank
               { label: 'Avg Rating', value: rating?.toFixed(1), color: 'purple.500' },
               { label: 'Total Ratings', value: influencerData.timesRanked || 0, color: 'teal.500' },
             ].map((stat) => (
@@ -269,7 +284,6 @@ function InfluencerProfile() {
             )}
           </VStack>
 
-          {/* New Comments Section */}
           <Divider />
           <VStack spacing={6} w="100%">
             <Heading size="lg" fontWeight="semibold" alignSelf="start" letterSpacing="tight" fontFamily={'Matt Bold'}>
@@ -283,11 +297,13 @@ function InfluencerProfile() {
               </Text>
             ) : (
               <VStack spacing={4} align="start" w="100%">
-                {comments.map(comment => (
+                {comments.map((comment) => (
                   <Box key={comment.id} p={4} bg="gray.100" borderRadius="md" w="100%">
                     <HStack spacing={2}>
                       <Avatar size="sm" name={comment.userName} />
-                      <Text fontWeight="bold" fontFamily={'Matt Light'}>{comment.userName}</Text>
+                      <Text fontWeight="bold" fontFamily={'Matt Light'}>
+                        {comment.userName}
+                      </Text>
                       <Text color="gray.500" fontSize="sm" fontFamily={'Matt Light Italic'}>
                         {new Date(comment.timestamp.toDate()).toLocaleString()}
                       </Text>
@@ -318,7 +334,9 @@ function InfluencerProfile() {
                 </Button>
               </FormControl>
             ) : (
-              <Text color="gray.500" fontSize="lg" fontFamily={'Matt Light'}>Please log in to comment.</Text>
+              <Text color="gray.500" fontSize="lg" fontFamily={'Matt Light'}>
+                Please log in to comment.
+              </Text>
             )}
           </VStack>
         </VStack>
