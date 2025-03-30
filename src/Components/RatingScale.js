@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Box, Button, Typography, Grid, Slider, Chip } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningIcon from '@mui/icons-material/Warning';
+import '../App.css'; 
 
 // Subcomponent: RatingButton
 // Displays a circular button for selecting a rating number
@@ -17,7 +18,8 @@ const RatingButton = ({ rating, onClick }) => (
       backgroundColor: '#e0e0e0', // Hardcoded grey
       color: '#424242', // Dark grey text
       fontSize: '1.2rem',
-      '&:hover': { backgroundColor: '#bdbdbd' }, // Lighter grey on hover
+      '&:hover': { backgroundColor: '#bdbdbd' },
+      fontFamily: 'Matt Italic', // Lighter grey on hover
     }}
     aria-label={`Rate ${rating}`}
   >
@@ -30,11 +32,11 @@ const RatingButton = ({ rating, onClick }) => (
 const CategorySlider = ({ category, emoji, color, percentage, onChange, selectedRating }) => (
   <Box mb={4}>
     <Box display="flex" alignItems="center" mb={1}>
-      <Typography variant="h6" color="textPrimary">
+      <Typography variant="h6" color="textPrimary" fontFamily={'Matt Bold'}>
         {emoji} {category}
       </Typography>
       <Box ml={2}>
-        <Typography variant="body2" color="textSecondary">
+        <Typography variant="body2" color="textSecondary" fontFamily={'Matt Light'}>
           {percentage.toFixed(1)}% ({((percentage / 100) * selectedRating).toFixed(1)} pts)
         </Typography>
       </Box>
@@ -68,7 +70,7 @@ const TotalDisplay = ({ total, selectedRating }) => {
   const isMatching = Math.abs(total - selectedRating) < 0.01;
   return (
     <Box display="flex" justifyContent="space-between" alignItems="center" mt={4}>
-      <Typography variant="h6" style={{ color: isMatching ? '#4caf50' : '#f44336' }}>
+      <Typography variant="h6" style={{ color: isMatching ? 'black' : '#f44336' }} fontFamily={'Matt Bold'}>
         Total Points: {total.toFixed(2)} / {selectedRating}
       </Typography>
       <Chip
@@ -78,6 +80,7 @@ const TotalDisplay = ({ total, selectedRating }) => {
           backgroundColor: isMatching ? '#4caf50' : '#f44336', // Green or red
           color: '#ffffff', // White text
           fontWeight: 'bold',
+          fontFamily: 'Matt Bold',
         }}
       />
     </Box>
@@ -149,10 +152,10 @@ const RatingScale = ({ onRate }) => {
       {/* Rating selection screen */}
       {showNumbers && (
         <Box>
-          <Typography variant="h5" align="center" gutterBottom color="textPrimary">
+          <Typography variant="h5" align="center" gutterBottom color="textPrimary" fontFamily={'Matt Bold'}>
             Rate This Appearance
           </Typography>
-          <Typography variant="subtitle1" align="center" color="textSecondary" gutterBottom>
+          <Typography variant="subtitle1" align="center" color="textSecondary" gutterBottom fontFamily={'Matt Light'}>
             Select a rating from 1 to 10
           </Typography>
           <Grid container spacing={2} justifyContent="center">
@@ -173,11 +176,12 @@ const RatingScale = ({ onRate }) => {
             align="center"
             gutterBottom
             color="textPrimary"
+            fontFamily={'Matt Bold'}
             sx={{ marginBottom: '8px' }} // Reduced bottom margin
           >
             Allocate Your Rating Points
           </Typography>
-          <Typography variant="subtitle1" align="center" color="textSecondary" gutterBottom>
+          <Typography variant="subtitle1" align="center" color="textSecondary" gutterBottom fontFamily={'Matt Light'}>
             Adjust the percentages for each category. The total points should match your selected rating.
           </Typography>
           {categories.map(({ category, emoji, darkColor }) => (
@@ -199,7 +203,7 @@ const RatingScale = ({ onRate }) => {
               setShowNumbers(true);
               setShowSliders(false);
             }}
-            sx={{ mt: 2, mb: 2 }}
+            sx={{ mt: 2, mb: 2, color: '#424242', fontFamily: 'Matt Light' }}
           >
             Change Rating
           </Button>
@@ -216,11 +220,12 @@ const RatingScale = ({ onRate }) => {
             }}
             disabled={!isTotalMatching}
             sx={{
-              background: 'linear-gradient(to right, #9e9e9e, #1976d2)', // Hardcoded gradient
-              color: '#ffffff', // White text
+              background: 'black', // Hardcoded gradient
+              color: '#ffffff',
+              fontFamily: 'Matt Bold', // White text
               fontSize: '1.2rem',
               '&:hover': {
-                background: 'linear-gradient(to right, #bdbdbd, #1565c0)', // Hover gradient
+                background: 'black', // Hover gradient
               },
               '&:disabled': { background: '#bdbdbd' }, // Disabled grey
             }}
