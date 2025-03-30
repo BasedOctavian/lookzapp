@@ -36,3 +36,43 @@
     transform: rotate(360deg);
   }
 }
+
+@font-face {
+  font-family: 'Matt';
+  src: local('Matt Trial'), 
+       url('./assets/fonts/Matt_Trial-Black-BF670897ed2f663.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Matt Italic';
+  src: local('Matt Trial Black Italic'), 
+       url('./assets/fonts/Matt_Trial-BlackItalic-BF670897ec43e5c.ttf') format('truetype');
+  font-weight: normal;
+  font-style: italic;
+}
+@font-face {
+  font-family: 'Matt Bold';
+  src: local('Matt Trial Bold'), 
+       url('./assets/fonts/Matt_Trial-Bold-BF670897ed2aebd.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Matt Light Italic'; 
+  src: local('Matt Trial Extra Light Italic'), 
+       url('./assets/fonts/Matt_Trial-ExtraLightItalic-BF670897ece843a.ttf') format('truetype');
+  font-weight: normal;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Matt Light'; 
+  src: local('Matt Trial Extra Light Italic'), 
+       url('./assets/fonts/Matt_Trial-Light-BF670897ed27830.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+

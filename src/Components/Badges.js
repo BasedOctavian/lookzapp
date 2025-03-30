@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { HStack, VStack, Text, Box } from '@chakra-ui/react';
 import { Tooltip } from '@mui/material';
+import '../App.css';
 
 // Variation 4: Card-Style Badges with MUI Tooltip for Description
 function BadgeVariation4({ earnedBadges }) {
@@ -66,6 +67,7 @@ function BadgeWithTooltip({ badge, badgeRef, maxWidth, maxHeight }) {
           fontWeight="medium"
           mt={1}
           whiteSpace="nowrap"
+          fontFamily={'Matt Light'}
         >
           {badge.name}
         </Text>

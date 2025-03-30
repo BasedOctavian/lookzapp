@@ -1,4 +1,5 @@
 import { HStack, VStack, Text, Box } from '@chakra-ui/react';
+import '../App.css'; 
 
 function InfluencerTopStats({ influencerData }) {
   // If no data or no ratings, display a message
@@ -27,16 +28,16 @@ function InfluencerTopStats({ influencerData }) {
     <HStack spacing={8} justify="center">
       <Box p={4} shadow="md" borderWidth="1px" bg="gray.100" borderRadius="md">
         <VStack>
-          <Text fontSize="lg" fontWeight="bold">Best Feature</Text>
+          <Text fontSize="lg" fontWeight="bold" fontFamily={'Matt Light'}>Best Feature</Text>
           <Text fontSize="2xl">{bestFeature.emoji}</Text>
-          <Text>{bestFeature.name}</Text>
+          <Text fontFamily={'Matt Light'}>{bestFeature.name}</Text>
         </VStack>
       </Box>
       <Box p={4} shadow="md" borderWidth="1px" bg="gray.100" borderRadius="md">
         <VStack>
-          <Text fontSize="lg" fontWeight="bold">Worst Feature</Text>
+          <Text fontSize="lg" fontWeight="bold" fontFamily={'Matt Light'}>Worst Feature</Text>
           <Text fontSize="2xl">{worstFeature.emoji}</Text>
-          <Text>{worstFeature.name}</Text>
+          <Text fontFamily={'Matt Light'}>{worstFeature.name}</Text>
         </VStack>
       </Box>
     </HStack>

@@ -20,6 +20,7 @@ import Typography from '@mui/material/Typography';
 import MuiButton from '@mui/material/Button';
 import CloseIcon from '@mui/icons-material/Close';
 import { useAuth } from '../hooks/useAuth'; // Import useAuth hook
+import '../App.css'; 
 
 
 
@@ -89,17 +90,17 @@ const TopBar = () => {
                     h={5} 
                     color={item.title === 'Rating' ? 'yellow.500' : 'gray.600'} 
                   />
-                  <Text fontSize="sm">{item.title}</Text>
+                  <Text fontSize="sm" fontFamily={'Matt Bold'}>{item.title}</Text>
                 </HStack>
               </Button>
             ))}
             {/* Sign In/Sign Out Button for Desktop */}
             {user ? (
-              <Button variant="ghost" onClick={handleSignOut}>
+              <Button variant="ghost" onClick={handleSignOut} fontFamily={'Matt Light'}>
                 Sign Out
               </Button>
             ) : (
-              <Button variant="ghost" onClick={() => navigate('/signin')}>
+              <Button variant="ghost" onClick={() => navigate('/signin')} fontFamily={'Matt Light'}>
                 Sign In
               </Button>
             )}

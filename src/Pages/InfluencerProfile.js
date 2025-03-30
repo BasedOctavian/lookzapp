@@ -32,7 +32,7 @@ import InfluencerTopStats from '../Components/InfluencerTopStats';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore'; // New imports
 import { db } from '../firebase'; // Ensure db is imported
 import { Divider, FormControl } from '@mui/material';
-
+import '../App.css'; 
 
 function InfluencerProfile() {
   const { influencerId } = useParams();
@@ -160,7 +160,7 @@ function InfluencerProfile() {
 
         <VStack spacing={8} pt={24} px={{ base: 4, md: 8 }} pb={8}>
           <VStack spacing={2}>
-            <Heading as="h1" size="2xl" fontWeight="extrabold" letterSpacing="tight">
+            <Heading as="h1" size="2xl" fontWeight="extrabold" letterSpacing="tight" fontFamily={'Matt Bold'}>
               {influencerData.name}
             </Heading>
             <Badges earnedBadges={earnedBadges} />
@@ -174,10 +174,10 @@ function InfluencerProfile() {
             ].map((stat) => (
               <GridItem key={stat.label}>
                 <VStack spacing={1}>
-                  <Text fontSize="3xl" fontWeight="black" color={stat.color}>
+                  <Text fontSize="3xl" fontWeight="black" color={stat.color} fontFamily={'Matt Bold'}>
                     {stat.value}
                   </Text>
-                  <Text fontSize="sm" color="gray.500" textAlign="center" fontWeight="medium">
+                  <Text fontSize="sm" color="gray.500" textAlign="center" fontWeight="medium" fontFamily={'Matt Light'}>
                     {stat.label}
                   </Text>
                 </VStack>
@@ -202,7 +202,7 @@ function InfluencerProfile() {
           <Divider />
 
           <VStack spacing={6} w="100%">
-            <Heading size="lg" fontWeight="semibold" alignSelf="start" letterSpacing="tight">
+            <Heading size="lg" fontWeight="semibold" alignSelf="start" letterSpacing="tight" fontFamily={'Matt Bold'}>
               Rating History
             </Heading>
             {dailyRatingsLoading ? (
@@ -263,7 +263,7 @@ function InfluencerProfile() {
                 </ResponsiveContainer>
               </Box>
             ) : (
-              <Text color="gray.500" fontSize="lg">
+              <Text color="gray.500" fontSize="lg" fontFamily={'Matt Light'}>
                 No rating history available
               </Text>
             )}
@@ -272,13 +272,13 @@ function InfluencerProfile() {
           {/* New Comments Section */}
           <Divider />
           <VStack spacing={6} w="100%">
-            <Heading size="lg" fontWeight="semibold" alignSelf="start" letterSpacing="tight">
+            <Heading size="lg" fontWeight="semibold" alignSelf="start" letterSpacing="tight" fontFamily={'Matt Bold'}>
               Comments
             </Heading>
             {commentsLoading ? (
               <Spinner size="lg" color="blue.500" thickness="3px" />
             ) : comments.length === 0 ? (
-              <Text color="gray.500" fontSize="lg">
+              <Text color="gray.500" fontSize="lg" fontFamily={'Matt Light'}>
                 No comments yet
               </Text>
             ) : (
@@ -287,8 +287,8 @@ function InfluencerProfile() {
                   <Box key={comment.id} p={4} bg="gray.100" borderRadius="md" w="100%">
                     <HStack spacing={2}>
                       <Avatar size="sm" name={comment.userName} />
-                      <Text fontWeight="bold">{comment.userName}</Text>
-                      <Text color="gray.500" fontSize="sm">
+                      <Text fontWeight="bold" fontFamily={'Matt Light'}>{comment.userName}</Text>
+                      <Text color="gray.500" fontSize="sm" fontFamily={'Matt Light Italic'}>
                         {new Date(comment.timestamp.toDate()).toLocaleString()}
                       </Text>
                     </HStack>
@@ -304,6 +304,7 @@ function InfluencerProfile() {
                   onChange={(e) => setCommentText(e.target.value)}
                   placeholder="Add a comment..."
                   size="sm"
+                  fontFamily={'Matt Light'}
                 />
                 <Button
                   mt={2}
@@ -311,12 +312,13 @@ function InfluencerProfile() {
                   onClick={addComment}
                   isLoading={isSubmitting}
                   loadingText="Submitting"
+                  fontFamily={'Matt Bold'}
                 >
                   Submit
                 </Button>
               </FormControl>
             ) : (
-              <Text>Please log in to comment.</Text>
+              <Text color="gray.500" fontSize="lg" fontFamily={'Matt Light'}>Please log in to comment.</Text>
             )}
           </VStack>
         </VStack>

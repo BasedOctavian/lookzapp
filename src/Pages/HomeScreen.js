@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
 import TopBar from '../Components/TopBar';
 import Footer from '../Components/Footer';
-
+import '../App.css'; 
 
 function HomeScreen() {
   const navigate = useNavigate();
@@ -82,16 +82,17 @@ function HomeScreen() {
         
 
         <VStack spacing={10} align="center">
-          <Heading 
-            as="h1" 
-            size="3xl" 
-            color="blue.700" 
-            textAlign="center" 
-            textShadow="1px 1px 2px rgba(0, 0, 0, 0.1)"
-          >
-            Lookzapp
-          </Heading>
-          <Text fontSize="xl" color="gray.700" textAlign="center">
+         
+          <Box 
+                    as="img" 
+                    src="/lookzapp.png" 
+                    alt="Lookzapp Logo" 
+                    maxH="60px" 
+                    cursor="pointer" 
+                    onClick={() => navigate('/')} 
+                    style={{ objectFit: 'contain', marginLeft: '0px' }}
+                  />
+          <Text fontSize="xl" color="gray.700" textAlign="center" fontFamily={'Matt Bold'}>
             Welcome, {userName || 'Guest'}! Your current rating is {rating.toFixed(1)}. Select an option below to get started.
           </Text>
 
@@ -118,10 +119,10 @@ function HomeScreen() {
                     h={10} 
                     color={`${option.colorScheme}.500`} 
                   />
-                  <Heading as="h3" size="md" color="black">
+                  <Heading as="h3" size="md" color="black" fontFamily={'Matt Bold'}>
                     {option.title}
                   </Heading>
-                  <Text fontSize="sm" color="gray.600">
+                  <Text fontSize="sm" color="gray.600" textAlign="center" fontFamily={'Matt Light'}>
                     {option.description}
                   </Text>
                 </VStack>

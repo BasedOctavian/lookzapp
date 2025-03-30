@@ -30,6 +30,7 @@ import { useMemo } from 'react';
 import { useUserData } from '../hooks/useUserData';
 import FeatureRatingComparison from '../Components/FeatureRatingComparison';
 import InfluencerTopStats from '../Components/InfluencerTopStats';
+import '../App.css'; 
 
 function Profile() {
   const { userId } = useParams();
@@ -128,10 +129,10 @@ function Profile() {
         {/* Profile Content */}
         <VStack spacing={8} pt={24} px={{ base: 4, md: 8 }} pb={8}>
           <VStack spacing={2}>
-            <Heading as="h1" size="2xl" fontWeight="extrabold" letterSpacing="tight">
+            <Heading as="h1" size="2xl" fontWeight="extrabold" letterSpacing="tight" fontFamily={'Matt Bold'}>
               {userData.displayName}
             </Heading>
-            <Text color="gray.600" fontSize="lg" fontWeight="medium">
+            <Text color="gray.600" fontSize="lg" fontWeight="medium" fontFamily={'Matt Bold'}>
               @{userData.username || userData.email.split('@')[0]}
             </Text>
           </VStack>

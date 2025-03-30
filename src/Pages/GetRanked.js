@@ -24,6 +24,7 @@ import FeatureRatingComparison from '../Components/FeatureRatingComparison';
 import useVideoStream from '../hooks/useVideoStream';
 import useEntities from '../hooks/useEntities';
 import useEntityRating from '../hooks/useEntityRating';
+import '../App.css'; 
 
 const RatingScale = lazy(() => import('../Components/RatingScale'));
 
@@ -156,7 +157,7 @@ function GetRanked() {
           <VStack spacing={{ base: 4, md: 6 }} align="stretch">
             {/* Gender Filter */}
             <VStack align="center" mb={4}>
-              <Text fontSize="lg" fontWeight="bold">Filter by Gender</Text>
+              <Text fontSize="lg" fontWeight="bold" fontFamily={'Matt Light'}>Filter by Gender</Text>
               <Flex wrap="wrap" gap={2} justify="center" width={{ base: '100%', md: 'auto' }}>
                 {['male', 'female', 'both'].map((gender) => (
                   <Button
@@ -165,6 +166,7 @@ function GetRanked() {
                     colorScheme={genderFilter === gender ? 'blue' : 'gray'}
                     size="sm"
                     flex={{ base: '1 0 30%', md: 'none' }}
+                    fontFamily={'Matt Bold'}
                   >
                     {gender.charAt(0).toUpperCase() + gender.slice(1)}
                   </Button>
@@ -248,13 +250,13 @@ function GetRanked() {
                         borderRadius="md"
                         spacing={1}
                       >
-                        <Text fontSize="sm" fontWeight="medium">
+                        <Text fontSize="sm" fontWeight="medium" fontFamily={'Matt Bold'}>
                           {user ? userData?.displayName || 'You' : 'Guest'}
                         </Text>
                         {user && !userLoading && (
                           <HStack spacing={1}>
                             <Star sx={{ fontSize: 16, color: '#FFD700' }} />
-                            <Text fontSize="sm" fontWeight="medium">
+                            <Text fontSize="sm" fontWeight="medium" fontFamily={'Matt Bold'}>
                               {localRating?.toFixed(1) || 'N/A'}
                             </Text>
                           </HStack>
@@ -311,7 +313,7 @@ function GetRanked() {
                       style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                     />
                   ) : (
-                    <Text fontSize="lg" color="gray.500">
+                    <Text fontSize="lg" color="gray.500" fontFamily={'Matt Bold'}>
                       No entities available for the selected filter
                     </Text>
                   )}
@@ -326,19 +328,19 @@ function GetRanked() {
                     borderRadius="md"
                     spacing={1}
                   >
-                    <Text fontSize="sm" fontWeight="medium">
+                    <Text fontSize="sm" fontWeight="medium" fontFamily={'Matt Bold'}>
                       {currentEntity ? currentEntity.name : 'No User'}
                     </Text>
                     {currentEntity && !ratingLoading && !ratingError && (
                       <HStack spacing={1}>
                         <Star sx={{ fontSize: 16, color: '#FFD700' }} />
-                        <Text fontSize="sm" fontWeight="medium">
-                          {entityRating?.toFixed(1)}
+                        <Text fontSize="sm" fontWeight="medium" fontFamily={'Matt Bold'}>
+                          {entityRating?.toFixed(1)} 
                         </Text>
                       </HStack>
                     )}
                     {currentEntity && !ratingLoading && ratingError && (
-                      <Text fontSize="sm" fontWeight="medium">
+                      <Text fontSize="sm" fontWeight="medium" fontFamily={'Matt Bold'}>
                         Rating unavailable
                       </Text>
                     )}
@@ -367,6 +369,7 @@ function GetRanked() {
                     onClick={handlePreviousPhoto}
                     _hover={{ transform: { md: 'scale(1.05)' } }}
                     width={{ base: '100%', md: 'auto' }}
+                    fontFamily={'Matt Bold'}
                   >
                     Previous Photo
                   </Button>
@@ -377,6 +380,7 @@ function GetRanked() {
                     onClick={handleNextPhoto}
                     _hover={{ transform: { md: 'scale(1.05)' } }}
                     width={{ base: '100%', md: 'auto' }}
+                    fontFamily={'Matt Bold'}
                   >
                     Next Photo
                   </Button>
@@ -396,7 +400,7 @@ function GetRanked() {
                 {currentEntity ? (
                   <RatingScale key={ratingKey} onRate={handleRatingSubmit} />
                 ) : (
-                  <Text>No entities available for the selected filter.</Text>
+                  <Text >No entities available for the selected filter.</Text>
                 )}
               </Box>
             </Suspense>

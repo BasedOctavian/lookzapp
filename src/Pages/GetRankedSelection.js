@@ -4,6 +4,7 @@ import { Box, Paper, Grid, Card, CardActionArea, CardContent, Typography } from 
 import { blue, green, purple, orange } from '@mui/material/colors';
 import TopBar from '../Components/TopBar';
 import Footer from '../Components/Footer';
+import '../App.css'; 
 
 // Categories with keys, titles, descriptions, colors, and emojis
 const categories = [
@@ -55,11 +56,12 @@ function GetRankedSelection() {
             align="center"
             color="primary"
             gutterBottom
-            sx={{ fontWeight: 700 }} // Makes "Get Ranked" bolder and thicker
+            sx={{ fontWeight: 700 }} 
+            fontFamily={'Matt Bold'}// Makes "Get Ranked" bolder and thicker
           >
             Get Ranked
           </Typography>
-          <Typography variant="subtitle1" align="center" color="text.secondary" paragraph>
+          <Typography variant="subtitle1" align="center" fontFamily={'Matt Bold'} color="text.secondary" paragraph>
             Choose who you want to be ranked against:
           </Typography>
           <Grid container spacing={2} justifyContent="center" alignItems="stretch">
@@ -95,10 +97,11 @@ function GetRankedSelection() {
                     <CardContent
                       sx={{ color: 'white', textAlign: 'center', flexGrow: 1 }} // Expands to fill remaining space
                     >
-                      <Typography variant="h6" component="div" sx={{ fontFamily: 'Open Sans, sans-serif' }}>
+                      <Typography 
+                      variant="h6" component="div" sx={{ fontFamily: 'Matt Bold' }}>
                         {category.title}
                       </Typography>
-                      <Typography variant="body2" sx={{ fontFamily: 'Open Sans, sans-serif' }}>
+                      <Typography variant="body2" sx={{ fontFamily: 'Matt Light' }}>
                         {category.description}
                       </Typography>
                     </CardContent>
