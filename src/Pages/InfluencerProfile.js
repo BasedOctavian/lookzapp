@@ -30,6 +30,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { useInfluencerDailyRatings } from '../hooks/useInfluencerDailyRatings';
 import { useInfluencerBadges } from '../hooks/useInfluencerBadges';
 import InfluencerTopStats from '../Components/InfluencerTopStats';
+import InfluencerFeatureSpiderChart from '../Components/InfluencerFeatureSpiderChart'; // New import
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Divider, FormControl } from '@mui/material';
@@ -201,6 +202,7 @@ function InfluencerProfile() {
           </Grid>
 
           <InfluencerTopStats influencerData={influencerData} />
+          <InfluencerFeatureSpiderChart influencerData={influencerData} /> {/* New component added */}
 
           <Divider />
 
