@@ -263,7 +263,7 @@ function GetRanked() {
                     onClick={() => {
                       if (user) {
                         window.open(
-                          `http://localhost:3001/profile/${encodeURIComponent(user.uid)}`,
+                          `http://lookzapp.com/profile/${encodeURIComponent(user.uid)}`,
                           '_blank'
                         );
                       } else {
@@ -366,8 +366,8 @@ function GetRanked() {
                     onClick={() => {
                       if (currentEntity) {
                         const url = currentEntity.type === 'streamer'
-                          ? `http://localhost:3001/influencer-profile/${encodeURIComponent(currentEntity.id)}`
-                          : `http://localhost:3001/profile/${encodeURIComponent(currentEntity.id)}`;
+                          ? `http://lookzapp.com/influencer-profile/${encodeURIComponent(currentEntity.id)}`
+                          : `http://lookzapp.com/profile/${encodeURIComponent(currentEntity.id)}`;
                         window.open(url, '_blank');
                       } else {
                         toast({

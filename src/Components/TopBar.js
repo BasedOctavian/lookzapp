@@ -65,7 +65,7 @@ const TopBar = () => {
         {/* Logo */}
         <Box 
           as="img" 
-          src="/lookzapp.png" 
+          src="/lookzapp trans.png" 
           alt="Lookzapp Logo" 
           maxH="60px" 
           cursor="pointer" 
