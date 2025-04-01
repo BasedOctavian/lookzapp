@@ -21,15 +21,15 @@ export function useTopRatedData() {
         const users = snapshot.docs.map((doc) => {
           const data = doc.data();
           const timesRanked = data.timesRanked || 0;
-          const averageRating = timesRanked > 0 ? (data.ranking || 0) / timesRanked : 0;
-          
+          const averageRating =
+            timesRanked > 0 ? (data.ranking || 0) / timesRanked : 0;
+
           // Calculate averages for each feature
           const featureAverages = {};
           FEATURES.forEach((feature) => {
             const field = `${feature}Rating`;
-            featureAverages[`${feature}Average`] = timesRanked > 0 
-              ? (data[field] || 0) / timesRanked 
-              : 0;
+            featureAverages[`${feature}Average`] =
+              timesRanked > 0 ? (data[field] || 0) / timesRanked : 0;
           });
 
           return {
@@ -39,6 +39,7 @@ export function useTopRatedData() {
             averageRating,
             ...featureAverages,
             totalRatings: timesRanked,
+            profilePicture: data.profilePicture || "", // Use profilePicture for users
           };
         });
         setUsersData(users);
@@ -63,15 +64,15 @@ export function useTopRatedData() {
         const streamers = snapshot.docs.map((doc) => {
           const data = doc.data();
           const timesRanked = data.timesRanked || 0;
-          const averageRating = timesRanked > 0 ? (data.ranking || 0) / timesRanked : 0;
-          
+          const averageRating =
+            timesRanked > 0 ? (data.ranking || 0) / timesRanked : 0;
+
           // Calculate averages for each feature
           const featureAverages = {};
           FEATURES.forEach((feature) => {
             const field = `${feature}Rating`;
-            featureAverages[`${feature}Average`] = timesRanked > 0 
-              ? (data[field] || 0) / timesRanked 
-              : 0;
+            featureAverages[`${feature}Average`] =
+              timesRanked > 0 ? (data[field] || 0) / timesRanked : 0;
           });
 
           return {
@@ -81,6 +82,7 @@ export function useTopRatedData() {
             averageRating,
             ...featureAverages,
             totalRatings: timesRanked,
+            profilePicture: data.photo_url || "", // Map photo_url to profilePicture for streamers
           };
         });
         setStreamersData(streamers);
