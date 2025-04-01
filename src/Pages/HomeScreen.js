@@ -1,7 +1,7 @@
 // HomeScreen.js
 import React, { useEffect, useState } from 'react';
 import { Box, Container, VStack, Heading, Icon, Text, SimpleGrid, Button, Spinner } from '@chakra-ui/react';
-import { FaVideo, FaStar, FaMapMarkedAlt, FaGamepad, FaEnvelope, FaTrophy } from 'react-icons/fa';
+import { FaVideo, FaStar, FaMapMarkedAlt, FaGamepad, FaEnvelope, FaTrophy, FaEye } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
 import TopBar from '../Components/TopBar';
@@ -58,10 +58,10 @@ function HomeScreen() {
       colorScheme: 'orange' 
     },
     { 
-      title: 'Messages', 
-      icon: FaEnvelope, 
-      route: '/messages', 
-      description: 'Check your inbox for new messages.', 
+      title: 'Analyze', 
+      icon: FaEye, 
+      route: '/analysis', 
+      description: 'Analyze your appearance.', 
       colorScheme: 'red' 
     },
   ];

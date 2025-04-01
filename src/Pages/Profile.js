@@ -1,3 +1,4 @@
+import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { db, auth } from '../firebase';
@@ -15,23 +16,27 @@ import {
   Grid,
   GridItem,
   useBreakpointValue,
+  Textarea,
+  FormControl,
 } from '@chakra-ui/react';
 import { useUserRatingData } from '../hooks/useUserRatingData';
 import { useDailyRatings } from '../hooks/useDailyRatings';
 import { useUserBadges } from '../hooks/useUserBadges';
 import { FiMail, FiAward, FiLogOut, FiStar, FiUsers } from 'react-icons/fi';
 import Avatar from '@mui/material/Avatar';
-import { Divider } from '@mui/material';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import TopBar from '../Components/TopBar';
 import Footer from '../Components/Footer';
 import Badges from '../Components/Badges';
-import { useMemo } from 'react';
 import { useUserData } from '../hooks/useUserData';
 import FeatureRatingComparison from '../Components/FeatureRatingComparison';
 import InfluencerTopStats from '../Components/InfluencerTopStats';
-import { useTopRatedData } from '../hooks/useTopRatedData'; // Added import for global ranking
+import { useTopRatedData } from '../hooks/useTopRatedData';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import '../App.css';
+import { Divider } from '@mui/material';
+
+
 
 function Profile() {
   const { userId } = useParams();
@@ -40,11 +45,14 @@ function Profile() {
   const { dailyRatings, loading: dailyRatingsLoading } = useDailyRatings(userId);
   const { earnedBadges, loading: badgesLoading } = useUserBadges(userId);
   const { userData: currentUserData, loading: currentUserLoading } = useUserData();
-  const { data: topRatedData, loading: topRatedLoading } = useTopRatedData(); // Added hook for global ranking
+  const { data: topRatedData, loading: topRatedLoading } = useTopRatedData();
+
+  const [commentText, setCommentText] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const isMobile = useBreakpointValue({ base: true, md: false });
   const cardBg = 'white';
-  const headerBg = 'rgba(255, 255, 255, 0.8)';
 
+  // Handle user sign-out
   const handleSignOut = async () => {
     try {
       await signOut(auth);
@@ -54,7 +62,7 @@ function Profile() {
     }
   };
 
-  // Compute chartData for FeatureRatingComparison
+  // Compute chart data for FeatureRatingComparison
   const chartData = useMemo(() => {
     if (!currentUserData || !userData) return [];
     const featureMapping = {
@@ -76,15 +84,17 @@ function Profile() {
   // Calculate global rank
   const globalRank = useMemo(() => {
     if (!topRatedData || topRatedData.length === 0) return 'N/A';
-    const ratedData = topRatedData.filter(item => item.totalRatings > 0);
+    const ratedData = topRatedData.filter((item) => item.totalRatings > 0);
     const sortedData = [...ratedData].sort((a, b) => b.averageRating - a.averageRating);
-    const index = sortedData.findIndex(item => item.type === 'user' && item.id === userId);
+    const index = sortedData.findIndex((item) => item.type === 'user' && item.id === userId);
     if (index === -1) return 'N/A';
     return `#${index + 1}`;
   }, [topRatedData, userId]);
 
+  
+
   let profileContent;
-  if (loading || badgesLoading || currentUserLoading || topRatedLoading) { // Added topRatedLoading to loading condition
+  if (loading || badgesLoading || currentUserLoading || topRatedLoading ) {
     profileContent = (
       <VStack spacing={4} py={12}>
         <Spinner size="xl" thickness="3px" />
@@ -113,7 +123,7 @@ function Profile() {
         mt={6}
         mx={4}
       >
-        {/* Enhanced Profile Header */}
+        {/* Profile Header */}
         <Box
           h="160px"
           bgGradient="linear(to-r, blue.500, cyan.400)"
@@ -146,13 +156,13 @@ function Profile() {
             </Heading>
           </VStack>
 
-          {/* Badges Component */}
+          {/* Badges */}
           <Badges earnedBadges={earnedBadges} />
 
           {/* Stats Grid */}
           <Grid templateColumns="repeat(3, 1fr)" gap={8} w="100%" maxW="600px">
             {[
-              { label: 'Global Rank', value: globalRank, color: 'blue.500' }, // Updated to use globalRank
+              { label: 'Global Rank', value: globalRank, color: 'blue.500' },
               { label: 'Avg Rating', value: rating?.toFixed(1), color: 'purple.500' },
               { label: 'Total Ratings', value: userData.timesRanked || 0, color: 'teal.500' },
             ].map((stat) => (
@@ -169,9 +179,10 @@ function Profile() {
             ))}
           </Grid>
 
-          {/* InfluencerTopStats */}
+          {/* Top Stats and Spider Chart */}
           <InfluencerTopStats influencerData={userData} />
-
+          {/* Placeholder for UserFeatureSpiderChart */}
+          {/* <UserFeatureSpiderChart userData={userData} /> */}
           <Divider />
 
           {/* Feature Rating Comparison */}
@@ -185,7 +196,7 @@ function Profile() {
 
           <Divider />
 
-          {/* Rating Progress Over Time */}
+          {/* Rating History */}
           <VStack spacing={6} w="100%">
             <Heading size="lg" fontWeight="semibold" alignSelf="start" letterSpacing="tight" fontFamily={'Matt Bold'}>
               Rating History
@@ -195,10 +206,7 @@ function Profile() {
             ) : dailyRatings.length > 0 ? (
               <Box w="100%" h="400px">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={dailyRatings}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                  >
+                  <LineChart data={dailyRatings} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                     <XAxis
                       dataKey="date"
@@ -230,18 +238,8 @@ function Profile() {
                       dataKey="averageRating"
                       stroke="#3182ce"
                       strokeWidth={3}
-                      dot={{
-                        r: 6,
-                        fill: '#3182ce',
-                        stroke: 'white',
-                        strokeWidth: 2,
-                      }}
-                      activeDot={{
-                        r: 8,
-                        fill: '#3182ce',
-                        stroke: 'white',
-                        strokeWidth: 2,
-                      }}
+                      dot={{ r: 6, fill: '#3182ce', stroke: 'white', strokeWidth: 2 }}
+                      activeDot={{ r: 8, fill: '#3182ce', stroke: 'white', strokeWidth: 2 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -252,7 +250,16 @@ function Profile() {
               </Text>
             )}
           </VStack>
-        </VStack>
+
+          
+
+          
+         
+          
+            
+            
+          </VStack>
+        
       </Box>
     );
   }
@@ -261,7 +268,6 @@ function Profile() {
     <>
       <TopBar />
       <Flex direction="column" minH="100vh" bg="gray.50">
-        {/* Main Content */}
         <Flex flex={1} justify="center" p={4}>
           {profileContent}
         </Flex>

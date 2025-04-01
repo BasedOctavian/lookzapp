@@ -14,12 +14,19 @@ import {
 const hoverLabelPlugin = {
   id: 'hoverLabelPlugin',
   afterDraw: (chart) => {
-    const { ctx, scales: { r } } = chart;
+    const { ctx, scales } = chart;
     const activeElements = chart.getActiveElements();
+
+    // Check if scales and r exist before proceeding
+    if (!scales || !scales.r) return;
+
+    const { r } = scales;
 
     activeElements.forEach((active) => {
       const index = active.index;
-      // Get the angle and the position for this label using the scale’s helper methods
+      // Ensure r.max is defined before calling getPointPositionForValue
+      if (typeof r.max === 'undefined') return;
+
       const labelPoint = r.getPointPositionForValue(index, r.max);
       ctx.save();
       ctx.fillStyle = '#000'; // Set label text to black on hover
@@ -74,10 +81,10 @@ function InfluencerFeatureSpiderChartChartJS({ influencerData }) {
         borderWidth: 2,
         pointBackgroundColor: 'rgba(56, 178, 172, 1)',
         pointBorderColor: '#fff',
-        pointHoverBackgroundColor: '#fff', // This remains white for the point itself
+        pointHoverBackgroundColor: '#fff',
         pointHoverBorderColor: 'rgba(56, 178, 172, 1)',
-        pointRadius: 3, // Default point size
-        pointHoverRadius: 6, // Larger point on hover for emphasis
+        pointRadius: 3,
+        pointHoverRadius: 6,
       },
     ],
   };
@@ -130,7 +137,7 @@ function InfluencerFeatureSpiderChartChartJS({ influencerData }) {
         titleFont: { family: 'Matt Bold' },
         bodyFont: { family: 'Matt Light' },
         titleColor: 'gray.800',
-        bodyColor: '#000000', // Black text for tooltip body on hover
+        bodyColor: '#000000',
         borderColor: 'gray.200',
         borderWidth: 1,
         cornerRadius: 8,

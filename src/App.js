@@ -15,6 +15,7 @@ import TwoTruths from './Pages/TwoTruths';
 import GetRankedSelection from './Pages/GetRankedSelection';
 import GetRanked from './Pages/GetRanked';
 import InfluencerProfile from './Pages/InfluencerProfile';
+import Analyze from './Pages/Analyze';
 
 function App() {
   // State to show or hide the warning overlay
@@ -49,6 +50,7 @@ function App() {
           <Route path="/updates" element={<PrivateRoute><Updates /></PrivateRoute>} />
           <Route path="/geo-call" element={<PrivateRoute><GeoCall /></PrivateRoute>} />
           <Route path="/two-truths" element={<PrivateRoute><TwoTruths /></PrivateRoute>} />
+          <Route path="/analysis" element={<PrivateRoute><Analyze /></PrivateRoute>} />
           <Route path="/get-ranked-selection" element={<GetRankedSelection />} />
           <Route path="/ranking" element={<GetRanked />} />
         </Routes>
