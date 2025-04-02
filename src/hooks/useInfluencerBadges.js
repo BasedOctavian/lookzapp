@@ -4,17 +4,17 @@ import { db } from '../firebase';
 import { useTopRatedData } from './useTopRatedData'; // Assuming it's in the same directory
 
 export function useInfluencerBadges(influencerId) {
-  // State for specific influencer data and fetching status
+  // **State Management**
   const [influencerData, setInfluencerData] = useState(null);
   const [fetching, setFetching] = useState(true);
 
-  // Get global data from useTopRatedData hook
+  // **Global Data**
   const { data: globalData, loading: globalLoading } = useTopRatedData();
 
-  // Normalize influencerId to a string (or null if invalid)
+  // **Normalize Influencer ID**
   const strInfluencerId = influencerId ? String(influencerId) : null;
 
-  // Fetch influencer data from the 'streamers' collection when influencerId changes
+  // **Fetch Influencer Data**
   useEffect(() => {
     const fetchInfluencerData = async () => {
       setFetching(true);
@@ -42,7 +42,7 @@ export function useInfluencerBadges(influencerId) {
     fetchInfluencerData();
   }, [strInfluencerId]);
 
-  // Compute influencer info (averages and other necessary fields)
+  // **Compute Influencer Info**
   const influencerInfo = useMemo(() => {
     if (!influencerData) return null;
     const timesRanked = influencerData.timesRanked || 0;
@@ -63,37 +63,51 @@ export function useInfluencerBadges(influencerId) {
     };
   }, [influencerData]);
 
-  // Compute thresholds for global badges (top 10% and top 1%)
+  // **Compute Global Thresholds (Top and Bottom Percentiles)**
   const thresholds = useMemo(() => {
-    if (!globalData || globalData.length === 0) return {};
+    if (!globalData || globalData.length === 0) return { top: {}, bottom: {} };
 
     const numUsers = globalData.length;
-    const top10PercentIndex = Math.ceil(numUsers * 0.1); // Index for top 10%
-    const top1PercentIndex = Math.ceil(numUsers * 0.01); // Index for top 1%
+    const top10PercentIndex = Math.ceil(numUsers * 0.1) - 1; // Top 10%
+    const top1PercentIndex = Math.ceil(numUsers * 0.01) - 1; // Top 1%
+    const bottom5PercentIndex = Math.floor(numUsers * 0.05); // Bottom 5% (tightened from 10%)
+    const bottom1PercentIndex = Math.floor(numUsers * 0.01); // Bottom 1%
 
-    const getThreshold = (feature) => {
-      const sorted = [...globalData].sort((a, b) => b[feature] - a[feature]);
-      return sorted[top10PercentIndex - 1]?.[feature] || 0;
+    const getThreshold = (feature, isTop) => {
+      const sorted = [...globalData].sort((a, b) => isTop ? b[feature] - a[feature] : a[feature] - b[feature]);
+      const index = isTop ? top10PercentIndex : bottom5PercentIndex;
+      return sorted[index]?.[feature] || 0;
     };
 
-    const overallThreshold = () => {
-      const sorted = [...globalData].sort((a, b) => b.averageRating - a.averageRating);
-      return sorted[top1PercentIndex - 1]?.averageRating || 0;
+    const overallThreshold = (isTop) => {
+      const sorted = [...globalData].sort((a, b) => isTop ? b.averageRating - a.averageRating : a.averageRating - b.averageRating);
+      const index = isTop ? top1PercentIndex : bottom1PercentIndex;
+      return sorted[index]?.averageRating || 0;
     };
 
     return {
-      eyes: getThreshold('eyesAverage'),
-      smile: getThreshold('smileAverage'),
-      jawline: getThreshold('jawlineAverage'),
-      hair: getThreshold('hairAverage'),
-      body: getThreshold('bodyAverage'),
-      overall: overallThreshold(),
+      top: {
+        eyes: getThreshold('eyesAverage', true),
+        smile: getThreshold('smileAverage', true),
+        jawline: getThreshold('jawlineAverage', true),
+        hair: getThreshold('hairAverage', true),
+        body: getThreshold('bodyAverage', true),
+        overall: overallThreshold(true),
+      },
+      bottom: {
+        eyes: getThreshold('eyesAverage', false),
+        smile: getThreshold('smileAverage', false),
+        jawline: getThreshold('jawlineAverage', false),
+        hair: getThreshold('hairAverage', false),
+        body: getThreshold('bodyAverage', false),
+        overall: overallThreshold(false),
+      },
     };
   }, [globalData]);
 
-  // Define all badge definitions (local and global)
+  // **Badge Definitions (Positive and Negative Combined)**
   const badgeDefinitions = [
-    // **Badges Calculable from User Document Alone**
+    // **Positive Badges**
     {
       name: 'Captivating Eyes',
       emoji: '🧿',
@@ -184,52 +198,131 @@ export function useInfluencerBadges(influencerId) {
       },
       description: 'For users with over two years on the platform, true long-term members.',
     },
-    // **Badges Requiring Global Rankings**
     {
       name: 'Top Eyes',
       emoji: '👁️',
-      qualifies: (info, thresholds) => info.eyesAverage > thresholds.eyes,
+      qualifies: (info, thresholds) => info.eyesAverage > thresholds.top.eyes,
       description: 'For an average eye rating in the top 10% of all users platform-wide.',
     },
     {
       name: 'Smile Star',
       emoji: '😄',
-      qualifies: (info, thresholds) => info.smileAverage > thresholds.smile,
+      qualifies: (info, thresholds) => info.smileAverage > thresholds.top.smile,
       description: 'Awarded for a smile rating in the top 10% compared to all users.',
     },
     {
       name: 'Jawline King/Queen',
       emoji: '👑',
-      qualifies: (info, thresholds) => info.jawlineAverage > thresholds.jawline,
+      qualifies: (info, thresholds) => info.jawlineAverage > thresholds.top.jawline,
       description: 'For a jawline rating in the top 10% globally.',
     },
     {
       name: 'Hair Icon',
       emoji: '💈',
-      qualifies: (info, thresholds) => info.hairAverage > thresholds.hair,
+      qualifies: (info, thresholds) => info.hairAverage > thresholds.top.hair,
       description: 'Given for a hair rating in the top 10% across the platform.',
     },
     {
       name: 'Physique Phenom',
       emoji: '🏋️',
-      qualifies: (info, thresholds) => info.bodyAverage > thresholds.body,
+      qualifies: (info, thresholds) => info.bodyAverage > thresholds.top.body,
       description: 'For a physique rating in the top 10% of all users.',
     },
     {
       name: 'Most Attractive',
       emoji: '💎',
-      qualifies: (info, thresholds) => info.averageRating > thresholds.overall,
+      qualifies: (info, thresholds) => info.averageRating > thresholds.top.overall,
       description: 'For an overall rating in the top 1%, the ultimate honor.',
+    },
+
+    // **Negative Badges (Made More Sparse)**
+    {
+      name: 'Eyesore',
+      emoji: '👀',
+      qualifies: (info) => info.eyesAverage < 1.0, // Tightened from < 1.5
+      description: 'Awarded for an average eye rating below 1.0. Those eyes are a rare disaster!',
+    },
+    {
+      name: 'Frown Town',
+      emoji: '🙁',
+      qualifies: (info) => info.smileAverage < 1.0, // Tightened from < 1.5
+      description: 'Given for an average smile rating below 1.0. A rare frown worth forgetting.',
+    },
+    {
+      name: 'Bad Hair Day',
+      emoji: '💇‍♂️',
+      qualifies: (info) => info.hairAverage < 1.0, // Tightened from < 1.5
+      description: 'Awarded for an average hair rating below 1.0. A rare hair catastrophe!',
+    },
+    {
+      name: 'Out of Shape',
+      emoji: '🛋️',
+      qualifies: (info) => info.bodyAverage < 1.0, // Tightened from < 1.5
+      description: 'Given for an average body rating below 1.0. A rare couch potato champion!',
+    },
+    {
+      name: 'Bottom Tier',
+      emoji: '⬇️',
+      qualifies: (info) => info.averageRating < 1.5, // Tightened from < 2.0
+      description: 'For an average overall rating below 1.5. A rare bottom-dweller!',
+    },
+    {
+      name: 'Bottom 5% Eyes',
+      emoji: '👁️‍🗨️',
+      qualifies: (info, thresholds) => info.eyesAverage <= thresholds.bottom.eyes, // Now bottom 5%
+      description: 'For an eye rating in the bottom 5%. A rare eye sore!',
+    },
+    {
+      name: 'Bottom 5% Smile',
+      emoji: '😞',
+      qualifies: (info, thresholds) => info.smileAverage <= thresholds.bottom.smile, // Now bottom 5%
+      description: 'For a smile rating in the bottom 5%. A rare grimace!',
+    },
+    {
+      name: 'Bottom 5% Hair',
+      emoji: '💇‍♀️',
+      qualifies: (info, thresholds) => info.hairAverage <= thresholds.bottom.hair, // Now bottom 5%
+      description: 'For a hair rating in the bottom 5%. A rare mess!',
+    },
+    {
+      name: 'Bottom 5% Body',
+      emoji: '🏋️‍♂️',
+      qualifies: (info, thresholds) => info.bodyAverage <= thresholds.bottom.body, // Now bottom 5%
+      description: 'For a body rating in the bottom 5%. A rare physique flop!',
+    },
+    {
+      name: 'Least Attractive',
+      emoji: '💔',
+      qualifies: (info, thresholds) => info.averageRating <= thresholds.bottom.overall, // Still bottom 1%
+      description: 'For an overall rating in the bottom 1%. The rarest badge of shame!',
+    },
+    {
+      name: 'Consistently Unimpressive',
+      emoji: '😕',
+      qualifies: (info) => info.timesRanked > 200 && info.averageRating < 2.0, // Tightened from > 100, < 3.0
+      description: 'Rated over 200 times with an average below 2.0. A rare master of mediocrity!',
+    },
+    {
+      name: 'Veteran of Mediocrity',
+      emoji: '🕰️',
+      qualifies: (info) => {
+        if (!info.createdAt) return false;
+        const createdAt = new Date(info.createdAt);
+        const now = new Date();
+        const daysSinceCreation = (now - createdAt) / (1000 * 60 * 60 * 24);
+        return daysSinceCreation > 730 && info.averageRating < 2.0; // Tightened from > 365, < 3.0
+      },
+      description: 'Over two years on the platform with an average below 2.0. A rare legacy of failure!',
     },
   ];
 
-  // Compute earned badges based on influencer info and global thresholds
+  // **Compute Earned Badges**
   const earnedBadges = useMemo(() => {
     if (!influencerInfo || !thresholds) return [];
     return badgeDefinitions.filter((badge) => badge.qualifies(influencerInfo, thresholds));
   }, [influencerInfo, thresholds]);
 
-  // Overall loading state: true if either global data or influencer data is still loading
+  // **Loading State**
   const loading = globalLoading || fetching;
 
   return { earnedBadges, loading };

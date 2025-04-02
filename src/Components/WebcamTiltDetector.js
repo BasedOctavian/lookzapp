@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { FaceMesh } from '@mediapipe/face_mesh';
 import { Camera } from '@mediapipe/camera_utils';
 import {
@@ -10,12 +10,8 @@ import {
   Input,
 } from '@chakra-ui/react';
 import { Slider } from '@mui/material';
-
-// Landmark indices based on MediaPipe's 468-point model
-const LEFT_EYE_INDICES = [33, 133, 159, 145, 153, 154, 155, 246, 161, 160, 159, 158, 157, 173, 133];
-const RIGHT_EYE_INDICES = [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398];
-const LEFT_FACE_INDEX = 234;
-const RIGHT_FACE_INDEX = 454;
+import useFaceMeshConfig from '../hooks/faceRating/useFaceMeshConfig';
+import useFaceScoring from '../hooks/faceRating/useFaceScoring';
 
 const TiltDetector = () => {
   // Refs for webcam and photo
@@ -29,52 +25,27 @@ const TiltDetector = () => {
   const [webcamFaceDetected, setWebcamFaceDetected] = useState('No video');
   const [photoFaceDetected, setPhotoFaceDetected] = useState('No photo uploaded');
 
-  // Shared parameters with specified default values
-  const [symmetryMultiplier, setSymmetryMultiplier] = useState(6.4);
-  const [idealRatio, setIdealRatio] = useState(0.38);
-  const [proportionScaling, setProportionScaling] = useState(200);
+  // Use configuration hook
+  const {
+    symmetryMultiplier,
+    setSymmetryMultiplier,
+    idealRatio,
+    setIdealRatio,
+    proportionScaling,
+    setProportionScaling,
+  } = useFaceMeshConfig();
 
-  // Function to calculate scores based on landmarks and parameters
-  const calculateScores = (landmarks, symmetryMultiplier, idealRatio, proportionScaling) => {
-    if (!landmarks) return { symmetryScore: null, proportionScore: null, attractivenessScore: null };
-
-    const getCenter = (points) => {
-      const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
-      return { x: sum.x / points.length, y: sum.y / points.length };
-    };
-
-    const leftEyeCenter = getCenter(LEFT_EYE_INDICES.map(idx => landmarks[idx]));
-    const rightEyeCenter = getCenter(RIGHT_EYE_INDICES.map(idx => landmarks[idx]));
-    const faceCenterX = (landmarks[LEFT_FACE_INDEX].x + landmarks[RIGHT_FACE_INDEX].x) / 2;
-
-    const leftEyeDistance = Math.abs(leftEyeCenter.x - faceCenterX);
-    const rightEyeDistance = Math.abs(rightEyeCenter.x - faceCenterX);
-    const symmetryScore = 100 - Math.abs(leftEyeDistance - rightEyeDistance) * symmetryMultiplier;
-
-    const eyeDistance = Math.sqrt(
-      (rightEyeCenter.x - leftEyeCenter.x) ** 2 + (rightEyeCenter.y - leftEyeCenter.y) ** 2
-    );
-    const faceWidth = landmarks[RIGHT_FACE_INDEX].x - landmarks[LEFT_FACE_INDEX].x;
-    const ratio = eyeDistance / faceWidth;
-    const deviation = Math.abs(ratio - idealRatio);
-    const proportionScore = 100 - deviation * proportionScaling;
-
-    const clampedSymmetry = Math.max(0, Math.min(100, symmetryScore));
-    const clampedProportion = Math.max(0, Math.min(100, proportionScore));
-    const attractivenessScore = (clampedSymmetry + clampedProportion) / 2;
-
-    return { symmetryScore: clampedSymmetry, proportionScore: clampedProportion, attractivenessScore };
-  };
-
-  // Memoized scores for webcam and photo
-  const webcamScores = useMemo(() =>
-    calculateScores(webcamLandmarks, symmetryMultiplier, idealRatio, proportionScaling),
-    [webcamLandmarks, symmetryMultiplier, idealRatio, proportionScaling]
-  );
-  const photoScores = useMemo(() =>
-    calculateScores(photoLandmarks, symmetryMultiplier, idealRatio, proportionScaling),
-    [photoLandmarks, symmetryMultiplier, idealRatio, proportionScaling]
-  );
+  // Use scoring hook for webcam and photo
+  const webcamScores = useFaceScoring(webcamLandmarks, {
+    symmetryMultiplier,
+    idealRatio,
+    proportionScaling,
+  });
+  const photoScores = useFaceScoring(photoLandmarks, {
+    symmetryMultiplier,
+    idealRatio,
+    proportionScaling,
+  });
 
   // Set up webcam processing with FaceMesh and Camera
   useEffect(() => {
@@ -120,7 +91,6 @@ const TiltDetector = () => {
     });
 
     camera.start().then(() => {
-      // Set canvas dimensions to match video
       const video = webcamVideoRef.current;
       const canvas = webcamCanvasRef.current;
       canvas.width = video.videoWidth || 640;
