@@ -20,6 +20,8 @@ const ButtonGroup = ({ options }) => {
         .filter((option) => option.title !== 'Get Ranked')
         .map((option) => (
           <Button
+          style={{ height: 155, marginBottom: 10, marginRight: 20 }}
+
             key={option.title}
             onClick={() => navigate(option.route)}
             aria-label={option.title}
@@ -48,7 +50,7 @@ const ButtonGroup = ({ options }) => {
           >
             <VStack spacing={3}>
               <Icon as={option.icon} w={8} h={8} color={`${option.colorScheme}.500`} />
-              <Heading as="h3" size="md" fontFamily={'Matt Bold'}>
+              <Heading as="h3" size="md" color={'black.600'} fontFamily={'Matt Bold'}>
                 {option.title}
               </Heading>
               <Text fontSize="sm" color="gray.600" textAlign="center" fontFamily={'Matt Light'}>

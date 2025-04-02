@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Box,
   Container,
@@ -9,22 +9,28 @@ import {
   GridItem,
   Icon,
   Heading,
+  useBreakpointValue,
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../hooks/useUserData';
+import { useTopRatedData } from '../hooks/useTopRatedData';
 import TopBar from '../Components/TopBar';
 import Footer from '../Components/Footer';
 import '../App.css';
 import useVideoStream from '../hooks/useVideoStream';
-import ButtonGroup from '../Components/ButtonGroup'; // Adjust path as needed
-import Leaderboard from '../Components/Leaderboard'; // Adjust path as needed
-import StatsSection from '../Components/StatsSection'; // Adjust path as needed
+import ButtonGroup from '../Components/ButtonGroup';
+import Leaderboard from '../Components/Leaderboard';
+import StatsSection from '../Components/StatsSection';
 import { FaVideo, FaTrophy, FaMapMarkedAlt, FaEye } from 'react-icons/fa';
 import { Divider } from '@heroui/react';
+import MobileHomeScreen from './MobileHomeScreen';
 
 function HomeScreen() {
+  // Call all hooks unconditionally at the top
+  const isMobile = useBreakpointValue({ base: true, md: false });
   const navigate = useNavigate();
-  const { userData, rating, loading } = useUserData();
+  const { userData, rating, bestFeature, loading: loadingUser } = useUserData();
+  const { data: combinedData, loading: loadingTopRated, error: errorTopRated } = useTopRatedData();
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState(null);
   const stream = useVideoStream();
@@ -36,35 +42,26 @@ function HomeScreen() {
     }
   }, [userData]);
 
-  // Updated categories array with color schemes
+  const sortedData = useMemo(() => {
+    return [...combinedData].sort((a, b) => b.averageRating - a.averageRating);
+  }, [combinedData]);
+
+  const userRanking = useMemo(() => {
+    if (!userData || !sortedData.length) return 'N/A';
+    const userIndex = sortedData.findIndex(
+      (item) => item.id === userData.id && item.type === 'user'
+    );
+    return userIndex !== -1 ? userIndex + 1 : 'N/A';
+  }, [sortedData, userData]);
+
+  // Define static data (categories and options)
   const categories = [
-    {
-      key: 'other-users',
-      title: 'Other Users',
-      emojis: '👥',
-      colorScheme: 'blue',
-    },
-    {
-      key: 'influencers',
-      title: 'Influencers',
-      emojis: '📢',
-      colorScheme: 'green',
-    },
-    {
-      key: 'celebs',
-      title: 'Celebs',
-      emojis: '🎬',
-      colorScheme: 'purple',
-    },
-    {
-      key: 'all',
-      title: 'All Categories',
-      emojis: '⭐',
-      colorScheme: 'orange',
-    },
+    { key: 'other-users', title: 'Other Users', emojis: '👥', colorScheme: 'blue' },
+    { key: 'influencers', title: 'Influencers', emojis: '📢', colorScheme: 'green' },
+    { key: 'celebs', title: 'Celebs', emojis: '🎬', colorScheme: 'purple' },
+    { key: 'all', title: 'All Categories', emojis: '⭐', colorScheme: 'orange' },
   ];
 
-  // Options array remains unchanged
   const options = [
     {
       title: 'Video Chat',
@@ -77,7 +74,9 @@ function HomeScreen() {
       title: 'Rating',
       icon: FaTrophy,
       route: '/top-rated-users',
-      description: `Your rating: ${rating ? rating.toFixed(1) : 'N/A'} | World rank: #TBD`,
+      description: `Your rating: ${rating ? rating.toFixed(1) : 'N/A'} | World rank: ${
+        typeof userRanking === 'number' ? `#${userRanking}` : 'N/A'
+      }`,
       colorScheme: 'yellow',
     },
     {
@@ -96,7 +95,19 @@ function HomeScreen() {
     },
   ];
 
-  if (loading) {
+  // Handle conditional rendering after all hooks
+  if (isMobile) {
+    return (
+      <MobileHomeScreen
+        userName={userName}
+        rating={rating}
+        userRanking={userRanking}
+        options={options}
+      />
+    );
+  }
+
+  if (loadingUser || loadingTopRated) {
     return (
       <Box minH="100vh" display="flex" alignItems="center" justifyContent="center">
         <Spinner size="xl" />
@@ -104,18 +115,19 @@ function HomeScreen() {
     );
   }
 
+  if (errorTopRated) {
+    console.error('Error loading top-rated data:', errorTopRated);
+    // Optionally render an error UI here if desired
+  }
+
+  // Desktop rendering
   return (
     <>
       <TopBar />
-      <Box minH="100vh" bgGradient="linear(to-br, gray.50, blue.50)" py={12} px={5}>
+      <Box minH="100vh" bgGradient="linear(to-br, gray.50, blue.50)" py={0} px={5}>
         <Container maxW="container.xl">
           <VStack spacing={8} align="center">
-            {/* Leaderboard Component */}
             <Leaderboard />
-
-           
-
-            {/* Grid Layout */}
             <Grid
               templateAreas={{
                 base: `"q1" "q2" "q3" "q4"`,
@@ -126,7 +138,6 @@ function HomeScreen() {
               gap={6}
               w="full"
             >
-              {/* Q1: Video Stream */}
               <GridItem area="q1" bg="gray.100" borderRadius="lg" p={4} boxShadow="inner">
                 <Box w="full" h="full" display="flex" alignItems="center" justifyContent="center">
                   {stream ? (
@@ -143,8 +154,6 @@ function HomeScreen() {
                   )}
                 </Box>
               </GridItem>
-
-              {/* Q2: Enhanced Get Ranked Selection */}
               <GridItem area="q2" bg="white" borderRadius="lg" p={4} boxShadow="md">
                 <VStack spacing={4} align="stretch">
                   <Heading as="h3" size="lg" textAlign="center" fontFamily={'Matt Bold'} color="gray.800">
@@ -172,19 +181,17 @@ function HomeScreen() {
                         height={220}
                       >
                         <Text fontSize="4xl">{category.emojis}</Text>
-                        <Text fontSize="lg" fontWeight="bold" fontFamily={'Matt Bold'}>{category.title}</Text>
+                        <Text fontSize="lg" fontWeight="bold" fontFamily={'Matt Bold'}>
+                          {category.title}
+                        </Text>
                       </Box>
                     ))}
                   </Grid>
                 </VStack>
               </GridItem>
-
-              {/* Q3: Stats Section Component */}
               <GridItem area="q3">
-                <StatsSection rating={rating} />
+                <StatsSection rating={rating} bestFeature={bestFeature} ranking={userRanking} />
               </GridItem>
-
-              {/* Q4: Button Group Component */}
               <GridItem area="q4">
                 <ButtonGroup options={options} />
               </GridItem>
