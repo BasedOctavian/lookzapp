@@ -28,6 +28,8 @@
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
     "@fortawesome/react-fontawesome": "^0.2.2",
     "@heroui/react": "^2.7.5",
+    "@mediapipe/camera_utils": "^0.3.1675466862",
+    "@mediapipe/face_mesh": "^0.4.1633559619",
     "@mui/icons-material": "^6.4.7",
     "@mui/material": "^6.4.8",
     "@mui/x-data-grid": "^7.27.3",

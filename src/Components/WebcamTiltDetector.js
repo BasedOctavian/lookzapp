@@ -1,438 +1,309 @@
-import React, { useRef, useEffect, useState } from 'react';
-import * as faceapi from 'face-api.js';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
+import { FaceMesh } from '@mediapipe/face_mesh';
+import { Camera } from '@mediapipe/camera_utils';
 import {
   Container,
   Flex,
   Box,
-  Button,
   Text,
   VStack,
-  useBreakpointValue,
+  Input,
 } from '@chakra-ui/react';
+import { Slider } from '@mui/material';
 
-// Define the list of available tests including "Overall"
-const tests = [
-  'Cardinal Tilt',
-  'Facial Thirds',
-  'Cheekbone Location',
-  'Interocular Distance',
-  'Undereyes',
-  'Jawline',
-  'Chin',
-  'Nose',
-  'Overall',
-];
+// Landmark indices based on MediaPipe's 468-point model
+const LEFT_EYE_INDICES = [33, 133, 159, 145, 153, 154, 155, 246, 161, 160, 159, 158, 157, 173, 133];
+const RIGHT_EYE_INDICES = [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398];
+const LEFT_FACE_INDEX = 234;
+const RIGHT_FACE_INDEX = 454;
 
-// Fixed weights for each test as specified
-const weights = {
-  'Cardinal Tilt': 3.3,
-  'Facial Thirds': 1.3,
-  'Cheekbone Location': 0.4,
-  'Interocular Distance': 1,
-  'Undereyes': 0,
-  'Jawline': 0,
-  'Chin': 0,
-  'Nose': 0,
-};
+const TiltDetector = () => {
+  // Refs for webcam and photo
+  const webcamVideoRef = useRef(null);
+  const webcamCanvasRef = useRef(null);
+  const photoCanvasRef = useRef(null);
 
-// Fixed test parameters (default values, no longer adjustable)
-const testParams = {
-  'Cardinal Tilt': 10,
-  'Facial Thirds': 100,
-  'Cheekbone Location': 0.5,
-  'Interocular Distance': 200,
-  'Undereyes': 50,
-  'Jawline': 200,
-  'Chin': 300,
-  'Nose': 400,
-};
+  // States for landmarks and detection status
+  const [webcamLandmarks, setWebcamLandmarks] = useState(null);
+  const [photoLandmarks, setPhotoLandmarks] = useState(null);
+  const [webcamFaceDetected, setWebcamFaceDetected] = useState('No video');
+  const [photoFaceDetected, setPhotoFaceDetected] = useState('No photo uploaded');
 
-const WebcamTiltDetector = () => {
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const intervalRef = useRef(null);
-  const videoIntervalRef = useRef(null);
-  const videoTimerRef = useRef(null);
-  const videoCollectedScoresRef = useRef([]);
+  // Shared parameters with specified default values
+  const [symmetryMultiplier, setSymmetryMultiplier] = useState(6.4);
+  const [idealRatio, setIdealRatio] = useState(0.38);
+  const [proportionScaling, setProportionScaling] = useState(200);
 
-  const [currentTest, setCurrentTest] = useState('Overall');
-  const [score, setScore] = useState(0);
-  const [faceDetected, setFaceDetected] = useState('No face detected');
-  const [webcamError, setWebcamError] = useState(null);
-  const [modelsLoaded, setModelsLoaded] = useState(false);
-  const [videoReady, setVideoReady] = useState(false);
-  const [videoFinalScore, setVideoFinalScore] = useState(null);
-  const [isCollectingVideo, setIsCollectingVideo] = useState(false);
-  const [countdown, setCountdown] = useState(null);
-  const isMobile = useBreakpointValue({ base: true, md: false });
+  // Function to calculate scores based on landmarks and parameters
+  const calculateScores = (landmarks, symmetryMultiplier, idealRatio, proportionScaling) => {
+    if (!landmarks) return { symmetryScore: null, proportionScore: null, attractivenessScore: null };
 
-  // Ref to track the latest score
-  const scoreRef = useRef(score);
-
-  // Update score ref whenever score changes
-  useEffect(() => {
-    scoreRef.current = score;
-  }, [score]);
-
-  // Load models and start webcam video
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadModels = async () => {
-      try {
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models'),
-          faceapi.nets.faceLandmark68Net.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models'),
-        ]);
-        if (isMounted) setModelsLoaded(true);
-      } catch (err) {
-        throw new Error('Failed to load models');
-      }
+    const getCenter = (points) => {
+      const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
+      return { x: sum.x / points.length, y: sum.y / points.length };
     };
 
-    const startVideo = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
-        });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.addEventListener('loadedmetadata', () => {
-            if (isMounted) setVideoReady(true);
-          });
-        }
-      } catch (err) {
-        throw new Error('Webcam access denied or unavailable');
+    const leftEyeCenter = getCenter(LEFT_EYE_INDICES.map(idx => landmarks[idx]));
+    const rightEyeCenter = getCenter(RIGHT_EYE_INDICES.map(idx => landmarks[idx]));
+    const faceCenterX = (landmarks[LEFT_FACE_INDEX].x + landmarks[RIGHT_FACE_INDEX].x) / 2;
+
+    const leftEyeDistance = Math.abs(leftEyeCenter.x - faceCenterX);
+    const rightEyeDistance = Math.abs(rightEyeCenter.x - faceCenterX);
+    const symmetryScore = 100 - Math.abs(leftEyeDistance - rightEyeDistance) * symmetryMultiplier;
+
+    const eyeDistance = Math.sqrt(
+      (rightEyeCenter.x - leftEyeCenter.x) ** 2 + (rightEyeCenter.y - leftEyeCenter.y) ** 2
+    );
+    const faceWidth = landmarks[RIGHT_FACE_INDEX].x - landmarks[LEFT_FACE_INDEX].x;
+    const ratio = eyeDistance / faceWidth;
+    const deviation = Math.abs(ratio - idealRatio);
+    const proportionScore = 100 - deviation * proportionScaling;
+
+    const clampedSymmetry = Math.max(0, Math.min(100, symmetryScore));
+    const clampedProportion = Math.max(0, Math.min(100, proportionScore));
+    const attractivenessScore = (clampedSymmetry + clampedProportion) / 2;
+
+    return { symmetryScore: clampedSymmetry, proportionScore: clampedProportion, attractivenessScore };
+  };
+
+  // Memoized scores for webcam and photo
+  const webcamScores = useMemo(() =>
+    calculateScores(webcamLandmarks, symmetryMultiplier, idealRatio, proportionScaling),
+    [webcamLandmarks, symmetryMultiplier, idealRatio, proportionScaling]
+  );
+  const photoScores = useMemo(() =>
+    calculateScores(photoLandmarks, symmetryMultiplier, idealRatio, proportionScaling),
+    [photoLandmarks, symmetryMultiplier, idealRatio, proportionScaling]
+  );
+
+  // Set up webcam processing with FaceMesh and Camera
+  useEffect(() => {
+    const faceMesh = new FaceMesh({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+    });
+
+    faceMesh.setOptions({
+      maxNumFaces: 1,
+      refineLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5,
+    });
+
+    faceMesh.onResults((results) => {
+      const canvas = webcamCanvasRef.current;
+      const context = canvas.getContext('2d');
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(webcamVideoRef.current, 0, 0, canvas.width, canvas.height);
+
+      if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+        const landmarks = results.multiFaceLandmarks[0].map(lm => ({
+          x: lm.x * canvas.width,
+          y: lm.y * canvas.height,
+        }));
+        setWebcamLandmarks(landmarks);
+        setWebcamFaceDetected('Face detected');
+        drawLandmarks(context, landmarks);
+      } else {
+        setWebcamLandmarks(null);
+        setWebcamFaceDetected('No face detected');
       }
-    };
+    });
 
-    loadModels()
-      .then(startVideo)
-      .catch((err) => {
-        console.error('Initialization error:', err);
-        if (isMounted) {
-          setWebcamError(`Error: ${err.message}`);
-          setModelsLoaded(false);
+    const camera = new Camera(webcamVideoRef.current, {
+      onFrame: async () => {
+        if (webcamVideoRef.current && webcamVideoRef.current.readyState >= 2) {
+          await faceMesh.send({ image: webcamVideoRef.current });
         }
-      });
+      },
+      width: 640,
+      height: 480,
+    });
 
+    camera.start().then(() => {
+      // Set canvas dimensions to match video
+      const video = webcamVideoRef.current;
+      const canvas = webcamCanvasRef.current;
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+    });
+
+    // Cleanup on unmount
     return () => {
-      isMounted = false;
-      if (videoRef.current && videoRef.current.srcObject) {
-        videoRef.current.srcObject.getTracks().forEach((track) => track.stop());
-      }
+      camera.stop();
+      faceMesh.close();
     };
   }, []);
 
-  // Detect faces and run tests on webcam video
-  useEffect(() => {
-    const detectFaceAndRunTest = async () => {
-      if (!videoRef.current || !canvasRef.current || !videoReady) return;
+  // Process uploaded photo
+  const processPhoto = async (img) => {
+    const faceMesh = new FaceMesh({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+    });
 
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+    faceMesh.setOptions({
+      maxNumFaces: 1,
+      refineLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5,
+      staticImageMode: true,
+    });
 
-      const detection = await faceapi
-        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-        .withFaceLandmarks();
+    await faceMesh.initialize();
 
+    faceMesh.onResults((results) => {
+      const canvas = photoCanvasRef.current;
       const context = canvas.getContext('2d');
       context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(img, 0, 0);
 
-      if (detection) {
-        setFaceDetected('Face detected');
-        const landmarks = detection.landmarks;
-
-        // Calculate scores for all tests
-        const videoTestScores = {};
-        tests.forEach((test) => {
-          if (test !== 'Overall') {
-            videoTestScores[test] = runTest(test, landmarks, testParams);
-          }
-        });
-
-        let currentScore;
-        if (currentTest === 'Overall') {
-          const totalWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
-          if (totalWeight > 0) {
-            currentScore = Object.entries(videoTestScores).reduce(
-              (sum, [test, score]) => sum + score * weights[test],
-              0
-            ) / totalWeight;
-          } else {
-            currentScore = 0;
-          }
-        } else {
-          currentScore = videoTestScores[currentTest];
-        }
-        setScore(currentScore);
-
-        const displaySize = { width: video.videoWidth, height: video.videoHeight };
-        faceapi.matchDimensions(canvas, displaySize);
-        const resizedDetection = faceapi.resizeResults(detection, displaySize);
-        faceapi.draw.drawDetections(canvas, resizedDetection);
-        faceapi.draw.drawFaceLandmarks(canvas, resizedDetection);
-        drawTestOverlay(currentTest, landmarks, canvas, displaySize);
+      if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+        const scaledLandmarks = results.multiFaceLandmarks[0].map(lm => ({
+          x: lm.x * canvas.width,
+          y: lm.y * canvas.height,
+        }));
+        setPhotoLandmarks(scaledLandmarks);
+        setPhotoFaceDetected('Face detected');
+        drawLandmarks(context, scaledLandmarks);
       } else {
-        setFaceDetected('No face detected');
-        setScore(0);
+        setPhotoLandmarks(null);
+        setPhotoFaceDetected('No face detected');
       }
+    });
+
+    try {
+      await faceMesh.send({ image: img });
+    } catch (error) {
+      console.error('Error processing photo:', error);
+    }
+  };
+
+  // Handle photo upload
+  const handlePhotoUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = photoCanvasRef.current;
+        canvas.width = img.width;
+        canvas.height = img.height;
+        processPhoto(img);
+      };
+      img.src = e.target.result;
     };
-
-    intervalRef.current = setInterval(detectFaceAndRunTest, 500);
-    return () => clearInterval(intervalRef.current);
-  }, [currentTest, videoReady]);
-
-  // Reset final score and countdown when face is no longer detected
-  useEffect(() => {
-    if (faceDetected !== 'Face detected') {
-      setVideoFinalScore(null);
-      setCountdown(null);
-    }
-  }, [faceDetected]);
-
-  // Video score collection with countdown
-  useEffect(() => {
-    if (faceDetected === 'Face detected' && !isCollectingVideo && videoFinalScore === null) {
-      setIsCollectingVideo(true);
-      setCountdown(5);
-      videoCollectedScoresRef.current = [];
-      setVideoFinalScore(null);
-
-      const startTime = Date.now();
-
-      videoIntervalRef.current = setInterval(() => {
-        const elapsed = Date.now() - startTime;
-        const remaining = Math.max(0, 5 - Math.floor(elapsed / 1000));
-        setCountdown(remaining);
-        videoCollectedScoresRef.current.push(scoreRef.current);
-      }, 1000);
-
-      videoTimerRef.current = setTimeout(() => {
-        clearInterval(videoIntervalRef.current);
-        videoIntervalRef.current = null;
-        videoTimerRef.current = null;
-        setIsCollectingVideo(false);
-        setCountdown(null);
-        const scores = videoCollectedScoresRef.current;
-        if (scores.length > 0) {
-          const sortedScores = [...scores].sort((a, b) => a - b);
-          const n = sortedScores.length;
-          const k = Math.ceil(n / 4);
-          const lowerQuartileScores = sortedScores.slice(0, k);
-          const average = lowerQuartileScores.reduce((sum, val) => sum + val, 0) / k;
-          setVideoFinalScore(average);
-        } else {
-          setVideoFinalScore(0);
-        }
-        videoCollectedScoresRef.current = [];
-      }, 5000);
-    }
-
-    return () => {
-      if (videoIntervalRef.current) clearInterval(videoIntervalRef.current);
-      if (videoTimerRef.current) clearTimeout(videoTimerRef.current);
-    };
-  }, [faceDetected]);
-
-  // Helper functions
-  const getCenter = (points) => {
-    const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
-    return { x: sum.x / points.length, y: sum.y / points.length };
+    reader.readAsDataURL(file);
   };
 
-  const runTest = (test, landmarks, params) => {
-    switch (test) {
-      case 'Cardinal Tilt':
-        return calculateTiltScore(landmarks, params['Cardinal Tilt']);
-      case 'Facial Thirds':
-        return calculateFacialThirdsScore(landmarks, params['Facial Thirds']);
-      case 'Cheekbone Location':
-        return calculateCheekboneScore(landmarks, params['Cheekbone Location']);
-      case 'Interocular Distance':
-        return calculateInterocularDistanceScore(landmarks, params['Interocular Distance']);
-      case 'Undereyes':
-        return calculateUndereyesScore(landmarks, params['Undereyes']);
-      case 'Jawline':
-        return calculateJawlineScore(landmarks, params['Jawline']);
-      case 'Chin':
-        return calculateChinScore(landmarks, params['Chin']);
-      case 'Nose':
-        return calculateNoseScore(landmarks, params['Nose']);
-      default:
-        return 0;
-    }
-  };
-
-  const drawTestOverlay = (test, landmarks, canvas, displaySize) => {
-    const context = canvas.getContext('2d');
-    context.strokeStyle = 'red';
-    context.lineWidth = 2;
-
-    switch (test) {
-      case 'Cardinal Tilt': {
-        const leftEye = getCenter(landmarks.getLeftEye());
-        const rightEye = getCenter(landmarks.getRightEye());
-        context.beginPath();
-        context.moveTo(leftEye.x, leftEye.y);
-        context.lineTo(rightEye.x, rightEye.y);
-        context.stroke();
-        break;
-      }
-      case 'Facial Thirds': {
-        const forehead = landmarks.positions[19];
-        const noseBase = landmarks.positions[33];
-        const chin = landmarks.positions[8];
-        context.beginPath();
-        context.moveTo(0, forehead.y);
-        context.lineTo(displaySize.width, forehead.y);
-        context.moveTo(0, noseBase.y);
-        context.lineTo(displaySize.width, noseBase.y);
-        context.moveTo(0, chin.y);
-        context.lineTo(displaySize.width, chin.y);
-        context.stroke();
-        break;
-      }
-      default:
-        break;
-    }
-  };
-
-  // Score calculation functions
-  const calculateTiltScore = (landmarks, multiplier) => {
-    const leftEye = getCenter(landmarks.getLeftEye());
-    const rightEye = getCenter(landmarks.getRightEye());
-    const dy = rightEye.y - leftEye.y;
-    const dx = rightEye.x - leftEye.x;
-    const angle = Math.abs(Math.atan2(dy, dx) * (180 / Math.PI));
-    return Math.max(0, 100 - angle * multiplier);
-  };
-
-  const calculateFacialThirdsScore = (landmarks, multiplier) => {
-    const forehead = landmarks.positions[19].y;
-    const noseBase = landmarks.positions[33].y;
-    const chin = landmarks.positions[8].y;
-    const third1 = noseBase - forehead;
-    const third2 = chin - noseBase;
-    const idealRatio = third1 / third2;
-    const deviation = Math.abs(1 - idealRatio);
-    return Math.max(0, 100 - deviation * multiplier);
-  };
-
-  const calculateCheekboneScore = (landmarks, multiplier) => {
-    const cheekLeft = landmarks.positions[1].y;
-    const cheekRight = landmarks.positions[15].y;
-    const diff = Math.abs(cheekLeft - cheekRight);
-    return Math.max(0, 100 - diff * multiplier);
-  };
-
-  const calculateInterocularDistanceScore = (landmarks, multiplier) => {
-    const leftEye = getCenter(landmarks.getLeftEye());
-    const rightEye = getCenter(landmarks.getRightEye());
-    const distance = Math.sqrt((rightEye.x - leftEye.x) ** 2 + (rightEye.y - leftEye.y) ** 2);
-    const faceWidth = landmarks.positions[16].x - landmarks.positions[0].x;
-    const ratio = distance / faceWidth;
-    const idealRatio = 0.45;
-    const deviation = Math.abs(ratio - idealRatio);
-    return Math.max(0, 100 - deviation * multiplier);
-  };
-
-  const calculateUndereyesScore = (landmarks, value) => value;
-
-  const calculateJawlineScore = (landmarks, multiplier) => {
-    const jawWidth = landmarks.positions[15].x - landmarks.positions[1].x;
-    const faceWidth = landmarks.positions[16].x - landmarks.positions[0].x;
-    const ratio = jawWidth / faceWidth;
-    const idealRatio = 0.8;
-    const deviation = Math.abs(ratio - idealRatio);
-    return Math.max(0, 100 - deviation * multiplier);
-  };
-
-  const calculateChinScore = (landmarks, multiplier) => {
-    const noseTip = landmarks.positions[33].y;
-    const chin = landmarks.positions[8].y;
-    const mouth = landmarks.positions[57].y;
-    const chinLength = chin - mouth;
-    const faceHeight = chin - noseTip;
-    const ratio = chinLength / faceHeight;
-    const idealRatio = 0.33;
-    const deviation = Math.abs(ratio - idealRatio);
-    return Math.max(0, 100 - deviation * multiplier);
-  };
-
-  const calculateNoseScore = (landmarks, multiplier) => {
-    const noseWidth = landmarks.positions[35].x - landmarks.positions[31].x;
-    const faceWidth = landmarks.positions[16].x - landmarks.positions[0].x;
-    const ratio = noseWidth / faceWidth;
-    const idealRatio = 0.25;
-    const deviation = Math.abs(ratio - idealRatio);
-    return Math.max(0, 100 - deviation * multiplier);
+  // Draw landmarks on canvas
+  const drawLandmarks = (context, landmarks) => {
+    context.fillStyle = 'red';
+    landmarks.forEach((lm) => {
+      context.beginPath();
+      context.arc(lm.x, lm.y, 1, 0, 2 * Math.PI);
+      context.fill();
+    });
   };
 
   return (
     <Container maxW="container.xl" py={{ base: 4, md: 6 }} overflow="hidden">
       <VStack spacing={{ base: 4, md: 6 }} align="stretch">
-        {/* Test Selection Buttons */}
-        <Flex wrap="wrap" gap={2} justify="center">
-          
+        {/* Webcam and Photo Sections */}
+        <Flex direction={{ base: 'column', md: 'row' }} gap={4}>
+          {/* Webcam Section */}
+          <VStack>
+            <video ref={webcamVideoRef} style={{ display: 'none' }} />
+            <Box 
+              w={{ base: '100%', md: '640px' }} 
+              h="480px" 
+              borderWidth="2px" 
+              borderColor="gray.100" 
+              borderRadius="xl" 
+              overflow="hidden" 
+              boxShadow="lg" 
+              bg="gray.200"
+            >
+              <canvas 
+                ref={webcamCanvasRef} 
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+              />
+            </Box>
+            <Text>Webcam: {webcamFaceDetected}</Text>
+            <VStack>
+              <Text>Symmetry Score: {webcamScores.symmetryScore?.toFixed(2) ?? 'N/A'}</Text>
+              <Text>Proportions Score: {webcamScores.proportionScore?.toFixed(2) ?? 'N/A'}</Text>
+              <Text>Attractiveness Score: {webcamScores.attractivenessScore?.toFixed(2) ?? 'N/A'}</Text>
+            </VStack>
+          </VStack>
+
+          {/* Photo Section */}
+          <VStack>
+            <Input type="file" accept="image/*" onChange={handlePhotoUpload} />
+            <Box 
+              w={{ base: '100%', md: '640px' }} 
+              h="480px" 
+              borderWidth="2px" 
+              borderColor="gray.100" 
+              borderRadius="xl" 
+              overflow="hidden" 
+              boxShadow="lg" 
+              bg="gray.200"
+            >
+              <canvas 
+                ref={photoCanvasRef} 
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+              />
+            </Box>
+            <Text>Photo: {photoFaceDetected}</Text>
+            <VStack>
+              <Text>Symmetry Score: {photoScores.symmetryScore?.toFixed(2) ?? 'N/A'}</Text>
+              <Text>Proportions Score: {photoScores.proportionScore?.toFixed(2) ?? 'N/A'}</Text>
+              <Text>Attractiveness Score: {photoScores.attractivenessScore?.toFixed(2) ?? 'N/A'}</Text>
+            </VStack>
+          </VStack>
         </Flex>
 
-        {/* Video Display */}
-        <Box
-          position="relative"
-          w={{ base: '100%', md: '640px' }}
-          h="480px"
-          borderWidth="2px"
-          borderColor="gray.100"
-          borderRadius="xl"
-          overflow="hidden"
-          boxShadow="lg"
-          bg="gray.200"
-          alignSelf="center"
-        >
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            playsInline // Add this for modern browsers
-            webkit-playsinline="true" // Add this for older Safari compatibility
-            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-          />
-          <canvas
-            ref={canvasRef}
-            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
-          />
-        </Box>
-
-        {/* Status and Scores */}
-        <VStack spacing={2} align="center">
-          <Text fontSize="lg" fontWeight="bold" fontFamily="Matt Bold">
-            Video: {faceDetected}
-            {faceDetected === 'Face detected' && `, Live Score: ${score.toFixed(2)}/100`}
-            {countdown !== null && `, Countdown: ${countdown}`}
-            {videoFinalScore !== null && `, Final Score: ${videoFinalScore.toFixed(2)}/100`}
-          </Text>
-          <Text fontSize="lg" fontWeight="bold" fontFamily="Matt Bold">
-            Current Test: {currentTest}
-          </Text>
+        {/* Shared Parameter Sliders */}
+        <VStack spacing={4} align="stretch">
+          <Text fontWeight="bold">Adjust Parameters</Text>
+          <VStack>
+            <Text>Symmetry Multiplier: {symmetryMultiplier.toFixed(1)}</Text>
+            <Slider
+              aria-label="Symmetry Multiplier"
+              min={0}
+              max={20}
+              step={0.1}
+              value={symmetryMultiplier}
+              onChange={(_, val) => setSymmetryMultiplier(Number(val))}
+            />
+          </VStack>
+          <VStack>
+            <Text>Ideal Proportions Ratio: {idealRatio.toFixed(2)}</Text>
+            <Slider
+              aria-label="Ideal Proportions Ratio"
+              min={0.3}
+              max={0.6}
+              step={0.01}
+              value={idealRatio}
+              onChange={(_, val) => setIdealRatio(Number(val))}
+            />
+          </VStack>
+          <VStack>
+            <Text>Proportions Scaling Factor: {proportionScaling}</Text>
+            <Slider
+              aria-label="Proportions Scaling Factor"
+              min={100}
+              max={300}
+              step={10}
+              value={proportionScaling}
+              onChange={(_, val) => setProportionScaling(Number(val))}
+            />
+          </VStack>
         </VStack>
-
-        {/* Loading and Error States */}
-        {!modelsLoaded && !webcamError && (
-          <Text fontSize="lg" color="gray.500" fontFamily="Matt Bold">
-            Loading models, please wait...
-          </Text>
-        )}
-        {webcamError && (
-          <Text fontSize="lg" color="red.500" fontFamily="Matt Bold">
-            {webcamError}
-          </Text>
-        )}
       </VStack>
     </Container>
   );
 };
 
-export default WebcamTiltDetector;
+export default TiltDetector;
