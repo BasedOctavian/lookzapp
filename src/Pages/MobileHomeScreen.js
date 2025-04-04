@@ -9,6 +9,7 @@ import {
   Spinner,
 } from '@chakra-ui/react';
 import { FaVideo, FaTrophy, FaMapMarkedAlt, FaEye } from 'react-icons/fa';
+import { Link } from 'react-router-dom'; // Added import
 import TopBar from '../Components/TopBar';
 import Footer from '../Components/Footer';
 import MobileLeaderboard from '../Components/MobileLeaderboard';
@@ -104,37 +105,38 @@ function MobileHomeScreen() {
               Welcome, {userName || 'Guest'}
             </Text>
 
-            {/* Mobile Leaderboard (fixed title remains above scrolling list) */}
+            {/* Mobile Leaderboard */}
             <MobileLeaderboard />
 
-            {/* Stats Section placed directly below the leaderboard */}
+            {/* Stats Section */}
             <StatsSection rating={rating} bestFeature={bestFeature} ranking={userRanking} />
 
             {/* Options Section */}
             <VStack spacing={4} w="full">
               {options.map((option) => (
-                <Box
-                  key={option.title}
-                  bg={`${option.colorScheme}.500`}
-                  color="white"
-                  p={4}
-                  borderRadius="md"
-                  w="full"
-                  textAlign="center"
-                  cursor="pointer"
-                  transition="all 0.3s ease"
-                  _hover={{ bg: `${option.colorScheme}.600`, transform: 'scale(1.05)' }}
-                >
-                  <HStack spacing={3} justify="center" align="center">
-                    <Icon as={option.icon} boxSize={6} />
-                    <Text fontSize="lg" fontWeight="bold" fontFamily="Matt Bold">
-                      {option.title}
+                <Link key={option.title} to={option.route} style={{ textDecoration: 'none' }}>
+                  <Box
+                    bg={`${option.colorScheme}.500`}
+                    color="white"
+                    p={4}
+                    borderRadius="md"
+                    w="full"
+                    textAlign="center"
+                    cursor="pointer"
+                    transition="all 0.3s ease"
+                    _hover={{ bg: `${option.colorScheme}.600`, transform: 'scale(1.05)' }}
+                  >
+                    <HStack spacing={3} justify="center" align="center">
+                      <Icon as={option.icon} boxSize={6} />
+                      <Text fontSize="lg" fontWeight="bold" fontFamily="Matt Bold">
+                        {option.title}
+                      </Text>
+                    </HStack>
+                    <Text fontSize="sm" mt={2}>
+                      {option.description}
                     </Text>
-                  </HStack>
-                  <Text fontSize="sm" mt={2}>
-                    {option.description}
-                  </Text>
-                </Box>
+                  </Box>
+                </Link>
               ))}
             </VStack>
           </VStack>

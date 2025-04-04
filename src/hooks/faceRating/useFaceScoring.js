@@ -5,6 +5,9 @@ const LEFT_EYE_INDICES = [33, 133, 159, 145, 153, 154, 155, 246, 161, 160, 159, 
 const RIGHT_EYE_INDICES = [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398];
 const LEFT_FACE_INDEX = 234;
 const RIGHT_FACE_INDEX = 454;
+const NOSE_TIP_INDEX = 1;
+const MOUTH_LEFT_INDEX = 61;
+const MOUTH_RIGHT_INDEX = 291;
 
 /**
  * Hook to calculate scores based on facial landmarks and configuration.
@@ -14,62 +17,53 @@ const RIGHT_FACE_INDEX = 454;
  * @returns {Object} Scores for symmetry, proportions, and attractiveness.
  */
 const useFaceScoring = (landmarks, config) => {
-  const { symmetryMultiplier, idealRatio, proportionScaling } = config;
+  const { symmetryMultiplier, idealRatio, proportionScaling, symmetryWeight, idealNoseToMouthRatio } = config;
 
   const scores = useMemo(() => {
     if (!landmarks) return { symmetryScore: null, proportionScore: null, attractivenessScore: null };
 
-    // Helper function to calculate the center of a set of points
     const getCenter = (points) => {
       const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
       return { x: sum.x / points.length, y: sum.y / points.length };
     };
 
-    // Calculate centers of left and right eyes
+    // Symmetry calculation
     const leftEyeCenter = getCenter(LEFT_EYE_INDICES.map(idx => landmarks[idx]));
     const rightEyeCenter = getCenter(RIGHT_EYE_INDICES.map(idx => landmarks[idx]));
-
-    // Calculate face center X-coordinate (midpoint of face width)
     const faceCenterX = (landmarks[LEFT_FACE_INDEX].x + landmarks[RIGHT_FACE_INDEX].x) / 2;
-
-    // Calculate distances from eye centers to face center
     const leftEyeDistance = Math.abs(leftEyeCenter.x - faceCenterX);
     const rightEyeDistance = Math.abs(rightEyeCenter.x - faceCenterX);
-
-    // Symmetry score: 100 minus the difference in eye distances times symmetryMultiplier
-    // - Tweak symmetryMultiplier: Higher values (e.g., 10) make asymmetry penalize more,
-    //   lower values (e.g., 4) make it more forgiving.
     const symmetryScore = 100 - Math.abs(leftEyeDistance - rightEyeDistance) * symmetryMultiplier;
 
-    // Calculate eye distance (Euclidean distance between eye centers)
+    // Eye-to-face proportion calculation
     const eyeDistance = Math.sqrt(
       (rightEyeCenter.x - leftEyeCenter.x) ** 2 + (rightEyeCenter.y - leftEyeCenter.y) ** 2
     );
-
-    // Calculate face width
     const faceWidth = landmarks[RIGHT_FACE_INDEX].x - landmarks[LEFT_FACE_INDEX].x;
+    const eyeToFaceRatio = eyeDistance / faceWidth;
+    const eyeToFaceDeviation = Math.abs(eyeToFaceRatio - idealRatio);
+    const eyeToFaceScore = 100 - eyeToFaceDeviation * proportionScaling;
 
-    // Calculate ratio of eye distance to face width
-    const ratio = eyeDistance / faceWidth;
+    // New: Nose-to-mouth proportion calculation
+    const noseWidth = Math.abs(landmarks[NOSE_TIP_INDEX].x - landmarks[NOSE_TIP_INDEX].x); // Simplified; could use other nose points
+    const mouthWidth = Math.abs(landmarks[MOUTH_RIGHT_INDEX].x - landmarks[MOUTH_LEFT_INDEX].x);
+    const noseToMouthRatio = noseWidth / mouthWidth;
+    const noseToMouthDeviation = Math.abs(noseToMouthRatio - idealNoseToMouthRatio);
+    const noseToMouthScore = 100 - noseToMouthDeviation * proportionScaling;
 
-    // Calculate deviation from ideal ratio
-    const deviation = Math.abs(ratio - idealRatio);
+    // Combined proportions score (average of eye-to-face and nose-to-mouth)
+    const proportionScore = (eyeToFaceScore + noseToMouthScore) / 2;
 
-    // Proportions score: 100 minus deviation times proportionScaling
-    // - Tweak idealRatio: Adjust (e.g., 0.36-0.40) based on ideal face proportions.
-    // - Tweak proportionScaling: Higher values (e.g., 300) make deviations penalize more,
-    //   lower values (e.g., 100) make it more lenient.
-    const proportionScore = 100 - deviation * proportionScaling;
-
-    // Clamp scores to 0-100 range
+    // Clamp scores
     const clampedSymmetry = Math.max(0, Math.min(100, symmetryScore));
     const clampedProportion = Math.max(0, Math.min(100, proportionScore));
 
-    // Attractiveness score: average of symmetry and proportions
-    const attractivenessScore = (clampedSymmetry + clampedProportion) / 2;
+    // Attractiveness score with adjustable weighting
+    const proportionWeight = 100 - symmetryWeight;
+    const attractivenessScore = (clampedSymmetry * symmetryWeight + clampedProportion * proportionWeight) / 100;
 
     return { symmetryScore: clampedSymmetry, proportionScore: clampedProportion, attractivenessScore };
-  }, [landmarks, symmetryMultiplier, idealRatio, proportionScaling]);
+  }, [landmarks, symmetryMultiplier, idealRatio, proportionScaling, symmetryWeight, idealNoseToMouthRatio]);
 
   return scores;
 };

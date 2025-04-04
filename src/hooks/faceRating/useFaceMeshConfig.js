@@ -6,17 +6,13 @@ import { useState } from 'react';
  * @returns {Object} Configuration parameters and their setters.
  */
 const useFaceMeshConfig = () => {
-  // Symmetry multiplier affects how much asymmetry impacts the score.
-  // Default: 6.4. Increase for more sensitivity to asymmetry, decrease for less.
   const [symmetryMultiplier, setSymmetryMultiplier] = useState(6.4);
-
-  // Ideal ratio is the target eye-to-face-width ratio for proportions.
-  // Default: 0.38. Adjust based on desired ideal proportions (e.g., 0.36-0.40).
   const [idealRatio, setIdealRatio] = useState(0.38);
-
-  // Proportion scaling factor amplifies the impact of deviation from the ideal ratio.
-  // Default: 200. Increase for stricter scoring, decrease for more leniency.
   const [proportionScaling, setProportionScaling] = useState(200);
+  // New parameter: Weight of symmetry in attractiveness score (0-100%)
+  const [symmetryWeight, setSymmetryWeight] = useState(50);
+  // New parameter: Ideal nose-to-mouth width ratio
+  const [idealNoseToMouthRatio, setIdealNoseToMouthRatio] = useState(1.0);
 
   return {
     symmetryMultiplier,
@@ -25,6 +21,10 @@ const useFaceMeshConfig = () => {
     setIdealRatio,
     proportionScaling,
     setProportionScaling,
+    symmetryWeight,
+    setSymmetryWeight,
+    idealNoseToMouthRatio,
+    setIdealNoseToMouthRatio,
   };
 };
 
