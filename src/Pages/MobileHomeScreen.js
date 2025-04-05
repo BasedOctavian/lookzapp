@@ -8,7 +8,7 @@ import {
   Icon,
   Spinner,
 } from '@chakra-ui/react';
-import { FaVideo, FaTrophy, FaMapMarkedAlt, FaEye } from 'react-icons/fa';
+import { FaVideo, FaTrophy, FaMapMarkedAlt, FaEye, FaGamepad } from 'react-icons/fa';
 import { Link } from 'react-router-dom'; // Added import
 import TopBar from '../Components/TopBar';
 import Footer from '../Components/Footer';
@@ -47,30 +47,30 @@ function MobileHomeScreen() {
     {
       title: 'Video Chat',
       icon: FaVideo,
-      route: '/video-call',
-      description: 'Rate instantly through live video calls.',
+      route: '/video-chat',
+      description: 'Rate & chat instantly through live video calls.',
       colorScheme: 'teal',
     },
     {
-      title: 'Rating',
+      title: 'Leaderboard',
       icon: FaTrophy,
-      route: '/top-rated-users',
+      route: '/leaderboard',
       description: `Your rating: ${rating ? rating.toFixed(1) : 'N/A'} | World rank: ${
         typeof userRanking === 'number' ? `#${userRanking}` : 'N/A'
       }`,
       colorScheme: 'yellow',
     },
     {
-      title: 'Guess Location',
-      icon: FaMapMarkedAlt,
-      route: '/geo-call',
-      description: 'Challenge your skills in guessing countries.',
+      title: 'Games',
+      icon: FaGamepad,
+      route: '/games-selection',
+      description: 'Explore different game modes.',
       colorScheme: 'orange',
     },
     {
       title: 'Analyze',
       icon: FaEye,
-      route: '/analysis',
+      route: '/analyze-selection',
       description: 'Analyze your appearance.',
       colorScheme: 'red',
     },
@@ -114,25 +114,29 @@ function MobileHomeScreen() {
             {/* Options Section */}
             <VStack spacing={4} w="full">
               {options.map((option) => (
-                <Link key={option.title} to={option.route} style={{ textDecoration: 'none' }}>
+                <Link key={option.title} to={option.route} style={{ textDecoration: 'none', width: '100%' }}>
                   <Box
                     bg={`${option.colorScheme}.500`}
                     color="white"
                     p={4}
                     borderRadius="md"
-                    w="full"
+                    w="full"  // Changed from "100%" to "full" for consistency
+                    minH="120px"  // Added minimum height for uniform sizing
                     textAlign="center"
                     cursor="pointer"
                     transition="all 0.3s ease"
-                    _hover={{ bg: `${option.colorScheme}.600`, transform: 'scale(1.05)' }}
+                    _hover={{ bg: `${option.colorScheme}.600`, transform: 'scale(1.02)' }}  // Adjusted scale for full-width
+                    display="flex"  // Added to control inner layout
+                    flexDirection="column"  // Stack content vertically
+                    justifyContent="center"  // Center content vertically
                   >
-                    <HStack spacing={3} justify="center" align="center">
+                    <HStack spacing={3} justify="center" align="center" w="full">
                       <Icon as={option.icon} boxSize={6} />
                       <Text fontSize="lg" fontWeight="bold" fontFamily="Matt Bold">
                         {option.title}
                       </Text>
                     </HStack>
-                    <Text fontSize="sm" mt={2}>
+                    <Text fontSize="sm" mt={2} px={2}>
                       {option.description}
                     </Text>
                   </Box>

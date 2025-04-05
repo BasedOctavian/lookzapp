@@ -21,7 +21,7 @@ import useVideoStream from '../hooks/useVideoStream';
 import ButtonGroup from '../Components/ButtonGroup';
 import Leaderboard from '../Components/Leaderboard';
 import StatsSection from '../Components/StatsSection';
-import { FaVideo, FaTrophy, FaMapMarkedAlt, FaEye } from 'react-icons/fa';
+import { FaVideo, FaTrophy, FaMapMarkedAlt, FaEye, FaGamepad } from 'react-icons/fa';
 import { Divider } from '@heroui/react';
 import MobileHomeScreen from './MobileHomeScreen';
 
@@ -66,30 +66,30 @@ function HomeScreen() {
     {
       title: 'Video Chat',
       icon: FaVideo,
-      route: '/video-call',
-      description: 'Rate instantly through live video calls.',
+      route: '/video-chat',
+      description: 'Rate & chat instantly through live video calls.',
       colorScheme: 'teal',
     },
     {
-      title: 'Rating',
+      title: 'Leaderboard',
       icon: FaTrophy,
-      route: '/top-rated-users',
+      route: '/leaderboard',
       description: `Your rating: ${rating ? rating.toFixed(1) : 'N/A'} | World rank: ${
         typeof userRanking === 'number' ? `#${userRanking}` : 'N/A'
       }`,
       colorScheme: 'yellow',
     },
     {
-      title: 'Guess Location',
-      icon: FaMapMarkedAlt,
-      route: '/geo-call',
-      description: 'Challenge your skills in guessing countries.',
+      title: 'Games',
+      icon: FaGamepad,
+      route: '/games-selection',
+      description: 'Explore different game modes.',
       colorScheme: 'orange',
     },
     {
-      title: 'Analyze',
+      title: 'Analysis',
       icon: FaEye,
-      route: '/analysis',
+      route: '/analyze-selection',
       description: 'Analyze your appearance.',
       colorScheme: 'red',
     },

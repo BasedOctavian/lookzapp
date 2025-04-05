@@ -17,6 +17,9 @@ import GetRanked from './Pages/GetRanked';
 import InfluencerProfile from './Pages/InfluencerProfile';
 import Analyze from './Pages/Analyze';
 import Admin from './Pages/Admin/Admin';
+import Looksmatch from './Pages/Looksmatch';
+import GamesSelection from './Pages/GamesSelection';
+import AnalyzeSelection from './Pages/AnalyzeSelection';
 
 function App() {
   // State to show or hide the warning overlay
@@ -42,19 +45,22 @@ function App() {
         <Routes>
           <Route path="/createaccount" element={<CreateAccount />} />
           <Route path="/signin" element={<SignIn />} />
-          <Route path="/top-rated-users" element={<PrivateRoute><TopRatedUsersTable /></PrivateRoute>} />
-          <Route path="/video-call" element={<PrivateRoute><VideoCall /></PrivateRoute>} />
+          <Route path="/leaderboard" element={<PrivateRoute><TopRatedUsersTable /></PrivateRoute>} />
+          <Route path="/video-chat" element={<PrivateRoute><VideoCall /></PrivateRoute>} />
           <Route path="/" element={<Navigate to="/home" />} />
           <Route path="/profile/:userId" element={<PrivateRoute><Profile /></PrivateRoute>} />
           <Route path="/influencer-profile/:influencerId" element={<PrivateRoute><InfluencerProfile /></PrivateRoute>} />
           <Route path="/home" element={<HomeScreen />} />
           <Route path="/updates" element={<PrivateRoute><Updates /></PrivateRoute>} />
-          <Route path="/geo-call" element={<PrivateRoute><GeoCall /></PrivateRoute>} />
+          <Route path="/geo-locate" element={<PrivateRoute><GeoCall /></PrivateRoute>} />
           <Route path="/two-truths" element={<PrivateRoute><TwoTruths /></PrivateRoute>} />
           <Route path="/analysis" element={<PrivateRoute><Analyze /></PrivateRoute>} />
+          <Route path="/looksmatch" element={<PrivateRoute><Looksmatch /></PrivateRoute>} />
           <Route path="/get-ranked-selection" element={<GetRankedSelection />} />
           <Route path="/ranking" element={<GetRanked />} />
           <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
+          <Route path="/games-selection" element={<PrivateRoute><GamesSelection /></PrivateRoute>} />
+          <Route path="/analyze-selection" element={<PrivateRoute><AnalyzeSelection /></PrivateRoute>} />
         </Routes>
 
         {/* Custom warning overlay */}
