@@ -304,7 +304,7 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender
   );
 };
 
-// **UserInfoForm Component**
+// **Updated UserInfoForm Component**
 const UserInfoForm = ({ onSubmit, gender }) => {
   const [unitSystem, setUnitSystem] = useState('imperial');
   const [ethnicity, setEthnicity] = useState('');
@@ -336,6 +336,21 @@ const UserInfoForm = ({ onSubmit, gender }) => {
     'Other': 'brown',
   };
 
+  // Load saved data from localStorage when component mounts
+  useEffect(() => {
+    const savedData = JSON.parse(localStorage.getItem('userInfoForm'));
+    if (savedData) {
+      setUnitSystem(savedData.unitSystem || 'imperial');
+      setEthnicity(savedData.ethnicity || '');
+      setEyeColor(savedData.eyeColor || '');
+      setHeightFeet(savedData.heightFeet || '');
+      setHeightInches(savedData.heightInches || '');
+      setHeightCm(savedData.heightCm || '');
+      setWeightValue(savedData.weightValue || '');
+    }
+  }, []);
+
+  // Reset height and weight fields when unit system changes
   useEffect(() => {
     setHeightFeet('');
     setHeightInches('');
@@ -344,6 +359,7 @@ const UserInfoForm = ({ onSubmit, gender }) => {
   }, [unitSystem]);
 
   const handleSubmit = () => {
+    // Validation
     if (!ethnicity || !eyeColor) {
       setSnackbar({ open: true, message: 'All fields are required', severity: 'error' });
       return;
@@ -383,6 +399,19 @@ const UserInfoForm = ({ onSubmit, gender }) => {
       totalWeightPounds = kg * 2.20462;
     }
 
+    // Save form data to localStorage
+    const savedData = {
+      unitSystem,
+      ethnicity,
+      eyeColor,
+      heightFeet,
+      heightInches,
+      heightCm,
+      weightValue,
+    };
+    localStorage.setItem('userInfoForm', JSON.stringify(savedData));
+
+    // Submit data to parent component
     onSubmit({
       ethnicity: ethnicityMap[ethnicity],
       eyeColor: eyeColorMap[eyeColor],
@@ -390,6 +419,18 @@ const UserInfoForm = ({ onSubmit, gender }) => {
       weight: totalWeightPounds,
       gender: gender,
     });
+  };
+
+  // Revert function to clear saved data and reset form
+  const handleRevert = () => {
+    localStorage.removeItem('userInfoForm');
+    setUnitSystem('imperial');
+    setEthnicity('');
+    setEyeColor('');
+    setHeightFeet('');
+    setHeightInches('');
+    setHeightCm('');
+    setWeightValue('');
   };
 
   return (
@@ -441,9 +482,14 @@ const UserInfoForm = ({ onSubmit, gender }) => {
           <MuiFormLabel>Weight ({unitSystem === 'imperial' ? 'pounds' : 'kg'})</MuiFormLabel>
           <TextField type="number" value={weightValue} onChange={(e) => setWeightValue(e.target.value)} fullWidth />
         </MuiFormControl>
-        <MuiButton variant="contained" color="primary" onClick={handleSubmit}>
-          Submit
-        </MuiButton>
+        <Stack direction="row" spacing={2} justifyContent="center">
+          <MuiButton variant="contained" color="primary" onClick={handleSubmit}>
+            Submit
+          </MuiButton>
+          <MuiButton variant="contained" color="secondary" onClick={handleRevert}>
+            Revert
+          </MuiButton>
+        </Stack>
       </Stack>
       <Snackbar
         open={snackbar.open}
