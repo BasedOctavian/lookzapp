@@ -73,7 +73,7 @@ const calculateEyeCenter = (landmarks, indices) => {
   return [sumX / count, sumY / count, sumZ / count];
 };
 
-// **FaceScanner Component**
+// **FaceScanner Component with Head Silhouette**
 const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -149,7 +149,7 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender
       const context = canvas.getContext('2d');
       context.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw overlay lines to help center the face
+      // Draw overlay lines and head silhouette
       context.strokeStyle = 'white';
       context.lineWidth = 1;
       context.beginPath();
@@ -157,6 +157,7 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender
       context.lineTo(canvas.width / 2, canvas.height);
       context.moveTo(0, canvas.height / 2);
       context.lineTo(canvas.width, canvas.height / 2);
+      context.ellipse(canvas.width / 2, canvas.height / 2, canvas.width / 6, canvas.height / 4, 0, 0, 2 * Math.PI);
       context.stroke();
 
       if (predictions.length > 0) {
