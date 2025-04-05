@@ -61,7 +61,7 @@ const testParams = {
   'Nose': 400,
 };
 
-// Helper function
+// Helper function to calculate eye center
 const calculateEyeCenter = (landmarks, indices) => {
   let sumX = 0, sumY = 0, sumZ = 0;
   indices.forEach((index) => {
@@ -74,7 +74,7 @@ const calculateEyeCenter = (landmarks, indices) => {
 };
 
 // **FaceScanner Component**
-const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected }) => {
+const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const intervalRef = useRef(null);
@@ -109,7 +109,13 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected }) => {
         if (videoRef.current && isMounted) {
           videoRef.current.srcObject = stream;
           videoRef.current.onloadedmetadata = () => {
-            if (isMounted) setVideoReady(true);
+            if (isMounted) {
+              setVideoReady(true);
+              videoRef.current.play().catch((err) => {
+                console.error('Error playing video:', err);
+                if (isMounted) setWebcamError('Failed to play video');
+              });
+            }
           };
         }
       } catch (err) {
@@ -143,6 +149,16 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected }) => {
       const context = canvas.getContext('2d');
       context.clearRect(0, 0, canvas.width, canvas.height);
 
+      // Draw overlay lines to help center the face
+      context.strokeStyle = 'white';
+      context.lineWidth = 1;
+      context.beginPath();
+      context.moveTo(canvas.width / 2, 0);
+      context.lineTo(canvas.width / 2, canvas.height);
+      context.moveTo(0, canvas.height / 2);
+      context.lineTo(canvas.width, canvas.height / 2);
+      context.stroke();
+
       if (predictions.length > 0) {
         setFaceDetected(true);
         onFaceDetected(true);
@@ -153,7 +169,7 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected }) => {
         const videoTestScores = {};
         tests.forEach((test) => {
           if (test !== 'Overall') {
-            videoTestScores[test] = runTest(test, landmarks, boundingBox, testParams);
+            videoTestScores[test] = runTest(test, landmarks, boundingBox, testParams, gender);
           }
         });
         const totalWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
@@ -185,7 +201,7 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected }) => {
 
     intervalRef.current = setInterval(detectFaceAndRunTest, 500);
     return () => clearInterval(intervalRef.current);
-  }, [model, videoReady, isCollecting, onFaceDetected]);
+  }, [model, videoReady, isCollecting, onFaceDetected, gender]);
 
   useEffect(() => {
     if (!startScanning || isCollecting) return;
@@ -289,7 +305,7 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected }) => {
 };
 
 // **UserInfoForm Component**
-const UserInfoForm = ({ onSubmit }) => {
+const UserInfoForm = ({ onSubmit, gender }) => {
   const [unitSystem, setUnitSystem] = useState('imperial');
   const [ethnicity, setEthnicity] = useState('');
   const [eyeColor, setEyeColor] = useState('');
@@ -297,7 +313,6 @@ const UserInfoForm = ({ onSubmit }) => {
   const [heightInches, setHeightInches] = useState('');
   const [heightCm, setHeightCm] = useState('');
   const [weightValue, setWeightValue] = useState('');
-  const [gender, setGender] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'error' });
 
   const ethnicityMap = {
@@ -321,14 +336,6 @@ const UserInfoForm = ({ onSubmit }) => {
     'Other': 'brown',
   };
 
-  const genderMap = {
-    'Male': 'M',
-    'Female': 'W',
-    'Non-binary': 'M',
-    'Other': 'W',
-    'Prefer not to say': 'M',
-  };
-
   useEffect(() => {
     setHeightFeet('');
     setHeightInches('');
@@ -337,7 +344,7 @@ const UserInfoForm = ({ onSubmit }) => {
   }, [unitSystem]);
 
   const handleSubmit = () => {
-    if (!ethnicity || !eyeColor || !gender) {
+    if (!ethnicity || !eyeColor) {
       setSnackbar({ open: true, message: 'All fields are required', severity: 'error' });
       return;
     }
@@ -381,7 +388,7 @@ const UserInfoForm = ({ onSubmit }) => {
       eyeColor: eyeColorMap[eyeColor],
       height: totalHeightInches,
       weight: totalWeightPounds,
-      gender: genderMap[gender],
+      gender: gender,
     });
   };
 
@@ -434,15 +441,6 @@ const UserInfoForm = ({ onSubmit }) => {
           <MuiFormLabel>Weight ({unitSystem === 'imperial' ? 'pounds' : 'kg'})</MuiFormLabel>
           <TextField type="number" value={weightValue} onChange={(e) => setWeightValue(e.target.value)} fullWidth />
         </MuiFormControl>
-        <MuiFormControl>
-          <MuiFormLabel>Gender</MuiFormLabel>
-          <MuiSelect value={gender} onChange={(e) => setGender(e.target.value)} displayEmpty fullWidth>
-            <MenuItem value="" disabled>Select gender</MenuItem>
-            {Object.keys(genderMap).map((option) => (
-              <MenuItem key={option} value={option}>{option}</MenuItem>
-            ))}
-          </MuiSelect>
-        </MuiFormControl>
         <MuiButton variant="contained" color="primary" onClick={handleSubmit}>
           Submit
         </MuiButton>
@@ -486,13 +484,19 @@ const ResultDisplay = ({ rating }) => {
 
 // **Main Component** (Capping rating between 15.69 and 99)
 const AttractivenessRatingProcess = () => {
-  const [currentStep, setCurrentStep] = useState('instructions');
+  const [currentStep, setCurrentStep] = useState('genderSelection');
+  const [gender, setGender] = useState('');
   const [faceScore, setFaceScore] = useState(null);
   const [doc, setDoc] = useState(null);
   const [faceDetected, setFaceDetected] = useState(false);
   const { rating: rawRating } = useAttractivenessRating(doc);
   const cappedRating = rawRating !== null ? Math.min(Math.max(rawRating, 15.69), 99) : null; // Enforce min 15.69 and max 99
   const toast = useToast();
+
+  const handleGenderSelection = (selectedGender) => {
+    setGender(genderMap[selectedGender]);
+    setCurrentStep('instructions');
+  };
 
   const handleStartScanning = () => {
     if (faceDetected) {
@@ -526,16 +530,38 @@ const AttractivenessRatingProcess = () => {
       eyeColor: info.eyeColor,
       height: info.height,
       weight: info.weight,
-      gender: info.gender,
+      gender: gender,
     };
     setDoc(updatedDoc);
     console.log('Form submitted, doc:', updatedDoc);
     setCurrentStep('result');
   };
 
+  const genderMap = {
+    'Male': 'M',
+    'Female': 'W',
+    'Non-binary': 'M',
+    'Other': 'W',
+    'Prefer not to say': 'M',
+  };
+
   return (
     <Container maxW="container.xl" py={{ base: 4, md: 6 }} bg="gray.50">
       <VStack spacing={6} align="stretch">
+        {currentStep === 'genderSelection' && (
+          <VStack spacing={4} align="center">
+            <Heading size="lg">Are You a Boy or a Girl?</Heading>
+            <MuiFormControl>
+              <MuiFormLabel>Pick One</MuiFormLabel>
+              <MuiSelect value={gender} onChange={(e) => handleGenderSelection(e.target.value)} displayEmpty fullWidth>
+                <MenuItem value="" disabled>Choose here</MenuItem>
+                {Object.keys(genderMap).map((option) => (
+                  <MenuItem key={option} value={option}>{option}</MenuItem>
+                ))}
+              </MuiSelect>
+            </MuiFormControl>
+          </VStack>
+        )}
         {(currentStep === 'instructions' || currentStep === 'scanning') && (
           <Box
             w={{ base: '100%', md: '640px' }}
@@ -545,21 +571,22 @@ const AttractivenessRatingProcess = () => {
             borderColor="gray.100"
             borderRadius="xl"
             overflow="hidden"
-    boxShadow="lg"
+            boxShadow="lg"
             bg="gray.200"
           >
             <FaceScanner
               startScanning={currentStep === 'scanning'}
               onScanningComplete={handleScanningComplete}
               onFaceDetected={handleFaceDetected}
+              gender={gender}
             />
           </Box>
         )}
         {currentStep === 'instructions' && (
           <VStack spacing={4} align="center">
-            <Heading size="lg">Face Scan</Heading>
+            <Heading size="lg">Let’s Scan Your Face!</Heading>
             <Text fontSize="lg" textAlign="center">
-              Please position your face in front of the camera. The scan will begin once a face is detected.
+              Put your face in front of the camera. Make sure you have good lighting and keep your face straight. Results can vary slightly if not. The scan starts when we see your face!
             </Text>
             <Button
               colorScheme="teal"
@@ -573,13 +600,13 @@ const AttractivenessRatingProcess = () => {
         )}
         {currentStep === 'form' && (
           <VStack spacing={6} align="stretch">
-            <Heading size="lg">Tell Us About Yourself</Heading>
-            <UserInfoForm onSubmit={handleFormSubmit} />
+            <Heading size="lg">Tell Us About You</Heading>
+            <UserInfoForm onSubmit={handleFormSubmit} gender={gender} />
           </VStack>
         )}
         {currentStep === 'result' && cappedRating !== null && (
           <VStack spacing={4} align="center">
-            <Heading size="lg">Your Attractiveness Rating</Heading>
+            <Heading size="lg">Here’s Your Score!</Heading>
             <ResultDisplay rating={cappedRating} />
           </VStack>
         )}
@@ -589,86 +616,92 @@ const AttractivenessRatingProcess = () => {
 };
 
 // **Helper Function and Score Calculations**
-const runTest = (test, landmarks, boundingBox, params) => {
+const runTest = (test, landmarks, boundingBox, params, gender) => {
   switch (test) {
-    case 'Cardinal Tilt': return calculateTiltScore(landmarks, params['Cardinal Tilt']);
-    case 'Facial Thirds': return calculateFacialThirdsScore(landmarks, params['Facial Thirds']);
-    case 'Cheekbone Location': return calculateCheekboneScore(landmarks, params['Cheekbone Location']);
-    case 'Interocular Distance': return calculateInterocularDistanceScore(landmarks, boundingBox, params['Interocular Distance']);
-    case 'Undereyes': return calculateUndereyesScore(landmarks, params['Undereyes']);
-    case 'Jawline': return calculateJawlineScore(landmarks, boundingBox, params['Jawline']);
-    case 'Chin': return calculateChinScore(landmarks, params['Chin']);
-    case 'Nose': return calculateNoseScore(landmarks, boundingBox, params['Nose']);
+    case 'Cardinal Tilt': return calculateTiltScore(landmarks, params['Cardinal Tilt'], gender);
+    case 'Facial Thirds': return calculateFacialThirdsScore(landmarks, params['Facial Thirds'], gender);
+    case 'Cheekbone Location': return calculateCheekboneScore(landmarks, params['Cheekbone Location'], gender);
+    case 'Interocular Distance': return calculateInterocularDistanceScore(landmarks, boundingBox, params['Interocular Distance'], gender);
+    case 'Undereyes': return calculateUndereyesScore(landmarks, params['Undereyes'], gender);
+    case 'Jawline': return calculateJawlineScore(landmarks, boundingBox, params['Jawline'], gender);
+    case 'Chin': return calculateChinScore(landmarks, params['Chin'], gender);
+    case 'Nose': return calculateNoseScore(landmarks, boundingBox, params['Nose'], gender);
     default: return 0;
   }
 };
 
-const calculateTiltScore = (landmarks, multiplier) => {
+const calculateTiltScore = (landmarks, multiplier, gender) => {
   const leftEyeCenter = calculateEyeCenter(landmarks, [33, 133, 159, 145]);
   const rightEyeCenter = calculateEyeCenter(landmarks, [362, 263, 386, 374]);
   const dy = rightEyeCenter[1] - leftEyeCenter[1];
   const dx = rightEyeCenter[0] - leftEyeCenter[0];
   const angle = Math.abs(Math.atan2(dy, dx) * (180 / Math.PI));
-  return Math.max(0, 100 - angle * multiplier);
+  // Less penalty for girls
+  const adjustedMultiplier = gender === 'W' ? multiplier * 0.8 : multiplier;
+  return Math.max(0, 100 - angle * adjustedMultiplier);
 };
 
-const calculateFacialThirdsScore = (landmarks, multiplier) => {
+const calculateFacialThirdsScore = (landmarks, multiplier, gender) => {
   const forehead = landmarks[10][1];
   const noseBase = landmarks[1][1];
   const chin = landmarks[152][1];
   const third1 = noseBase - forehead;
   const third2 = chin - noseBase;
-  const idealRatio = third1 / third2;
-  const deviation = Math.abs(1 - idealRatio);
+  const idealRatio = gender === 'M' ? 1.0 : 1.2; // Girls have a slightly different ideal
+  const deviation = Math.abs(1 - (third1 / third2) / idealRatio);
   return Math.max(0, 100 - deviation * multiplier);
 };
 
-const calculateCheekboneScore = (landmarks, multiplier) => {
+const calculateCheekboneScore = (landmarks, multiplier, gender) => {
   const cheekLeft = landmarks[116][1];
   const cheekRight = landmarks[345][1];
   const diff = Math.abs(cheekLeft - cheekRight);
-  return Math.max(0, 100 - diff * multiplier);
+  // Higher emphasis for girls
+  const adjustedMultiplier = gender === 'W' ? multiplier * 1.2 : multiplier;
+  return Math.max(0, 100 - diff * adjustedMultiplier);
 };
 
-const calculateInterocularDistanceScore = (landmarks, boundingBox, multiplier) => {
+const calculateInterocularDistanceScore = (landmarks, boundingBox, multiplier, gender) => {
   const leftEyeCenter = calculateEyeCenter(landmarks, [33, 133, 159, 145]);
   const rightEyeCenter = calculateEyeCenter(landmarks, [362, 263, 386, 374]);
   const distance = Math.sqrt((rightEyeCenter[0] - leftEyeCenter[0]) ** 2 + (rightEyeCenter[1] - leftEyeCenter[1]) ** 2);
   const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
   const ratio = distance / faceWidth;
-  const idealRatio = 0.45;
+  const idealRatio = gender === 'M' ? 0.45 : 0.47; // Slightly wider for girls
   const deviation = Math.abs(ratio - idealRatio);
   return Math.max(0, 100 - deviation * multiplier);
 };
 
-const calculateUndereyesScore = (landmarks, value) => value;
+const calculateUndereyesScore = (landmarks, value, gender) => {
+  return value; // No gender adjustment here for simplicity
+};
 
-const calculateJawlineScore = (landmarks, boundingBox, multiplier) => {
+const calculateJawlineScore = (landmarks, boundingBox, multiplier, gender) => {
   const jawWidth = Math.abs(landmarks[123][0] - landmarks[352][0]);
   const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
   const ratio = jawWidth / faceWidth;
-  const idealRatio = 0.8;
+  const idealRatio = gender === 'M' ? 0.8 : 0.7; // Stronger jaw for boys
   const deviation = Math.abs(ratio - idealRatio);
   return Math.max(0, 100 - deviation * multiplier);
 };
 
-const calculateChinScore = (landmarks, multiplier) => {
+const calculateChinScore = (landmarks, multiplier, gender) => {
   const noseTip = landmarks[1][1];
   const chin = landmarks[152][1];
   const mouth = landmarks[17][1];
   const chinLength = chin - mouth;
   const faceHeight = chin - noseTip;
   const ratio = chinLength / faceHeight;
-  const idealRatio = 0.33;
+  const idealRatio = gender === 'M' ? 0.33 : 0.3; // Slightly shorter for girls
   const deviation = Math.abs(ratio - idealRatio);
   return Math.max(0, 100 - deviation * multiplier);
 };
 
-const calculateNoseScore = (landmarks, boundingBox, multiplier) => {
+const calculateNoseScore = (landmarks, boundingBox, multiplier, gender) => {
   const noseWidth = Math.abs(landmarks[129][0] - landmarks[358][0]);
   const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
   const ratio = noseWidth / faceWidth;
-  const idealRatio = 0.25;
+  const idealRatio = gender === 'M' ? 0.25 : 0.23; // Slightly narrower for girls
   const deviation = Math.abs(ratio - idealRatio);
   return Math.max(0, 100 - deviation * multiplier);
 };

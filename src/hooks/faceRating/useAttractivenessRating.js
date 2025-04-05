@@ -16,20 +16,20 @@ export function useAttractivenessRating(doc) {
 
     const { faceRating, ethnicity, eyeColor, height, weight, gender } = doc;
 
-    // Calculate ethnicityScore
-    const ethnicityScore = (ethnicity === 'euro' || ethnicity === 'other') ? 10 : -3;
+    // Ethnicity Score: Less harsh penalty
+    const ethnicityScore = (ethnicity === 'euro' || ethnicity === 'other') ? 10 : -1;
 
-    // Calculate eyeColorScore with a lesser penalty for brown eyes
+    // Eye Color Score: Reduced penalties
     let eyeColorScore;
     if (eyeColor === 'blue' || eyeColor === 'green') {
       eyeColorScore = 5;
     } else if (eyeColor === 'brown') {
-      eyeColorScore = -2;
+      eyeColorScore = -1;
     } else {
-      eyeColorScore = -5;
+      eyeColorScore = -3;
     }
 
-    // Calculate heightScore based on gender
+    // Height Score: Adjusted for men and women
     let heightScore;
     if (gender === 'M') {
       if (height <= 66) {
@@ -39,31 +39,36 @@ export function useAttractivenessRating(doc) {
       } else {
         heightScore = Math.min(20, 10 + ((height - 72) / 6) * 10);
       }
+      // Adjust heightScore for men based on faceRating
+      const scalingFactor = Math.max(0, Math.min(1, faceRating / 40));
+      heightScore *= scalingFactor;
     } else if (gender === 'W') {
-      if (height <= 60) {
+      if (height <= 66) {
         heightScore = 20;
-      } else if (height <= 66) {
-        heightScore = 20 - ((height - 60) / 6) * 10;
       } else {
-        heightScore = Math.max(0, 10 - ((height - 66) / 6) * 5);
+        heightScore = Math.max(0, 20 - ((height - 66) / 6) * 5);
       }
     }
 
-    // Calculate weightScore based on gender
+    // Weight Score: Less penalty for women
     let weightScore;
     if (gender === 'M') {
       const idealWeight = (height - 60) * 6 + 106;
       weightScore = 10 - 0.2 * Math.max(0, weight - idealWeight) - 0.5 * Math.max(0, weight - 250);
     } else if (gender === 'W') {
       const idealWeight = 100 + 5 * (height - 60);
-      weightScore = 10 - 0.2 * Math.max(0, weight - idealWeight) - 0.5 * Math.max(0, weight - 180);
+      weightScore = 10 - 0.1 * Math.max(0, weight - idealWeight) - 0.25 * Math.max(0, weight - 180);
     }
 
-    // Calculate bonus for tall men with blue or green eyes
-    const bonus = (gender === 'M' && height > 72 && (eyeColor === 'blue' || eyeColor === 'green')) ? 5 : 0;
+    // Bonus: Reduced for tall men with blue/green eyes
+    const bonus = (gender === 'M' && height > 72 && (eyeColor === 'blue' || eyeColor === 'green')) ? 2 : 0;
 
-    // Calculate finalGrade with increased weight for faceRating
-    const finalGrade = (0.57 * faceRating) + ethnicityScore + eyeColorScore + (1.5 * heightScore) + (0.5 * weightScore) + bonus;
+    // Face Rating Weight: Slightly higher for women
+    const faceRatingWeight = (gender === 'W') ? 0.6 : 0.57;
+
+    // Final Grade
+    const finalGrade = (faceRatingWeight * faceRating) + ethnicityScore + eyeColorScore + 
+                       (1.5 * heightScore) + (0.5 * weightScore) + bonus;
 
     return finalGrade;
   }, [doc]);
