@@ -1,6 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as tf from '@tensorflow/tfjs';
 import * as facemesh from '@tensorflow-models/facemesh';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase';
+import { useUserData } from '../hooks/useUserData';
+import { useAuth } from '../hooks/useAuth';
+import { useAttractivenessRating } from '../hooks/faceRating/useAttractivenessRating';
 import {
   Container,
   Box,
@@ -9,7 +14,6 @@ import {
   VStack,
   Heading,
 } from '@chakra-ui/react';
-import { useAttractivenessRating } from '../hooks/faceRating/useAttractivenessRating';
 import { useToast } from '@chakra-ui/toast';
 import {
   Stack,
@@ -26,7 +30,7 @@ import {
   Box as MuiBox,
 } from '@mui/material';
 
-// Define tests, weights, and params
+// Define tests, weights, and params (unchanged)
 const tests = [
   'Cardinal Tilt',
   'Facial Thirds',
@@ -61,7 +65,7 @@ const testParams = {
   'Nose': 400,
 };
 
-// Helper function to calculate eye center
+// Helper function to calculate eye center (unchanged)
 const calculateEyeCenter = (landmarks, indices) => {
   let sumX = 0, sumY = 0, sumZ = 0;
   indices.forEach((index) => {
@@ -73,7 +77,7 @@ const calculateEyeCenter = (landmarks, indices) => {
   return [sumX / count, sumY / count, sumZ / count];
 };
 
-// **FaceScanner Component with Head Silhouette**
+// **FaceScanner Component (unchanged)**
 const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -149,7 +153,6 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender
       const context = canvas.getContext('2d');
       context.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw overlay lines and head silhouette
       context.strokeStyle = 'white';
       context.lineWidth = 1;
       context.beginPath();
@@ -305,7 +308,7 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender
   );
 };
 
-// **Updated UserInfoForm Component**
+// **UserInfoForm Component (unchanged, used only for "Someone Else")**
 const UserInfoForm = ({ onSubmit, gender }) => {
   const [unitSystem, setUnitSystem] = useState('imperial');
   const [ethnicity, setEthnicity] = useState('');
@@ -337,7 +340,6 @@ const UserInfoForm = ({ onSubmit, gender }) => {
     'Other': 'brown',
   };
 
-  // Load saved data from localStorage when component mounts
   useEffect(() => {
     const savedData = JSON.parse(localStorage.getItem('userInfoForm'));
     if (savedData) {
@@ -351,7 +353,6 @@ const UserInfoForm = ({ onSubmit, gender }) => {
     }
   }, []);
 
-  // Reset height and weight fields when unit system changes
   useEffect(() => {
     setHeightFeet('');
     setHeightInches('');
@@ -360,7 +361,6 @@ const UserInfoForm = ({ onSubmit, gender }) => {
   }, [unitSystem]);
 
   const handleSubmit = () => {
-    // Validation
     if (!ethnicity || !eyeColor) {
       setSnackbar({ open: true, message: 'All fields are required', severity: 'error' });
       return;
@@ -400,7 +400,6 @@ const UserInfoForm = ({ onSubmit, gender }) => {
       totalWeightPounds = kg * 2.20462;
     }
 
-    // Save form data to localStorage
     const savedData = {
       unitSystem,
       ethnicity,
@@ -412,7 +411,6 @@ const UserInfoForm = ({ onSubmit, gender }) => {
     };
     localStorage.setItem('userInfoForm', JSON.stringify(savedData));
 
-    // Submit data to parent component
     onSubmit({
       ethnicity: ethnicityMap[ethnicity],
       eyeColor: eyeColorMap[eyeColor],
@@ -422,7 +420,6 @@ const UserInfoForm = ({ onSubmit, gender }) => {
     });
   };
 
-  // Revert function to clear saved data and reset form
   const handleRevert = () => {
     localStorage.removeItem('userInfoForm');
     setUnitSystem('imperial');
@@ -505,9 +502,9 @@ const UserInfoForm = ({ onSubmit, gender }) => {
   );
 };
 
-// **ResultDisplay Component** (Capped between 15.69 and 99)
+// **ResultDisplay Component (unchanged)**
 const ResultDisplay = ({ rating }) => {
-  const cappedRating = Math.min(Math.max(rating, 15.69), 99); // Enforce min 15.69 and max 99
+  const cappedRating = Math.min(Math.max(rating, 15.69), 99);
   return (
     <MuiBox position="relative" display="inline-flex">
       <CircularProgress variant="determinate" value={cappedRating} size={100} thickness={4} />
@@ -529,16 +526,113 @@ const ResultDisplay = ({ rating }) => {
   );
 };
 
-// **Main Component** (Capping rating between 15.69 and 99)
+// **Mapping Functions for User Data (unchanged)**
+const mapEyeColor = (eyeColor) => {
+  const lowerEyeColor = eyeColor.toLowerCase();
+  if (lowerEyeColor === 'blue') return 'blue';
+  if (lowerEyeColor === 'green') return 'green';
+  if (lowerEyeColor === 'brown') return 'brown';
+  if (lowerEyeColor === 'hazel') return 'brown';
+  if (lowerEyeColor === 'gray') return 'blue';
+  return 'brown'; // default
+};
+
+const getGenderCode = (gender) => {
+  const lowerGender = gender.toLowerCase();
+  if (lowerGender === 'male') return 'M';
+  if (lowerGender === 'female') return 'W';
+  return 'M'; // default
+};
+
+// **Updated Main Component**
 const AttractivenessRatingProcess = () => {
-  const [currentStep, setCurrentStep] = useState('genderSelection');
+  const { userData, rating: userRating, bestFeature, loading: loadingUser } = useUserData();
+  const { user } = useAuth();
+  const [currentStep, setCurrentStep] = useState(null); // Initial step determined in useEffect
+  const [scanFor, setScanFor] = useState(null);
   const [gender, setGender] = useState('');
   const [faceScore, setFaceScore] = useState(null);
-  const [doc, setDoc] = useState(null);
+  const [userInfo, setUserInfo] = useState(null);
   const [faceDetected, setFaceDetected] = useState(false);
-  const { rating: rawRating } = useAttractivenessRating(doc);
-  const cappedRating = rawRating !== null ? Math.min(Math.max(rawRating, 15.69), 99) : null; // Enforce min 15.69 and max 99
+  const [updated, setUpdated] = useState(false);
+  const { rating: rawRating } = useAttractivenessRating(userInfo);
+  const cappedRating = rawRating !== null ? Math.min(Math.max(rawRating, 15.69), 99) : null;
   const toast = useToast();
+
+  // Determine initial step based on timesRanked
+  useEffect(() => {
+    if (!loadingUser && userData) {
+      if (userData.timesRanked === 0) {
+        setScanFor('myself');
+        setUserInfo({
+          ethnicity: userData.ethnicity,
+          eyeColor: mapEyeColor(userData.eyeColor),
+          height: userData.height,
+          weight: userData.weight,
+          gender: getGenderCode(userData.gender),
+        });
+        setCurrentStep('instructions');
+      } else {
+        setCurrentStep('scanForSelection');
+      }
+    }
+  }, [loadingUser, userData]);
+
+  // Update Firestore only for "Myself" scans when timesRanked is 0
+  useEffect(() => {
+    if (
+      scanFor === 'myself' &&
+      !loadingUser &&
+      userData &&
+      cappedRating !== null &&
+      !updated &&
+      userData.timesRanked === 0
+    ) {
+      const updateUserRating = async () => {
+        const userDocRef = doc(db, 'users', userData.id);
+        const dividedRating = cappedRating / 10;
+        try {
+          await setDoc(
+            userDocRef,
+            {
+              ranking: dividedRating,
+              timesRanked: 1,
+            },
+            { merge: true }
+          );
+          setUpdated(true);
+          console.log('User document updated:', { ranking: dividedRating, timesRanked: 1 });
+        } catch (error) {
+          console.error('Error updating user document:', error);
+          toast({
+            title: 'Error',
+            description: 'Failed to save your rating. Please try again.',
+            status: 'error',
+            duration: 5000,
+            isClosable: true,
+          });
+        }
+      };
+      updateUserRating();
+    }
+  }, [loadingUser, userData, cappedRating, updated, toast, scanFor]);
+
+  const handleScanForSelection = (choice) => {
+    if (choice === 'myself') {
+      setScanFor('myself');
+      setUserInfo({
+        ethnicity: userData.ethnicity,
+        eyeColor: mapEyeColor(userData.eyeColor),
+        height: userData.height,
+        weight: userData.weight,
+        gender: getGenderCode(userData.gender),
+      });
+      setCurrentStep('instructions');
+    } else {
+      setScanFor('someoneElse');
+      setCurrentStep('genderSelection');
+    }
+  };
 
   const handleGenderSelection = (selectedGender) => {
     setGender(genderMap[selectedGender]);
@@ -550,17 +644,32 @@ const AttractivenessRatingProcess = () => {
       setCurrentStep('scanning');
       console.log('Starting scanning');
     } else {
-      toast({ title: 'Error', description: 'Face not detected. Please adjust your position.', status: 'warning', duration: 3000 });
+      toast({
+        title: 'Error',
+        description: 'Face not detected. Please adjust your position.',
+        status: 'warning',
+        duration: 3000,
+      });
     }
   };
 
   const handleScanningComplete = (score) => {
     console.log('Scanning complete, score:', score);
     if (score !== null) {
-      setFaceScore(score);
-      setCurrentStep('form');
+      if (scanFor === 'myself') {
+        setUserInfo((prev) => ({ ...prev, faceRating: score }));
+        setCurrentStep('result');
+      } else {
+        setFaceScore(score);
+        setCurrentStep('form');
+      }
     } else {
-      toast({ title: 'Error', description: 'No face detected during scan. Please try again.', status: 'error', duration: 3000 });
+      toast({
+        title: 'Error',
+        description: 'No face detected during scan. Please try again.',
+        status: 'error',
+        duration: 3000,
+      });
       setCurrentStep('instructions');
     }
   };
@@ -571,7 +680,7 @@ const AttractivenessRatingProcess = () => {
   };
 
   const handleFormSubmit = (info) => {
-    const updatedDoc = {
+    const updatedUserInfo = {
       faceRating: faceScore,
       ethnicity: info.ethnicity,
       eyeColor: info.eyeColor,
@@ -579,8 +688,8 @@ const AttractivenessRatingProcess = () => {
       weight: info.weight,
       gender: gender,
     };
-    setDoc(updatedDoc);
-    console.log('Form submitted, doc:', updatedDoc);
+    setUserInfo(updatedUserInfo);
+    console.log('Form submitted, userInfo:', updatedUserInfo);
     setCurrentStep('result');
   };
 
@@ -595,15 +704,33 @@ const AttractivenessRatingProcess = () => {
   return (
     <Container maxW="container.xl" py={{ base: 4, md: 6 }} bg="gray.50">
       <VStack spacing={6} align="stretch">
-        {currentStep === 'genderSelection' && (
+        {currentStep === 'scanForSelection' && (
           <VStack spacing={4} align="center">
-            <Heading size="lg">Are You a Boy or a Girl?</Heading>
+            <Heading size="lg">Who are you scanning for?</Heading>
+            <Button 
+            style={{ backgroundColor: 'black', color: 'white', width: '30%' }} onClick={() => handleScanForSelection('myself')}>For Myself</Button>
+            <Button 
+            style={{ backgroundColor: 'black', color: 'white', width: '30%' }}onClick={() => handleScanForSelection('someoneElse')}>For Someone Else</Button>
+          </VStack>
+        )}
+        {currentStep === 'genderSelection' && scanFor === 'someoneElse' && (
+          <VStack spacing={4} align="center">
+            <Heading size="lg">Select Gender for Someone Else</Heading>
             <MuiFormControl>
               <MuiFormLabel>Pick One</MuiFormLabel>
-              <MuiSelect value={gender} onChange={(e) => handleGenderSelection(e.target.value)} displayEmpty fullWidth>
-                <MenuItem value="" disabled>Choose here</MenuItem>
+              <MuiSelect
+                value={gender}
+                onChange={(e) => handleGenderSelection(e.target.value)}
+                displayEmpty
+                fullWidth
+              >
+                <MenuItem value="" disabled>
+                  Choose here
+                </MenuItem>
                 {Object.keys(genderMap).map((option) => (
-                  <MenuItem key={option} value={option}>{option}</MenuItem>
+                  <MenuItem key={option} value={option}>
+                    {option}
+                  </MenuItem>
                 ))}
               </MuiSelect>
             </MuiFormControl>
@@ -625,15 +752,16 @@ const AttractivenessRatingProcess = () => {
               startScanning={currentStep === 'scanning'}
               onScanningComplete={handleScanningComplete}
               onFaceDetected={handleFaceDetected}
-              gender={gender}
+              gender={userInfo?.gender || gender}
             />
           </Box>
         )}
         {currentStep === 'instructions' && (
           <VStack spacing={4} align="center">
-            <Heading size="lg">Let’s Scan Your Face!</Heading>
+            <Heading size="lg">Let’s Scan the Face!</Heading>
             <Text fontSize="lg" textAlign="center">
-              Put your face in front of the camera. Make sure you have good lighting and keep your face straight. Results can vary slightly if not. The scan starts when we see your face!
+              Put the face in front of the camera. Make sure there is good lighting and keep the face straight. Results can
+              vary slightly if not. The scan starts when we see the face!
             </Text>
             <Button
               colorScheme="teal"
@@ -645,15 +773,15 @@ const AttractivenessRatingProcess = () => {
             </Button>
           </VStack>
         )}
-        {currentStep === 'form' && (
+        {currentStep === 'form' && scanFor === 'someoneElse' && (
           <VStack spacing={6} align="stretch">
-            <Heading size="lg">Tell Us About You</Heading>
+            <Heading size="lg">Tell Us About Them</Heading>
             <UserInfoForm onSubmit={handleFormSubmit} gender={gender} />
           </VStack>
         )}
         {currentStep === 'result' && cappedRating !== null && (
           <VStack spacing={4} align="center">
-            <Heading size="lg">Here’s Your Score!</Heading>
+            <Heading size="lg">Here’s the Score!</Heading>
             <ResultDisplay rating={cappedRating} />
           </VStack>
         )}
@@ -662,18 +790,27 @@ const AttractivenessRatingProcess = () => {
   );
 };
 
-// **Helper Function and Score Calculations**
+// **Helper Functions for Scoring (unchanged)**
 const runTest = (test, landmarks, boundingBox, params, gender) => {
   switch (test) {
-    case 'Cardinal Tilt': return calculateTiltScore(landmarks, params['Cardinal Tilt'], gender);
-    case 'Facial Thirds': return calculateFacialThirdsScore(landmarks, params['Facial Thirds'], gender);
-    case 'Cheekbone Location': return calculateCheekboneScore(landmarks, params['Cheekbone Location'], gender);
-    case 'Interocular Distance': return calculateInterocularDistanceScore(landmarks, boundingBox, params['Interocular Distance'], gender);
-    case 'Undereyes': return calculateUndereyesScore(landmarks, params['Undereyes'], gender);
-    case 'Jawline': return calculateJawlineScore(landmarks, boundingBox, params['Jawline'], gender);
-    case 'Chin': return calculateChinScore(landmarks, params['Chin'], gender);
-    case 'Nose': return calculateNoseScore(landmarks, boundingBox, params['Nose'], gender);
-    default: return 0;
+    case 'Cardinal Tilt':
+      return calculateTiltScore(landmarks, params['Cardinal Tilt'], gender);
+    case 'Facial Thirds':
+      return calculateFacialThirdsScore(landmarks, params['Facial Thirds'], gender);
+    case 'Cheekbone Location':
+      return calculateCheekboneScore(landmarks, params['Cheekbone Location'], gender);
+    case 'Interocular Distance':
+      return calculateInterocularDistanceScore(landmarks, boundingBox, params['Interocular Distance'], gender);
+    case 'Undereyes':
+      return calculateUndereyesScore(landmarks, params['Undereyes'], gender);
+    case 'Jawline':
+      return calculateJawlineScore(landmarks, boundingBox, params['Jawline'], gender);
+    case 'Chin':
+      return calculateChinScore(landmarks, params['Chin'], gender);
+    case 'Nose':
+      return calculateNoseScore(landmarks, boundingBox, params['Nose'], gender);
+    default:
+      return 0;
   }
 };
 
@@ -683,7 +820,6 @@ const calculateTiltScore = (landmarks, multiplier, gender) => {
   const dy = rightEyeCenter[1] - leftEyeCenter[1];
   const dx = rightEyeCenter[0] - leftEyeCenter[0];
   const angle = Math.abs(Math.atan2(dy, dx) * (180 / Math.PI));
-  // Less penalty for girls
   const adjustedMultiplier = gender === 'W' ? multiplier * 0.8 : multiplier;
   return Math.max(0, 100 - angle * adjustedMultiplier);
 };
@@ -694,7 +830,7 @@ const calculateFacialThirdsScore = (landmarks, multiplier, gender) => {
   const chin = landmarks[152][1];
   const third1 = noseBase - forehead;
   const third2 = chin - noseBase;
-  const idealRatio = gender === 'M' ? 1.0 : 1.2; // Girls have a slightly different ideal
+  const idealRatio = gender === 'M' ? 1.0 : 1.2;
   const deviation = Math.abs(1 - (third1 / third2) / idealRatio);
   return Math.max(0, 100 - deviation * multiplier);
 };
@@ -703,7 +839,6 @@ const calculateCheekboneScore = (landmarks, multiplier, gender) => {
   const cheekLeft = landmarks[116][1];
   const cheekRight = landmarks[345][1];
   const diff = Math.abs(cheekLeft - cheekRight);
-  // Higher emphasis for girls
   const adjustedMultiplier = gender === 'W' ? multiplier * 1.2 : multiplier;
   return Math.max(0, 100 - diff * adjustedMultiplier);
 };
@@ -714,20 +849,20 @@ const calculateInterocularDistanceScore = (landmarks, boundingBox, multiplier, g
   const distance = Math.sqrt((rightEyeCenter[0] - leftEyeCenter[0]) ** 2 + (rightEyeCenter[1] - leftEyeCenter[1]) ** 2);
   const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
   const ratio = distance / faceWidth;
-  const idealRatio = gender === 'M' ? 0.45 : 0.47; // Slightly wider for girls
+  const idealRatio = gender === 'M' ? 0.45 : 0.47;
   const deviation = Math.abs(ratio - idealRatio);
   return Math.max(0, 100 - deviation * multiplier);
 };
 
 const calculateUndereyesScore = (landmarks, value, gender) => {
-  return value; // No gender adjustment here for simplicity
+  return value;
 };
 
 const calculateJawlineScore = (landmarks, boundingBox, multiplier, gender) => {
   const jawWidth = Math.abs(landmarks[123][0] - landmarks[352][0]);
   const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
   const ratio = jawWidth / faceWidth;
-  const idealRatio = gender === 'M' ? 0.8 : 0.7; // Stronger jaw for boys
+  const idealRatio = gender === 'M' ? 0.8 : 0.7;
   const deviation = Math.abs(ratio - idealRatio);
   return Math.max(0, 100 - deviation * multiplier);
 };
@@ -739,7 +874,7 @@ const calculateChinScore = (landmarks, multiplier, gender) => {
   const chinLength = chin - mouth;
   const faceHeight = chin - noseTip;
   const ratio = chinLength / faceHeight;
-  const idealRatio = gender === 'M' ? 0.33 : 0.3; // Slightly shorter for girls
+  const idealRatio = gender === 'M' ? 0.33 : 0.3;
   const deviation = Math.abs(ratio - idealRatio);
   return Math.max(0, 100 - deviation * multiplier);
 };
@@ -748,7 +883,7 @@ const calculateNoseScore = (landmarks, boundingBox, multiplier, gender) => {
   const noseWidth = Math.abs(landmarks[129][0] - landmarks[358][0]);
   const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
   const ratio = noseWidth / faceWidth;
-  const idealRatio = gender === 'M' ? 0.25 : 0.23; // Slightly narrower for girls
+  const idealRatio = gender === 'M' ? 0.25 : 0.23;
   const deviation = Math.abs(ratio - idealRatio);
   return Math.max(0, 100 - deviation * multiplier);
 };

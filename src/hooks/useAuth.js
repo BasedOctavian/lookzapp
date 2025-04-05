@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
-import { auth, db, storage } from '../firebase'; // Ensure storage is imported
+import { auth, db, storage } from '../firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'; // Import storage functions
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export function useAuth() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Listen for authentication state changes
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
       setUser(currentUser);
@@ -17,15 +16,14 @@ export function useAuth() {
     return () => unsubscribe();
   }, []);
 
-  // Sign up with email, password, display name, and optional profile picture
-  const signUp = async (email, password, displayName = '', profilePictureFile = null) => {
+  const signUp = async (email, password, displayName, gender, ethnicity, eyeColor, height, weight, profilePictureFile = null) => {
     try {
-      // Create the user with Firebase Authentication
+      // Create user with Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      let profilePictureURL = null;
 
-      // If a profile picture is provided, upload it to Firebase Storage
+      // Handle profile picture upload if provided
+      let profilePictureURL = null;
       if (profilePictureFile) {
         const fileExtension = profilePictureFile.name.split('.').pop();
         const storageRef = ref(storage, `profilePictures/${user.uid}.${fileExtension}`);
@@ -33,11 +31,20 @@ export function useAuth() {
         profilePictureURL = await getDownloadURL(storageRef);
       }
 
-      // Store user data in Firestore, including the profile picture URL if available
+      // Simplify ethnicity for database storage
+      const simplifiedEthnicity = simplifyEthnicity(ethnicity);
+
+      // Store user data in Firestore
       await setDoc(doc(db, 'users', user.uid), {
         displayName,
         email: user.email,
         createdAt: serverTimestamp(),
+        gender,
+        ethnicity: simplifiedEthnicity,
+        eyeColor,
+        height: Number(height),
+        weight: Number(weight),
+        profilePicture: profilePictureURL,
         ranking: 0,
         timesRanked: 0,
         bodyRating: 0,
@@ -45,7 +52,6 @@ export function useAuth() {
         facialRating: 0,
         hairRating: 0,
         smileRating: 0,
-        profilePicture: profilePictureURL // Will be null if no file is uploaded
       });
 
       return user;
@@ -54,7 +60,27 @@ export function useAuth() {
     }
   };
 
-  // Sign in with email and password
+  const simplifyEthnicity = (ethnicity) => {
+    switch (ethnicity) {
+      case 'European':
+        return 'euro';
+      case 'African':
+        return 'african';
+      case 'East Asian':
+      case 'South Asian':
+        return 'asian';
+      case 'Hispanic/Latino':
+        return 'hispanic';
+      case 'Middle Eastern':
+      case 'Native American':
+      case 'Pacific Islander':
+      case 'Other':
+        return 'other';
+      default:
+        return 'other';
+    }
+  };
+
   const signIn = async (email, password) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -64,7 +90,6 @@ export function useAuth() {
     }
   };
 
-  // Sign out
   const signOutUser = async () => {
     try {
       await signOut(auth);
