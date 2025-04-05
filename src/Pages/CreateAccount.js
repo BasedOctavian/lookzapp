@@ -47,7 +47,6 @@ function CreateAccount() {
     severity: 'info',
   });
   const [model, setModel] = useState(null);
-  const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const { signUp } = useAuth();
   const navigate = useNavigate();
@@ -86,19 +85,29 @@ function CreateAccount() {
         image.onload = resolve;
       });
 
-      const video = videoRef.current;
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
 
-      canvas.width = image.width;
-      canvas.height = image.height;
-      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      // Resize image to avoid large textures on mobile
+      const maxDimension = 640;
+      let width = image.width;
+      let height = image.height;
+      if (width > height) {
+        if (width > maxDimension) {
+          height *= maxDimension / width;
+          width = maxDimension;
+        }
+      } else {
+        if (height > maxDimension) {
+          width *= maxDimension / height;
+          height = maxDimension;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(image, 0, 0, width, height);
 
-      const stream = canvas.captureStream();
-      video.srcObject = stream;
-      await video.play();
-
-      const predictions = await model.estimateFaces(video);
+      const predictions = await model.estimateFaces(canvas);
 
       if (predictions.length > 0) {
         setFormData({ ...formData, profilePictureFile: file });
@@ -106,10 +115,6 @@ function CreateAccount() {
       } else {
         showSnackbar('No face detected, please upload a different picture', 'error');
       }
-
-      video.pause();
-      video.srcObject = null;
-      stream.getTracks().forEach((track) => track.stop());
     } catch (error) {
       console.error('Error detecting face:', error);
       showSnackbar('Error detecting face', 'error');
@@ -377,7 +382,6 @@ function CreateAccount() {
                   <Typography color="green">Face detected, picture accepted</Typography>
                 )}
               </FormControl>
-              <video ref={videoRef} style={{ display: 'none' }} />
               <canvas ref={canvasRef} style={{ display: 'none' }} />
               <Stack direction="row" spacing={2}>
                 <Button

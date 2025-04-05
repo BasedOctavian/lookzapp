@@ -327,10 +327,12 @@ export function useUserBadges(userId) {
   ];
 
   // Compute earned badges using userInfo and thresholds
-  const earnedBadges = useMemo(() => {
-    if (!userInfo || !thresholds) return [];
-    return badgeDefinitions.filter((badge) => badge.qualifies(userInfo, thresholds));
-  }, [userInfo, thresholds]);
+ // Compute earned badges using userInfo and thresholds
+const earnedBadges = useMemo(() => {
+  if (!userInfo || !thresholds || userInfo.timesRanked <= 3) return [];
+  return badgeDefinitions.filter((badge) => badge.qualifies(userInfo, thresholds));
+}, [userInfo, thresholds]);
+
 
   // Combined loading state
   const loading = fetching || globalLoading;

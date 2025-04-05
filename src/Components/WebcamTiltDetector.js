@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import { useUserData } from '../hooks/useUserData';
 import { useAuth } from '../hooks/useAuth';
 import { useAttractivenessRating } from '../hooks/faceRating/useAttractivenessRating';
+import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Box,
@@ -28,6 +29,13 @@ import {
   CircularProgress,
   Typography,
   Box as MuiBox,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 
 // Define tests, weights, and params (unchanged)
@@ -77,7 +85,7 @@ const calculateEyeCenter = (landmarks, indices) => {
   return [sumX / count, sumY / count, sumZ / count];
 };
 
-// **FaceScanner Component (unchanged)**
+// **Updated FaceScanner Component**
 const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -170,24 +178,24 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender
         const landmarks = face.scaledMesh;
         const boundingBox = face.boundingBox;
 
-        const videoTestScores = {};
+        const testScores = {};
         tests.forEach((test) => {
           if (test !== 'Overall') {
-            videoTestScores[test] = runTest(test, landmarks, boundingBox, testParams, gender);
+            testScores[test] = runTest(test, landmarks, boundingBox, testParams, gender);
           }
         });
         const totalWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
         const currentScore =
           totalWeight > 0
-            ? Object.entries(videoTestScores).reduce(
+            ? Object.entries(testScores).reduce(
                 (sum, [test, score]) => sum + score * weights[test],
                 0
               ) / totalWeight
             : 0;
         setScore(currentScore);
         if (isCollecting) {
-          scoresRef.current.push(currentScore);
-          console.log('Score collected:', currentScore);
+          scoresRef.current.push(testScores);
+          console.log('Test scores collected:', testScores);
         }
 
         landmarks.forEach(([x, y]) => {
@@ -229,17 +237,30 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender
     const timer = setTimeout(() => {
       setIsCollecting(false);
       setCountdown(null);
-      console.log('Scores collected:', scoresRef.current);
-      if (scoresRef.current.length > 0) {
-        const sortedScores = [...scoresRef.current].sort((a, b) => a - b);
-        const n = sortedScores.length;
-        const k = Math.ceil(n / 4);
-        const lowerQuartileScores = sortedScores.slice(0, k);
-        const average = lowerQuartileScores.reduce((sum, val) => sum + val, 0) / k;
-        console.log('Average score:', average);
-        onScanningComplete(average);
+      const collectedScores = scoresRef.current;
+      if (collectedScores.length > 0) {
+        const testAverages = {};
+        tests.forEach((test) => {
+          if (test !== 'Overall') {
+            const testScores = collectedScores.map((scores) => scores[test]);
+            const sortedTestScores = [...testScores].sort((a, b) => a - b);
+            const n = sortedTestScores.length;
+            const k = Math.ceil(n / 4);
+            const lowerQuartile = sortedTestScores.slice(0, k);
+            const average = lowerQuartile.reduce((sum, val) => sum + val, 0) / k;
+            testAverages[test] = average;
+          }
+        });
+        const totalWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
+        const finalScore =
+          totalWeight > 0
+            ? Object.entries(testAverages).reduce(
+                (sum, [test, score]) => sum + score * weights[test],
+                0
+              ) / totalWeight
+            : 0;
+        onScanningComplete({ finalScore, testAverages });
       } else {
-        console.log('No scores collected');
         onScanningComplete(null);
       }
       scoresRef.current = [];
@@ -308,7 +329,7 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender
   );
 };
 
-// **UserInfoForm Component (unchanged, used only for "Someone Else")**
+// **UserInfoForm Component (unchanged)**
 const UserInfoForm = ({ onSubmit, gender }) => {
   const [unitSystem, setUnitSystem] = useState('imperial');
   const [ethnicity, setEthnicity] = useState('');
@@ -526,6 +547,50 @@ const ResultDisplay = ({ rating }) => {
   );
 };
 
+// **New DetailedResultDisplay Component**
+const DetailedResultDisplay = ({ overallRating, faceRating, testScores }) => {
+  const navigate = useNavigate();
+
+  return (
+    <MuiBox>
+      <Typography variant="h4" gutterBottom>
+        Your Attractiveness Rating
+      </Typography>
+      <MuiBox display="flex" justifyContent="center" mb={4}>
+        <ResultDisplay rating={overallRating} />
+      </MuiBox>
+      <Typography variant="h5" gutterBottom>
+        Face Rating: {faceRating.toFixed(2)}
+      </Typography>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Test</TableCell>
+              <TableCell align="right">Score</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {Object.entries(testScores).map(([test, score]) => (
+              <TableRow key={test}>
+                <TableCell component="th" scope="row">
+                  {test}
+                </TableCell>
+                <TableCell align="right">{score.toFixed(2)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <MuiBox mt={4}>
+        <MuiButton variant="contained" color="primary" onClick={() => navigate('/')}>
+          Next
+        </MuiButton>
+      </MuiBox>
+    </MuiBox>
+  );
+};
+
 // **Mapping Functions for User Data (unchanged)**
 const mapEyeColor = (eyeColor) => {
   const lowerEyeColor = eyeColor.toLowerCase();
@@ -548,10 +613,11 @@ const getGenderCode = (gender) => {
 const AttractivenessRatingProcess = () => {
   const { userData, rating: userRating, bestFeature, loading: loadingUser } = useUserData();
   const { user } = useAuth();
-  const [currentStep, setCurrentStep] = useState(null); // Initial step determined in useEffect
+  const [currentStep, setCurrentStep] = useState(null);
   const [scanFor, setScanFor] = useState(null);
   const [gender, setGender] = useState('');
   const [faceScore, setFaceScore] = useState(null);
+  const [testScores, setTestScores] = useState(null);
   const [userInfo, setUserInfo] = useState(null);
   const [faceDetected, setFaceDetected] = useState(false);
   const [updated, setUpdated] = useState(false);
@@ -559,7 +625,6 @@ const AttractivenessRatingProcess = () => {
   const cappedRating = rawRating !== null ? Math.min(Math.max(rawRating, 15.69), 99) : null;
   const toast = useToast();
 
-  // Determine initial step based on timesRanked
   useEffect(() => {
     if (!loadingUser && userData) {
       if (userData.timesRanked === 0) {
@@ -578,7 +643,6 @@ const AttractivenessRatingProcess = () => {
     }
   }, [loadingUser, userData]);
 
-  // Update Firestore only for "Myself" scans when timesRanked is 0
   useEffect(() => {
     if (
       scanFor === 'myself' &&
@@ -653,14 +717,15 @@ const AttractivenessRatingProcess = () => {
     }
   };
 
-  const handleScanningComplete = (score) => {
-    console.log('Scanning complete, score:', score);
-    if (score !== null) {
+  const handleScanningComplete = (result) => {
+    if (result !== null) {
+      const { finalScore, testAverages } = result;
+      setTestScores(testAverages);
       if (scanFor === 'myself') {
-        setUserInfo((prev) => ({ ...prev, faceRating: score }));
+        setUserInfo((prev) => ({ ...prev, faceRating: finalScore, testScores: testAverages }));
         setCurrentStep('result');
       } else {
-        setFaceScore(score);
+        setFaceScore(finalScore);
         setCurrentStep('form');
       }
     } else {
@@ -682,6 +747,7 @@ const AttractivenessRatingProcess = () => {
   const handleFormSubmit = (info) => {
     const updatedUserInfo = {
       faceRating: faceScore,
+      testScores: testScores,
       ethnicity: info.ethnicity,
       eyeColor: info.eyeColor,
       height: info.height,
@@ -707,10 +773,18 @@ const AttractivenessRatingProcess = () => {
         {currentStep === 'scanForSelection' && (
           <VStack spacing={4} align="center">
             <Heading size="lg">Who are you scanning for?</Heading>
-            <Button 
-            style={{ backgroundColor: 'black', color: 'white', width: '30%' }} onClick={() => handleScanForSelection('myself')}>For Myself</Button>
-            <Button 
-            style={{ backgroundColor: 'black', color: 'white', width: '30%' }}onClick={() => handleScanForSelection('someoneElse')}>For Someone Else</Button>
+            <Button
+              style={{ backgroundColor: 'black', color: 'white', width: '30%' }}
+              onClick={() => handleScanForSelection('myself')}
+            >
+              For Myself
+            </Button>
+            <Button
+              style={{ backgroundColor: 'black', color: 'white', width: '30%' }}
+              onClick={() => handleScanForSelection('someoneElse')}
+            >
+              For Someone Else
+            </Button>
           </VStack>
         )}
         {currentStep === 'genderSelection' && scanFor === 'someoneElse' && (
@@ -782,7 +856,11 @@ const AttractivenessRatingProcess = () => {
         {currentStep === 'result' && cappedRating !== null && (
           <VStack spacing={4} align="center">
             <Heading size="lg">Here’s the Score!</Heading>
-            <ResultDisplay rating={cappedRating} />
+            <DetailedResultDisplay
+              overallRating={cappedRating}
+              faceRating={userInfo.faceRating}
+              testScores={userInfo.testScores}
+            />
           </VStack>
         )}
       </VStack>
