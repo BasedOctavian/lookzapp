@@ -52,6 +52,7 @@
   font-weight: normal;
   font-style: italic;
 }
+
 @font-face {
   font-family: 'Matt Bold';
   src: local('Matt Trial Bold'), 
@@ -76,3 +77,72 @@
   font-style: normal;
 }
 
+/* App.css */
+.auth-container {
+  text-align: center;
+  padding: 20px;
+}
+
+.auth-input {
+  padding: 5px;
+  margin-top: 10px;
+}
+
+.auth-button {
+  margin-left: 10px;
+  padding: 5px 10px;
+}
+
+.admin-container {
+  padding: 20px;
+}
+
+.influencer-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.influencer-table th,
+.influencer-table td {
+  border: 1px solid #ccc;
+  padding: 8px;
+}
+
+.table-input {
+  width: 90%;
+  padding: 4px;
+}
+
+.save-container {
+  margin-top: 20px;
+}
+
+.save-button {
+  padding: 8px 16px;
+}
+
+/* New styles for table enhancements */
+.table-container {
+  max-height: 800px; /* Adjust height as needed */
+  overflow-y: scroll; /* Enable vertical scrolling */
+  overflow-x: auto; /* Enable horizontal scrolling for long names */
+  position: relative; /* Context for sticky headers */
+}
+
+.influencer-table thead th {
+  position: sticky; /* Keep headers fixed */
+  top: 0; /* Stick to the top */
+  background-color: #fff; /* Ensure readability */
+  z-index: 1; /* Stay above table body */
+  border-bottom: 2px solid #ddd; /* Visual separation */
+}
+
+.influencer-table td.name-column {
+  white-space: nowrap; /* Prevent wrapping, resize to full value */
+}
+
+/* Highlight row when height > 0 */
+.row-with-height {
+  background-color: #f0f0f0; /* Light grey */
+}

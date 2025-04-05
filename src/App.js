@@ -16,6 +16,7 @@ import GetRankedSelection from './Pages/GetRankedSelection';
 import GetRanked from './Pages/GetRanked';
 import InfluencerProfile from './Pages/InfluencerProfile';
 import Analyze from './Pages/Analyze';
+import Admin from './Pages/Admin/Admin';
 
 function App() {
   // State to show or hide the warning overlay
@@ -53,6 +54,7 @@ function App() {
           <Route path="/analysis" element={<PrivateRoute><Analyze /></PrivateRoute>} />
           <Route path="/get-ranked-selection" element={<GetRankedSelection />} />
           <Route path="/ranking" element={<GetRanked />} />
+          <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
         </Routes>
 
         {/* Custom warning overlay */}
