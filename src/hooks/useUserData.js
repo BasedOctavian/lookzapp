@@ -48,5 +48,5 @@ export function useUserData() {
     );
   }, [userData]);
 
-  return { userData, rating, bestFeature, loading };
+  return { userData, rating, bestFeature, timesRanked: userData?.timesRanked || 0, loading };
 }

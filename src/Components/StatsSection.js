@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, SimpleGrid, Icon, Text, Flex, VStack, Heading } from '@chakra-ui/react';
 import { FaStar, FaTrophy, FaEye, FaChartLine } from 'react-icons/fa';
 import '../App.css';
+import { time } from '@tensorflow/tfjs';
 
 const StatItem = ({ icon, label, value, color }) => (
   <Flex
@@ -27,7 +28,7 @@ const StatItem = ({ icon, label, value, color }) => (
   </Flex>
 );
 
-const StatsSection = ({ rating, bestFeature, ranking }) => {
+const StatsSection = ({ rating, bestFeature, ranking, timesRanked }) => {
   const bestFeatureValue =
     bestFeature && bestFeature.average > 0
       ? `${bestFeature.name}`
@@ -46,7 +47,7 @@ const StatsSection = ({ rating, bestFeature, ranking }) => {
           value={typeof ranking === 'number' ? `#${ranking}` : 'N/A'}
           color="gray.600"
         />
-        <StatItem icon={FaEye} label="Total Ratings Given" value="42" color="blue.500" />
+        <StatItem icon={FaEye} label="Times Ranked" value={timesRanked} color="blue.500" />
         <StatItem icon={FaChartLine} label="Best Feature" value={bestFeatureValue} color="green.500" />
       </SimpleGrid>
     </Box>

@@ -29,7 +29,7 @@ function HomeScreen() {
   // Call all hooks unconditionally at the top
   const isMobile = useBreakpointValue({ base: true, md: false });
   const navigate = useNavigate();
-  const { userData, rating, bestFeature, loading: loadingUser } = useUserData();
+  const { userData, rating, bestFeature, loading: loadingUser, timesRanked } = useUserData();
   const { data: combinedData, loading: loadingTopRated, error: errorTopRated } = useTopRatedData();
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState(null);
@@ -190,7 +190,7 @@ function HomeScreen() {
                 </VStack>
               </GridItem>
               <GridItem area="q3">
-                <StatsSection rating={rating} bestFeature={bestFeature} ranking={userRanking} />
+                <StatsSection rating={rating} bestFeature={bestFeature} ranking={userRanking} timesRanked={timesRanked} />
               </GridItem>
               <GridItem area="q4">
                 <ButtonGroup options={options} />

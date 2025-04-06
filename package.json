@@ -41,6 +41,8 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
     "@testing-library/user-event": "^13.5.0",
+    "ag-grid-community": "^33.2.1",
+    "ag-grid-react": "^33.2.1",
     "chart.js": "^4.4.8",
     "customize-cra": "^1.0.0",
     "d3": "^7.9.0",
