@@ -33,12 +33,28 @@ export function useUserRatingData(userId) {
    *
    * @param {number} newRating - The overall rating submitted (e.g., 8).
    * @param {Object} featureAllocations - An object with points allocated to each feature.
-   *   Expected keys: 'eyesRating', 'smileRating', 'facialRating', 'hairRating', 'bodyRating'.
-   *   Values are the points (e.g., { eyesRating: 2.4, smileRating: 1.6, ... }).
+   *   Expected keys: 'Eyes', 'Smile', 'Jawline', 'Hair', 'Body'.
+   *   Values are the points (e.g., { Eyes: 2.4, Smile: 1.6, ... }).
    */
   const submitRating = async (newRating, featureAllocations) => {
     if (!userId) return;
     const userDocRef = doc(db, 'users', userId);
+
+    // Define mapping from feature names to Firestore field names
+    const keyMapping = {
+      'Eyes': 'eyesRating',
+      'Smile': 'smileRating',
+      'Jawline': 'facialRating',
+      'Hair': 'hairRating',
+      'Body': 'bodyRating',
+    };
+
+    // Map featureAllocations to match Firestore field names
+    const mappedAllocations = {};
+    for (const [feature, score] of Object.entries(featureAllocations)) {
+      const mappedKey = keyMapping[feature];
+      if (mappedKey) mappedAllocations[mappedKey] = score;
+    }
 
     // Get current cumulative ratings (default to 0 if undefined)
     const currentEyes = userData?.eyesRating || 0;
@@ -50,11 +66,11 @@ export function useUserRatingData(userId) {
     const currentRanking = userData?.ranking || 0;
 
     // Update each feature's cumulative rating with the allocated points
-    const updatedEyes = currentEyes + (featureAllocations.eyesRating || 0);
-    const updatedSmile = currentSmile + (featureAllocations.smileRating || 0);
-    const updatedFacial = currentFacial + (featureAllocations.facialRating || 0);
-    const updatedHair = currentHair + (featureAllocations.hairRating || 0);
-    const updatedBody = currentBody + (featureAllocations.bodyRating || 0);
+    const updatedEyes = currentEyes + (mappedAllocations.eyesRating || 0);
+    const updatedSmile = currentSmile + (mappedAllocations.smileRating || 0);
+    const updatedFacial = currentFacial + (mappedAllocations.facialRating || 0);
+    const updatedHair = currentHair + (mappedAllocations.hairRating || 0);
+    const updatedBody = currentBody + (mappedAllocations.bodyRating || 0);
 
     // Update overall ranking and times ranked
     const updatedTimesRanked = currentTimesRanked + 1;

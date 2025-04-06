@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as tf from '@tensorflow/tfjs';
 import * as facemesh from '@tensorflow-models/facemesh';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, addDoc, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useUserData } from '../hooks/useUserData';
 import { useAuth } from '../hooks/useAuth';
@@ -38,9 +38,9 @@ import {
   TableRow,
 } from '@mui/material';
 
-// Define tests, weights, and params (unchanged)
+// Define tests, weights, and params
 const tests = [
-  'Cardinal Tilt',
+  'Carnal Tilt',
   'Facial Thirds',
   'Cheekbone Location',
   'Interocular Distance',
@@ -52,7 +52,7 @@ const tests = [
 ];
 
 const weights = {
-  'Cardinal Tilt': 3.3,
+  'Carnal Tilt': 3.3,
   'Facial Thirds': 1.3,
   'Cheekbone Location': 0.4,
   'Interocular Distance': 1,
@@ -63,7 +63,7 @@ const weights = {
 };
 
 const testParams = {
-  'Cardinal Tilt': 10,
+  'Carnal Tilt': 10,
   'Facial Thirds': 100,
   'Cheekbone Location': 0.5,
   'Interocular Distance': 200,
@@ -73,7 +73,7 @@ const testParams = {
   'Nose': 400,
 };
 
-// Helper function to calculate eye center (unchanged)
+// Helper function to calculate eye center
 const calculateEyeCenter = (landmarks, indices) => {
   let sumX = 0, sumY = 0, sumZ = 0;
   indices.forEach((index) => {
@@ -85,7 +85,7 @@ const calculateEyeCenter = (landmarks, indices) => {
   return [sumX / count, sumY / count, sumZ / count];
 };
 
-// **Updated FaceScanner Component**
+// FaceScanner Component
 const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -329,9 +329,10 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender
   );
 };
 
-// **UserInfoForm Component (unchanged)**
+// Updated UserInfoForm Component with Name Field
 const UserInfoForm = ({ onSubmit, gender }) => {
   const [unitSystem, setUnitSystem] = useState('imperial');
+  const [name, setName] = useState('');
   const [ethnicity, setEthnicity] = useState('');
   const [eyeColor, setEyeColor] = useState('');
   const [heightFeet, setHeightFeet] = useState('');
@@ -365,6 +366,7 @@ const UserInfoForm = ({ onSubmit, gender }) => {
     const savedData = JSON.parse(localStorage.getItem('userInfoForm'));
     if (savedData) {
       setUnitSystem(savedData.unitSystem || 'imperial');
+      setName(savedData.name || '');
       setEthnicity(savedData.ethnicity || '');
       setEyeColor(savedData.eyeColor || '');
       setHeightFeet(savedData.heightFeet || '');
@@ -382,7 +384,7 @@ const UserInfoForm = ({ onSubmit, gender }) => {
   }, [unitSystem]);
 
   const handleSubmit = () => {
-    if (!ethnicity || !eyeColor) {
+    if (!name || !ethnicity || !eyeColor) {
       setSnackbar({ open: true, message: 'All fields are required', severity: 'error' });
       return;
     }
@@ -423,6 +425,7 @@ const UserInfoForm = ({ onSubmit, gender }) => {
 
     const savedData = {
       unitSystem,
+      name,
       ethnicity,
       eyeColor,
       heightFeet,
@@ -433,6 +436,7 @@ const UserInfoForm = ({ onSubmit, gender }) => {
     localStorage.setItem('userInfoForm', JSON.stringify(savedData));
 
     onSubmit({
+      name,
       ethnicity: ethnicityMap[ethnicity],
       eyeColor: eyeColorMap[eyeColor],
       height: totalHeightInches,
@@ -444,6 +448,7 @@ const UserInfoForm = ({ onSubmit, gender }) => {
   const handleRevert = () => {
     localStorage.removeItem('userInfoForm');
     setUnitSystem('imperial');
+    setName('');
     setEthnicity('');
     setEyeColor('');
     setHeightFeet('');
@@ -455,6 +460,10 @@ const UserInfoForm = ({ onSubmit, gender }) => {
   return (
     <>
       <Stack direction="column" spacing={2} alignItems="stretch">
+        <MuiFormControl>
+          <MuiFormLabel>Name</MuiFormLabel>
+          <TextField value={name} onChange={(e) => setName(e.target.value)} fullWidth />
+        </MuiFormControl>
         <MuiFormControl>
           <MuiFormLabel>Unit System</MuiFormLabel>
           <MuiSelect value={unitSystem} onChange={(e) => setUnitSystem(e.target.value)} fullWidth>
@@ -523,7 +532,7 @@ const UserInfoForm = ({ onSubmit, gender }) => {
   );
 };
 
-// **ResultDisplay Component (unchanged)**
+// ResultDisplay Component
 const ResultDisplay = ({ rating }) => {
   const cappedRating = Math.min(Math.max(rating, 15.69), 99);
   return (
@@ -547,7 +556,7 @@ const ResultDisplay = ({ rating }) => {
   );
 };
 
-// **New DetailedResultDisplay Component**
+// DetailedResultDisplay Component
 const DetailedResultDisplay = ({ overallRating, faceRating, testScores }) => {
   const navigate = useNavigate();
 
@@ -591,7 +600,7 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores }) => {
   );
 };
 
-// **Mapping Functions for User Data (unchanged)**
+// Mapping Functions for User Data
 const mapEyeColor = (eyeColor) => {
   const lowerEyeColor = eyeColor.toLowerCase();
   if (lowerEyeColor === 'blue') return 'blue';
@@ -609,7 +618,7 @@ const getGenderCode = (gender) => {
   return 'M'; // default
 };
 
-// **Updated Main Component**
+// Main Component with Firestore Integration
 const AttractivenessRatingProcess = () => {
   const { userData, rating: userRating, bestFeature, loading: loadingUser } = useUserData();
   const { user } = useAuth();
@@ -630,6 +639,7 @@ const AttractivenessRatingProcess = () => {
       if (userData.timesRanked === 0) {
         setScanFor('myself');
         setUserInfo({
+          name: userData.name || 'Self', // Assuming userData has a name field, fallback to 'Self'
           ethnicity: userData.ethnicity,
           eyeColor: mapEyeColor(userData.eyeColor),
           height: userData.height,
@@ -681,10 +691,46 @@ const AttractivenessRatingProcess = () => {
     }
   }, [loadingUser, userData, cappedRating, updated, toast, scanFor]);
 
+  // Save rating to Firestore when currentStep is 'result'
+  useEffect(() => {
+    if (currentStep === 'result' && userInfo && cappedRating !== null) {
+      const saveRatingToFirestore = async () => {
+        try {
+          const ratingData = {
+            name: userInfo.name,
+            uid: user.uid,
+            ethnicity: userInfo.ethnicity,
+            eyeColor: userInfo.eyeColor,
+            height: userInfo.height,
+            weight: userInfo.weight,
+            gender: userInfo.gender,
+            faceRating: userInfo.faceRating,
+            testScores: userInfo.testScores,
+            finalRating: cappedRating,
+            timestamp: new Date(),
+          };
+          await addDoc(collection(db, 'faceRatings'), ratingData);
+          console.log('Rating saved to Firestore:', ratingData);
+        } catch (error) {
+          console.error('Error saving rating to Firestore:', error);
+          toast({
+            title: 'Error',
+            description: 'Failed to save rating to Firestore.',
+            status: 'error',
+            duration: 5000,
+            isClosable: true,
+          });
+        }
+      };
+      saveRatingToFirestore();
+    }
+  }, [currentStep, userInfo, cappedRating, user, toast]);
+
   const handleScanForSelection = (choice) => {
     if (choice === 'myself') {
       setScanFor('myself');
       setUserInfo({
+        name: userData.name || 'Self', // Assuming userData has a name field
         ethnicity: userData.ethnicity,
         eyeColor: mapEyeColor(userData.eyeColor),
         height: userData.height,
@@ -746,6 +792,7 @@ const AttractivenessRatingProcess = () => {
 
   const handleFormSubmit = (info) => {
     const updatedUserInfo = {
+      name: info.name,
       faceRating: faceScore,
       testScores: testScores,
       ethnicity: info.ethnicity,
@@ -868,11 +915,11 @@ const AttractivenessRatingProcess = () => {
   );
 };
 
-// **Helper Functions for Scoring (unchanged)**
+// Helper Functions for Scoring
 const runTest = (test, landmarks, boundingBox, params, gender) => {
   switch (test) {
-    case 'Cardinal Tilt':
-      return calculateTiltScore(landmarks, params['Cardinal Tilt'], gender);
+    case 'Carnal Tilt':
+      return calculateTiltScore(landmarks, params['Carnal Tilt'], gender);
     case 'Facial Thirds':
       return calculateFacialThirdsScore(landmarks, params['Facial Thirds'], gender);
     case 'Cheekbone Location':
