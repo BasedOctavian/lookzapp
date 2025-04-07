@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
-import { db, auth } from '../firebase';
+import { db, auth } from '../../firebase';
 import {
   Flex,
   Box,
@@ -19,21 +19,21 @@ import {
   Textarea,
   FormControl,
 } from '@chakra-ui/react';
-import { useUserRatingData } from '../hooks/useUserRatingData';
-import { useDailyRatings } from '../hooks/useDailyRatings';
-import { useUserBadges } from '../hooks/useUserBadges';
+import { useUserRatingData } from '../../hooks/useUserRatingData';
+import { useDailyRatings } from '../../hooks/useDailyRatings';
+import { useUserBadges } from '../../hooks/useUserBadges';
 import { FiMail, FiAward, FiLogOut, FiStar, FiUsers } from 'react-icons/fi';
 import Avatar from '@mui/material/Avatar';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import TopBar from '../Components/TopBar';
-import Footer from '../Components/Footer';
-import Badges from '../Components/Badges';
-import { useUserData } from '../hooks/useUserData';
-import FeatureRatingComparison from '../Components/FeatureRatingComparison';
-import InfluencerTopStats from '../Components/InfluencerTopStats';
-import { useTopRatedData } from '../hooks/useTopRatedData';
+import TopBar from '../../Components/TopBar';
+import Footer from '../../Components/Footer';
+import Badges from '../../Components/Badges';
+import { useUserData } from '../../hooks/useUserData';
+import FeatureRatingComparison from '../../Components/FeatureRatingComparison';
+import InfluencerTopStats from '../../Components/InfluencerTopStats';
+import { useTopRatedData } from '../../hooks/useTopRatedData';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import '../App.css';
+import '../../App.css';
 import { Divider } from '@mui/material';
 
 

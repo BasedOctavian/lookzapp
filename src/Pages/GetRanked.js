@@ -27,6 +27,9 @@ import useEntityRating from '../hooks/useEntityRating';
 import ProfilePopover from '../Components/ProfilePopover';
 import { useTopRatedData } from '../hooks/useTopRatedData';
 import '../App.css';
+// Import Firestore functions and db instance
+import { doc, runTransaction } from 'firebase/firestore';
+import { db } from '../firebase'; // Adjust the path to your Firestore instance
 
 const RatingScale = lazy(() => import('../Components/RatingScale'));
 
@@ -134,6 +137,32 @@ function GetRanked() {
       setCurrentIndex((prevIndex) =>
         entitiesList.length > 0 ? (prevIndex + 1) % entitiesList.length : prevIndex
       );
+
+      if (user) {
+        try {
+          await runTransaction(db, async (transaction) => {
+            const userRef = doc(db, 'users', user.uid);
+            const userSnap = await transaction.get(userRef);
+            if (!userSnap.exists()) {
+              throw new Error('User document does not exist');
+            }
+            const userData = userSnap.data();
+            const today = new Date().toISOString().split('T')[0];
+            const dailyTimesGiven = userData.dailyTimesGiven || { date: '', count: 0 };
+            if (dailyTimesGiven.date === today) {
+              transaction.update(userRef, {
+                'dailyTimesGiven.count': dailyTimesGiven.count + 1
+              });
+            } else {
+              transaction.update(userRef, {
+                dailyTimesGiven: { date: today, count: 1 }
+              });
+            }
+          });
+        } catch (updateError) {
+          console.error('Error updating daily times given:', updateError);
+        }
+      }
     } catch (error) {
       console.error('Error submitting rating:', error);
       toast({
@@ -411,7 +440,7 @@ function GetRanked() {
                       </Text>
                       {currentEntity && !ratingLoading && !ratingError && (
                         <HStack spacing={1}>
-                          <Star sx={{ fontSize:16, color: '#FFD700' }} />
+                          <Star sx={{ fontSize: 16, color: '#FFD700' }} />
                           <Text fontSize="sm" fontWeight="medium" fontFamily={'Matt Bold'}>
                             {entityRating?.toFixed(1)}
                           </Text>

@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { useUserData } from '../hooks/useUserData';
-import { useInfluencerRatingData } from '../hooks/useInfluencerRatingData';
-import { useInfluencerComments } from '../hooks/useInfluencerComments';
-import { useTopRatedData } from '../hooks/useTopRatedData'; // New import for global ranking
-import FeatureRatingComparison from '../Components/FeatureRatingComparison';
+import { useUserData } from '../../hooks/useUserData';
+import { useInfluencerRatingData } from '../../hooks/useInfluencerRatingData';
+import { useInfluencerComments } from '../../hooks/useInfluencerComments';
+import { useTopRatedData } from '../../hooks/useTopRatedData'; // New import for global ranking
+import FeatureRatingComparison from '../../Components/FeatureRatingComparison';
 import {
   Flex,
   Box,
@@ -21,20 +21,20 @@ import {
   Button,
 } from '@chakra-ui/react';
 import { FiUsers } from 'react-icons/fi';
-import TopBar from '../Components/TopBar';
-import Footer from '../Components/Footer';
-import InfluencerGalleryCircle from '../Components/InfluencerGalleryCircle';
-import Badges from '../Components/Badges';
+import TopBar from '../../Components/TopBar';
+import Footer from '../../Components/Footer';
+import InfluencerGalleryCircle from '../../Components/InfluencerGalleryCircle';
+import Badges from '../../Components/Badges';
 import Avatar from '@mui/material/Avatar';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { useInfluencerDailyRatings } from '../hooks/useInfluencerDailyRatings';
-import { useInfluencerBadges } from '../hooks/useInfluencerBadges';
-import InfluencerTopStats from '../Components/InfluencerTopStats';
-import InfluencerFeatureSpiderChart from '../Components/InfluencerFeatureSpiderChart'; // New import
+import { useInfluencerDailyRatings } from '../../hooks/useInfluencerDailyRatings';
+import { useInfluencerBadges } from '../../hooks/useInfluencerBadges';
+import InfluencerTopStats from '../../Components/InfluencerTopStats';
+import InfluencerFeatureSpiderChart from '../../Components/InfluencerFeatureSpiderChart'; // New import
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db } from '../../firebase';
 import { Divider, FormControl } from '@mui/material';
-import '../App.css';
+import '../../App.css';
 
 function InfluencerProfile() {
   const { influencerId } = useParams();
