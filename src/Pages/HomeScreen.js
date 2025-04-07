@@ -3,11 +3,11 @@ import {
   Box,
   Container,
   VStack,
-  Text,
   Spinner,
   Grid,
   GridItem,
   Icon,
+  Text,
   Heading,
   useBreakpointValue,
 } from '@chakra-ui/react';
@@ -21,12 +21,12 @@ import useVideoStream from '../hooks/useVideoStream';
 import ButtonGroup from '../Components/ButtonGroup';
 import Leaderboard from '../Components/Leaderboard';
 import StatsSection from '../Components/StatsSection';
-import { FaVideo, FaTrophy, FaMapMarkedAlt, FaEye, FaGamepad } from 'react-icons/fa';
+import DailyRatingProgress from '../Components/Home/DailyRatingProgress'; // Import the component
+import { FaVideo, FaTrophy, FaGamepad, FaEye } from 'react-icons/fa';
 import { Divider } from '@heroui/react';
 import MobileHomeScreen from './MobileHomeScreen';
 
 function HomeScreen() {
-  // Call all hooks unconditionally at the top
   const isMobile = useBreakpointValue({ base: true, md: false });
   const navigate = useNavigate();
   const { userData, rating, bestFeature, loading: loadingUser, timesRanked } = useUserData();
@@ -54,7 +54,6 @@ function HomeScreen() {
     return userIndex !== -1 ? userIndex + 1 : 'N/A';
   }, [sortedData, userData]);
 
-  // Define static data (categories and options)
   const categories = [
     { key: 'other-users', title: 'Other Users', emojis: '👥', colorScheme: 'blue' },
     { key: 'influencers', title: 'Influencers', emojis: '📢', colorScheme: 'green' },
@@ -95,7 +94,6 @@ function HomeScreen() {
     },
   ];
 
-  // Handle conditional rendering after all hooks
   if (isMobile) {
     return (
       <MobileHomeScreen
@@ -117,10 +115,8 @@ function HomeScreen() {
 
   if (errorTopRated) {
     console.error('Error loading top-rated data:', errorTopRated);
-    // Optionally render an error UI here if desired
   }
 
-  // Desktop rendering
   return (
     <>
       <TopBar />
@@ -128,6 +124,7 @@ function HomeScreen() {
         <Container maxW="container.xl">
           <VStack spacing={8} align="center">
             <Leaderboard />
+            <DailyRatingProgress /> {/* Use the imported component */}
             <Grid
               templateAreas={{
                 base: `"q1" "q2" "q3" "q4"`,
