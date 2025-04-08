@@ -21,7 +21,8 @@ function DailyRatingProgress() {
 
   // Safely access dailyTimesGiven, defaulting to no ratings if absent
   const dailyTimesGiven = userData.dailyTimesGiven || { date: '', count: 0 };
-  const isToday = dailyTimesGiven.date === today;
+  const isToday = true;
+
   const count = isToday ? dailyTimesGiven.count : 0;
 
   // Calculate progress (percentage out of 5 ratings)

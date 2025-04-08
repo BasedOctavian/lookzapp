@@ -27,7 +27,6 @@ import useEntityRating from '../hooks/useEntityRating';
 import ProfilePopover from '../Components/ProfilePopover';
 import { useTopRatedData } from '../hooks/useTopRatedData';
 import '../App.css';
-// Import Firestore functions and db instance
 import { doc, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase'; // Adjust the path to your Firestore instance
 
@@ -125,6 +124,7 @@ function GetRanked() {
   const handleRatingSubmit = async (rating, featureAllocations) => {
     if (!currentEntity || !submitRating) return;
     try {
+      // Submit the rating for the entity
       await submitRating(rating, featureAllocations);
       toast({
         title: 'Rating Submitted',
@@ -138,36 +138,63 @@ function GetRanked() {
         entitiesList.length > 0 ? (prevIndex + 1) % entitiesList.length : prevIndex
       );
 
-      if (user) {
-        try {
-          await runTransaction(db, async (transaction) => {
-            const userRef = doc(db, 'users', user.uid);
-            const userSnap = await transaction.get(userRef);
-            if (!userSnap.exists()) {
-              throw new Error('User document does not exist');
-            }
-            const userData = userSnap.data();
-            const today = new Date().toISOString().split('T')[0];
-            const dailyTimesGiven = userData.dailyTimesGiven || { date: '', count: 0 };
-            if (dailyTimesGiven.date === today) {
-              transaction.update(userRef, {
-                'dailyTimesGiven.count': dailyTimesGiven.count + 1
+      // Update both the rater's and ratee's data in a single transaction if applicable
+      await runTransaction(db, async (transaction) => {
+        const today = new Date().toISOString().split('T')[0];
+
+        // Update the rater's dailyTimesGiven (the user submitting the rating)
+        if (user) {
+          const userRef = doc(db, 'users', user.uid);
+          const userSnap = await transaction.get(userRef);
+          if (!userSnap.exists()) {
+            throw new Error('Rater user document does not exist');
+          }
+          const userData = userSnap.data();
+          const raterDailyTimesGiven = userData.dailyTimesGiven || { date: '', count: 0 };
+          if (raterDailyTimesGiven.date === today) {
+            transaction.update(userRef, {
+              'dailyTimesGiven.count': raterDailyTimesGiven.count + 1,
+            });
+          } else {
+            transaction.update(userRef, {
+              dailyTimesGiven: { date: today, count: 1 },
+            });
+          }
+        }
+
+        // Update the ratee's dailyTimesGiven and ratedCount if they are in the users collection
+        if (currentEntity && currentEntity.type === 'user') {
+          const rateeRef = doc(db, 'users', currentEntity.id);
+          const rateeSnap = await transaction.get(rateeRef);
+          if (rateeSnap.exists()) {
+            const rateeData = rateeSnap.data();
+            const rateeDailyTimesGiven = rateeData.dailyTimesGiven || { date: '', count: 0 };
+            const ratedCount = rateeData.ratedCount || 0;
+
+            // Update dailyTimesGiven for the ratee
+            if (rateeDailyTimesGiven.date === today) {
+              transaction.update(rateeRef, {
+                'dailyTimesGiven.count': rateeDailyTimesGiven.count + 1,
+                ratedCount: ratedCount + 1,
               });
             } else {
-              transaction.update(userRef, {
-                dailyTimesGiven: { date: today, count: 1 }
+              transaction.update(rateeRef, {
+                dailyTimesGiven: { date: today, count: 1 },
+                ratedCount: ratedCount + 1,
               });
             }
-          });
-        } catch (updateError) {
-          console.error('Error updating daily times given:', updateError);
+          } else {
+            // If the ratee document doesn’t exist, optionally create it (depending on requirements)
+            // For now, we’ll assume it’s not created here unless specified
+            console.warn(`Ratee ${currentEntity.id} not found in users collection`);
+          }
         }
-      }
+      });
     } catch (error) {
-      console.error('Error submitting rating:', error);
+      console.error('Error submitting rating or updating Firestore:', error);
       toast({
         title: 'Rating Error',
-        description: 'Failed to update rating. Please try again.',
+        description: 'Failed to update rating or user data. Please try again.',
         status: 'error',
         duration: 3000,
         isClosable: true,
