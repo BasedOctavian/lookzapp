@@ -138,11 +138,11 @@ function GetRanked() {
         entitiesList.length > 0 ? (prevIndex + 1) % entitiesList.length : prevIndex
       );
 
-      // Update both the rater's and ratee's data in a single transaction if applicable
+      // Update both the rater's and ratee's data in a single transaction
       await runTransaction(db, async (transaction) => {
         const today = new Date().toISOString().split('T')[0];
 
-        // Update the rater's dailyTimesGiven (the user submitting the rating)
+        // Update the rater's dailyTimesGiven (authenticated user)
         if (user) {
           const userRef = doc(db, 'users', user.uid);
           const userSnap = await transaction.get(userRef);
@@ -160,38 +160,49 @@ function GetRanked() {
               dailyTimesGiven: { date: today, count: 1 },
             });
           }
+          console.log('Rater dailyTimesGiven updated:', user.uid);
         }
 
-        // Update the ratee's dailyTimesGiven and ratedCount if they are in the users collection
-        if (currentEntity && currentEntity.type === 'user') {
-          const rateeRef = doc(db, 'users', currentEntity.id);
-          const rateeSnap = await transaction.get(rateeRef);
-          if (rateeSnap.exists()) {
-            const rateeData = rateeSnap.data();
-            const rateeDailyTimesGiven = rateeData.dailyTimesGiven || { date: '', count: 0 };
-            const ratedCount = rateeData.ratedCount || 0;
+        // Update the ratee's dailyTimesGiven and ratedCount (person being rated)
+        if (currentEntity) {
+          console.log('Current entity type:', currentEntity.type); // Check entity type
+          if (currentEntity.type === 'user') {
+            const rateeRef = doc(db, 'users', currentEntity.id);
+            const rateeSnap = await transaction.get(rateeRef);
+            console.log('Ratee document exists:', rateeSnap.exists()); // Check if doc exists
+            if (rateeSnap.exists()) {
+              const rateeData = rateeSnap.data();
+              const rateeDailyTimesGiven = rateeData.dailyTimesGiven || { date: '', count: 0 };
+              const ratedCount = rateeData.ratedCount || 0;
 
-            // Update dailyTimesGiven for the ratee
-            if (rateeDailyTimesGiven.date === today) {
+              const updatedDailyTimesGiven = {
+                date: today,
+                count: rateeDailyTimesGiven.date === today ? rateeDailyTimesGiven.count + 1 : 1,
+              };
+              const updatedRatedCount = ratedCount + 1;
+
               transaction.update(rateeRef, {
-                'dailyTimesGiven.count': rateeDailyTimesGiven.count + 1,
-                ratedCount: ratedCount + 1,
+                dailyTimesGiven: updatedDailyTimesGiven,
+                ratedCount: updatedRatedCount,
               });
+              console.log('Ratee updated - ratedCount:', updatedRatedCount); // Confirm update
             } else {
-              transaction.update(rateeRef, {
+              // Optionally create the ratee's document if it doesn't exist
+              const newRateeData = {
                 dailyTimesGiven: { date: today, count: 1 },
-                ratedCount: ratedCount + 1,
-              });
+                ratedCount: 1,
+                // Add any other required fields for a new user document
+              };
+              transaction.set(rateeRef, newRateeData);
+              console.log('Created new ratee document with ratedCount: 1');
             }
           } else {
-            // If the ratee document doesn’t exist, optionally create it (depending on requirements)
-            // For now, we’ll assume it’s not created here unless specified
-            console.warn(`Ratee ${currentEntity.id} not found in users collection`);
+            console.log('Ratee is not a user, skipping ratedCount update');
           }
         }
       });
     } catch (error) {
-      console.error('Error submitting rating or updating Firestore:', error);
+      console.error('Error in rating submission or Firestore transaction:', error.message, error.stack);
       toast({
         title: 'Rating Error',
         description: 'Failed to update rating or user data. Please try again.',
@@ -386,7 +397,7 @@ function GetRanked() {
                       position="absolute"
                       bottom="2"
                       right="2"
-                      size="sm"
+                      size="sm(AM)"
                       borderRadius="full"
                       onClick={(e) => {
                         e.stopPropagation();

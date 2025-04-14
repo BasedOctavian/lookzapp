@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Paper, Grid, Card, CardActionArea, CardContent, Typography } from '@mui/material';
-import { orange, purple } from '@mui/material/colors';
+import { orange, purple, blue } from '@mui/material/colors'; // Added blue for new card
 import TopBar from '../Components/TopBar';
 import Footer from '../Components/Footer';
 import '../App.css';
@@ -21,6 +21,13 @@ const analysisOptions = [
     description: 'Scan your face to get a personalized rating.',
     color: purple[500],
     emojis: '📊',
+  },
+  {
+    title: 'Autism Feature Analysis',
+    route: '/autism-analytic',
+    description: 'Analyze features commonly associated with autism.',
+    color: blue[500], // Using blue for distinction
+    emojis: '🧠', // Brain emoji to represent analysis
   },
 ];
 

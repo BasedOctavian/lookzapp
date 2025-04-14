@@ -20,6 +20,7 @@ import Admin from './Pages/Admin/Admin';
 import Looksmatch from './Pages/Looksmatch';
 import GamesSelection from './Pages/GamesSelection';
 import AnalyzeSelection from './Pages/AnalyzeSelection';
+import AutismAnalytic from './Pages/AutismAnalytic';
 
 function App() {
   // State to show or hide the warning overlay
@@ -61,6 +62,7 @@ function App() {
           <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
           <Route path="/games-selection" element={<PrivateRoute><GamesSelection /></PrivateRoute>} />
           <Route path="/analyze-selection" element={<PrivateRoute><AnalyzeSelection /></PrivateRoute>} />
+          <Route path="/autism-analytic" element={<AutismAnalytic />} />
         </Routes>
 
         {/* Custom warning overlay */}

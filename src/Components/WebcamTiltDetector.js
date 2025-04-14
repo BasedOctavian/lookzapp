@@ -36,6 +36,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  LinearProgress, // Added for progress bars
 } from '@mui/material';
 
 // Define tests, weights, and params
@@ -52,14 +53,14 @@ const tests = [
 ];
 
 const weights = {
-  'Carnal Tilt': 3.3,
-  'Facial Thirds': 1.3,
-  'Cheekbone Location': 0.4,
+  'Carnal Tilt': 3,
+  'Facial Thirds': 1.5,
+  'Cheekbone Location': 2,
   'Interocular Distance': 1,
   'Undereyes': 0,
-  'Jawline': 0,
-  'Chin': 0,
-  'Nose': 0,
+  'Jawline': 1.5,
+  'Chin': 1.5,
+  'Nose': 1,
 };
 
 const testParams = {
@@ -532,12 +533,37 @@ const UserInfoForm = ({ onSubmit, gender }) => {
   );
 };
 
-// ResultDisplay Component
-const ResultDisplay = ({ rating }) => {
+// Updated ResultDisplay Component with tierLabel
+const ResultDisplay = ({ rating, tierLabel }) => {
   const cappedRating = Math.min(Math.max(rating, 15.69), 99);
   return (
-    <MuiBox position="relative" display="inline-flex">
-      <CircularProgress variant="determinate" value={cappedRating} size={100} thickness={4} />
+    <MuiBox
+      position="relative"
+      display="inline-flex"
+      flexDirection="column"
+      alignItems="center"
+      sx={{
+        animation: 'bounceIn 1s ease-out',
+        '@keyframes bounceIn': {
+          '0%': { transform: 'scale(0.3)', opacity: 0 },
+          '50%': { transform: 'scale(1.05)', opacity: 0.8 },
+          '70%': { transform: 'scale(0.9)', opacity: 0.9 },
+          '100%': { transform: 'scale(1)', opacity: 1 }
+        }
+      }}
+    >
+      <CircularProgress
+        variant="determinate"
+        value={cappedRating}
+        size={120}
+        thickness={4}
+        sx={{
+          color: '#4CAF50',
+          '& .MuiCircularProgress-circle': {
+            transition: 'stroke-dashoffset 1s ease-in-out'
+          }
+        }}
+      />
       <MuiBox
         top={0}
         left={0}
@@ -545,55 +571,243 @@ const ResultDisplay = ({ rating }) => {
         right={0}
         position="absolute"
         display="flex"
+        flexDirection="column"
         alignItems="center"
         justifyContent="center"
       >
-        <Typography variant="h5" component="div" color="textSecondary">
+        <Typography variant="h4" component="div" color="textSecondary" fontWeight="bold">
           {cappedRating.toFixed(2)}
+        </Typography>
+        <Typography variant="h6" component="div" color="textPrimary" mt={1}>
+          {tierLabel}
         </Typography>
       </MuiBox>
     </MuiBox>
   );
 };
 
-// DetailedResultDisplay Component
+// Updated DetailedResultDisplay Component
 const DetailedResultDisplay = ({ overallRating, faceRating, testScores }) => {
   const navigate = useNavigate();
 
+  // Define tier based on overallRating
+  let tierLabel, tierDescription;
+  if (overallRating >= 80) {
+    tierLabel = 'Very Attractive';
+    tierDescription = 'Your features align closely with conventional standards of attractiveness.';
+  } else if (overallRating >= 60) {
+    tierLabel = 'Attractive';
+    tierDescription = 'Your features are generally appealing and well-proportioned.';
+  } else if (overallRating >= 40) {
+    tierLabel = 'Average';
+    tierDescription = 'Your features are typical and neither particularly striking nor unattractive.';
+  } else {
+    tierLabel = 'Below Average';
+    tierDescription = 'Some features may benefit from enhancement or styling to improve overall attractiveness.';
+  }
+
+  const featureIcons = {
+    'Carnal Tilt': '👁️',
+    'Facial Thirds': '📏',
+    'Cheekbone Location': '🦴',
+    'Interocular Distance': '👀',
+    'Undereyes': '😴',
+    'Jawline': '🦷',
+    'Chin': '🧔',
+    'Nose': '👃'
+  };
+
+  const featureDescriptions = {
+    'Carnal Tilt': 'Measures the angle of the eyes relative to the horizontal plane.',
+    'Facial Thirds': 'Evaluates the proportions of the forehead, midface, and lower face.',
+    'Cheekbone Location': 'Assesses the prominence and position of the cheekbones.',
+    'Interocular Distance': 'Analyzes the distance between the eyes relative to face width.',
+    'Undereyes': 'Examines the area under the eyes for signs of fatigue or aging.',
+    'Jawline': 'Evaluates the definition and symmetry of the jawline.',
+    'Chin': 'Assesses the shape and proportion of the chin.',
+    'Nose': 'Analyzes the size and shape of the nose relative to the face.'
+  };
+
+  if (!testScores) {
+    return (
+      <MuiBox sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
+        <Typography variant="h4" gutterBottom align="center" fontWeight="bold">
+          Your Attractiveness Rating
+        </Typography>
+        <MuiBox display="flex" justifyContent="center" mb={4}>
+          <ResultDisplay rating={overallRating} tierLabel={tierLabel} />
+        </MuiBox>
+        <Typography variant="body1" color="textSecondary" align="center">
+          *Note: This is an experimental estimation based on facial features and not a definitive measure of attractiveness.*
+        </Typography>
+      </MuiBox>
+    );
+  }
+
+  // Sort features by score to show most significant ones first
+  const sortedFeatures = Object.entries(testScores)
+    .sort(([, a], [, b]) => b - a)
+    .map(([test, score]) => ({
+      test,
+      score,
+      impact: score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : score >= 40 ? 'Average' : 'Needs Improvement'
+    }));
+
   return (
-    <MuiBox>
-      <Typography variant="h4" gutterBottom>
+    <MuiBox sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
+      <Typography variant="h4" gutterBottom align="center" fontWeight="bold">
         Your Attractiveness Rating
       </Typography>
       <MuiBox display="flex" justifyContent="center" mb={4}>
-        <ResultDisplay rating={overallRating} />
+        <ResultDisplay rating={overallRating} tierLabel={tierLabel} />
       </MuiBox>
-      <Typography variant="h5" gutterBottom>
-        Face Rating: {faceRating.toFixed(2)}
-      </Typography>
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Test</TableCell>
-              <TableCell align="right">Score</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {Object.entries(testScores).map(([test, score]) => (
-              <TableRow key={test}>
-                <TableCell component="th" scope="row">
-                  {test}
-                </TableCell>
-                <TableCell align="right">{score.toFixed(2)}</TableCell>
-              </TableRow>
+
+      <MuiBox sx={{ mt: 4, mb: 6 }}>
+        <Typography variant="h5" gutterBottom fontWeight="bold" align="center">
+          Key Features Analysis
+        </Typography>
+        <Stack spacing={3}>
+          {sortedFeatures.map(({ test, score, impact }, index) => {
+            const color = impact === 'Excellent' ? '#4CAF50' : impact === 'Good' ? '#8BC34A' : impact === 'Average' ? '#FFC107' : '#FF5722';
+            const impactText = impact;
+
+            return (
+              <MuiBox
+                key={test}
+                sx={{
+                  animation: `slideIn 0.5s ease-out ${index * 0.1}s both`,
+                  '@keyframes slideIn': {
+                    '0%': { transform: 'translateX(-20px)', opacity: 0 },
+                    '100%': { transform: 'translateX(0)', opacity: 1 }
+                  },
+                  p: 2,
+                  borderRadius: 2,
+                  bgcolor: 'rgba(0,0,0,0.02)',
+                  border: `1px solid ${color}20`
+                }}
+              >
+                <MuiBox display="flex" alignItems="center" mb={1}>
+                  <Typography variant="h4" mr={2}>
+                    {featureIcons[test]}
+                  </Typography>
+                  <MuiBox flex={1}>
+                    <Typography variant="body1" fontWeight="medium">
+                      {test}
+                    </Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      {featureDescriptions[test]}
+                    </Typography>
+                  </MuiBox>
+                  <Typography
+                    variant="body1"
+                    color={color}
+                    fontWeight="bold"
+                    sx={{
+                      bgcolor: `${color}20`,
+                      px: 1.5,
+                      py: 0.5,
+                      borderRadius: 1
+                    }}
+                  >
+                    {impactText}
+                  </Typography>
+                </MuiBox>
+                <MuiBox sx={{ position: 'relative', mt: 1 }}>
+                  <LinearProgress
+                    variant="determinate"
+                    value={score}
+                    sx={{
+                      height: 8,
+                      borderRadius: 3,
+                      backgroundColor: 'rgba(0,0,0,0.1)',
+                      '& .MuiLinearProgress-bar': {
+                        backgroundColor: color,
+                        borderRadius: 3,
+                        transition: 'width 1s ease-in-out'
+                      }
+                    }}
+                  />
+                  <MuiBox
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      mt: 0.5
+                    }}
+                  >
+                    <Typography
+                      variant="body2"
+                      color="textSecondary"
+                      sx={{ fontWeight: 'medium' }}
+                    >
+                      Low Attractiveness
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="textSecondary"
+                      sx={{ fontWeight: 'medium' }}
+                    >
+                      High Attractiveness
+                    </Typography>
+                  </MuiBox>
+                </MuiBox>
+              </MuiBox>
+            );
+          })}
+        </Stack>
+      </MuiBox>
+
+      <MuiBox sx={{ mt: 4, mb: 6 }}>
+        <Typography variant="h5" gutterBottom fontWeight="bold" align="center">
+          What This Means
+        </Typography>
+        <MuiBox
+          sx={{
+            p: 3,
+            borderRadius: 2,
+            bgcolor: 'rgba(0,0,0,0.02)',
+            border: '1px solid rgba(0,0,0,0.1)'
+          }}
+        >
+          <Typography variant="body1" paragraph>
+            {tierDescription}
+          </Typography>
+          <Typography variant="body1" paragraph>
+            This analysis evaluates specific facial features against conventional standards of attractiveness. The overall rating is calculated as a weighted average of the following feature scores:
+          </Typography>
+          <ul>
+            {Object.entries(featureDescriptions).map(([test, description]) => (
+              <li key={test}>
+                <Typography variant="body1">
+                  <strong>{test}:</strong> {description} (Weight: {weights[test]})
+                </Typography>
+              </li>
             ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      <MuiBox mt={4}>
-        <MuiButton variant="contained" color="primary" onClick={() => navigate('/')}>
-          Next
+          </ul>
+          <Typography variant="body1" color="textSecondary" mt={2}>
+            *Note: This is an experimental estimation based on facial features and not a definitive measure of attractiveness. Beauty is subjective and multifaceted.*
+          </Typography>
+        </MuiBox>
+      </MuiBox>
+
+      <MuiBox mt={4} display="flex" justifyContent="center">
+        <MuiButton
+          variant="contained"
+          color="primary"
+          onClick={() => navigate('/')}
+          sx={{
+            animation: 'pulse 2s infinite',
+            '@keyframes pulse': {
+              '0%': { transform: 'scale(1)' },
+              '50%': { transform: 'scale(1.05)' },
+              '100%': { transform: 'scale(1)' }
+            },
+            px: 4,
+            py: 1.5,
+            borderRadius: 2,
+            fontSize: '1.1rem'
+          }}
+        >
+          Back to Home
         </MuiButton>
       </MuiBox>
     </MuiBox>
@@ -634,12 +848,24 @@ const AttractivenessRatingProcess = () => {
   const cappedRating = rawRating !== null ? Math.min(Math.max(rawRating, 15.69), 99) : null;
   const toast = useToast();
 
+  // Define testToPropMap for mapping test names to property names
+  const testToPropMap = {
+    'Carnal Tilt': 'carnalTilt',
+    'Facial Thirds': 'facialThirds',
+    'Cheekbone Location': 'cheekbone',
+    'Interocular Distance': 'interocular',
+    'Undereyes': 'undereyes',
+    'Jawline': 'jawline',
+    'Chin': 'chin',
+    'Nose': 'nose',
+  };
+
   useEffect(() => {
     if (!loadingUser && userData) {
       if (userData.timesRanked === 0) {
         setScanFor('myself');
         setUserInfo({
-          name: userData.name || 'Self', // Assuming userData has a name field, fallback to 'Self'
+          name: userData.name || 'Self',
           ethnicity: userData.ethnicity,
           eyeColor: mapEyeColor(userData.eyeColor),
           height: userData.height,
@@ -730,7 +956,7 @@ const AttractivenessRatingProcess = () => {
     if (choice === 'myself') {
       setScanFor('myself');
       setUserInfo({
-        name: userData.name || 'Self', // Assuming userData has a name field
+        name: userData.name || 'Self',
         ethnicity: userData.ethnicity,
         eyeColor: mapEyeColor(userData.eyeColor),
         height: userData.height,
@@ -766,12 +992,23 @@ const AttractivenessRatingProcess = () => {
   const handleScanningComplete = (result) => {
     if (result !== null) {
       const { finalScore, testAverages } = result;
-      setTestScores(testAverages);
+      const transformedTestScores = {};
+      for (const [test, score] of Object.entries(testAverages)) {
+        const propName = testToPropMap[test];
+        if (propName) {
+          transformedTestScores[propName] = score;
+        }
+      }
       if (scanFor === 'myself') {
-        setUserInfo((prev) => ({ ...prev, faceRating: finalScore, testScores: testAverages }));
+        setUserInfo((prev) => ({
+          ...prev,
+          ...transformedTestScores,
+          testScores: testAverages,
+        }));
         setCurrentStep('result');
       } else {
-        setFaceScore(finalScore);
+        setFaceScore(finalScore + 7);
+        setTestScores(testAverages);
         setCurrentStep('form');
       }
     } else {
@@ -791,9 +1028,16 @@ const AttractivenessRatingProcess = () => {
   };
 
   const handleFormSubmit = (info) => {
+    const transformedTestScores = {};
+    for (const [test, score] of Object.entries(testScores)) {
+      const propName = testToPropMap[test];
+      if (propName) {
+        transformedTestScores[propName] = score;
+      }
+    }
     const updatedUserInfo = {
       name: info.name,
-      faceRating: faceScore,
+      ...transformedTestScores,
       testScores: testScores,
       ethnicity: info.ethnicity,
       eyeColor: info.eyeColor,
