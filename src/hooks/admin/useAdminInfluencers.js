@@ -14,10 +14,17 @@ function useAdminInfluencers() {
       try {
         const db = getFirestore();
         const querySnapshot = await getDocs(collection(db, 'streamers'));
-        const influencersData = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+        const influencersData = querySnapshot.docs.map((doc) => {
+          const data = doc.data();
+          // Remove undereyes property if it exists
+          if (data.undereyes !== undefined) {
+            delete data.undereyes;
+          }
+          return {
+            id: doc.id,
+            ...data,
+          };
+        });
         console.log('Fetched influencers:', influencersData);
         setInfluencers(influencersData);
       } catch (err) {
@@ -35,6 +42,11 @@ function useAdminInfluencers() {
   const updateInfluencer = async (id, updates) => {
     console.log('Updating influencer:', { id, updates });
     try {
+      // Remove undereyes property if it exists in updates
+      if (updates.undereyes !== undefined) {
+        delete updates.undereyes;
+      }
+      
       const db = getFirestore();
       const docRef = doc(db, 'streamers', id);
       await updateDoc(docRef, updates);

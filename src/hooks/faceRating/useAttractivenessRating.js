@@ -12,7 +12,7 @@ export function useAttractivenessRating(doc) {
     const requiredProps = [
       'height', 'weight', 'gender', 'eyeColor',
       'carnalTilt', 'cheekbone', 'chin', 'facialThirds',
-      'interocular', 'jawline', 'nose', 'undereyes'
+      'interocular', 'jawline', 'nose'
     ];
 
     // Check for missing or invalid properties
@@ -42,8 +42,7 @@ export function useAttractivenessRating(doc) {
       facialThirds,
       interocular,
       jawline,
-      nose,
-      undereyes
+      nose
     } = doc;
 
     // Proceed with rating calculation (unchanged from your original code)
@@ -54,9 +53,8 @@ export function useAttractivenessRating(doc) {
       facialThirds +
       interocular +
       jawline +
-      nose +
-      undereyes
-    ) / 8;
+      nose
+    ) / 7;
 
     let eyeColorScore;
     switch (eyeColor.toLowerCase()) {
