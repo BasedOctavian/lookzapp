@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Button,
@@ -14,7 +14,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { ArrowBack, Add, Remove, EmojiEmotions, Face, AccessTime, Style, FitnessCenter } from '@mui/icons-material';
-import '../App.css'; 
+import '../App.css';
 
 // Feature icons mapping
 const featureIcons = {
@@ -25,10 +25,13 @@ const featureIcons = {
   Body: <FitnessCenter />
 };
 
-const RatingScale = ({ onRate, onCancel }) => {
+const MobileRatingScale = ({ selectedRating, onRate, onCancel }) => {
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const [currentRating, setCurrentRating] = useState(5);
+  const [currentRating, setCurrentRating] = useState(selectedRating);
+  const [touchStart, setTouchStart] = useState({ x: 0, y: 0 });
+  const [touchEnd, setTouchEnd] = useState({ x: 0, y: 0 });
+  const [isSwipeInProgress, setIsSwipeInProgress] = useState(false);
   const [selectedFeatures, setSelectedFeatures] = useState([]);
   const [featurePercentages, setFeaturePercentages] = useState({
     Eyes: 0,
@@ -39,7 +42,21 @@ const RatingScale = ({ onRate, onCancel }) => {
   });
   const [isScrolling, setIsScrolling] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const scrollIntervalRef = useRef(null);
   const [showFeatureHint, setShowFeatureHint] = useState(true);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('MobileRatingScale mounted with rating:', selectedRating);
+    setCurrentRating(selectedRating);
+    
+    // Clean up interval on unmount
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    };
+  }, [selectedRating]);
 
   // Initialize feature percentages
   useEffect(() => {
@@ -63,6 +80,37 @@ const RatingScale = ({ onRate, onCancel }) => {
       return () => clearTimeout(timer);
     }
   }, [showFeatureHint]);
+
+  // Handle touch events for rating adjustment
+  const handleTouchStart = (e) => {
+    const touch = e.touches[0];
+    setTouchStart({ x: touch.clientX, y: touch.clientY });
+    setTouchEnd({ x: touch.clientX, y: touch.clientY });
+    setIsSwipeInProgress(true);
+  };
+
+  const handleTouchMove = (e) => {
+    const touch = e.touches[0];
+    setTouchEnd({ x: touch.clientX, y: touch.clientY });
+  };
+
+  const handleTouchEnd = () => {
+    setIsSwipeInProgress(false);
+    
+    // Calculate swipe distance
+    const deltaX = touchEnd.x - touchStart.x;
+    
+    // If swipe distance exceeds threshold, adjust rating
+    if (Math.abs(deltaX) > 50) {
+      if (deltaX < 0 && currentRating < 10) {
+        // Swipe left - increase rating (INVERTED)
+        setCurrentRating(prev => Math.min(prev + 1, 10));
+      } else if (deltaX > 0 && currentRating > 1) {
+        // Swipe right - decrease rating (INVERTED)
+        setCurrentRating(prev => Math.max(prev - 1, 1));
+      }
+    }
+  };
 
   // Handle feature selection - now only allows selecting the top 3 features
   const handleFeatureSelect = (feature) => {
@@ -140,6 +188,7 @@ const RatingScale = ({ onRate, onCancel }) => {
 
   const startScrollAnimation = () => {
     if (selectedFeatures.length === 0) {
+      // Instead of toast, show a visual indicator
       setShowFeatureHint(true);
       return;
     }
@@ -149,10 +198,10 @@ const RatingScale = ({ onRate, onCancel }) => {
     playDingSound();
     
     // Animate scroll progress
-    const interval = setInterval(() => {
+    scrollIntervalRef.current = setInterval(() => {
       setScrollProgress(prev => {
         if (prev >= 100) {
-          clearInterval(interval);
+          clearInterval(scrollIntervalRef.current);
           setIsScrolling(false);
           // Submit rating after animation completes
           onRate(currentRating, selectedFeatures, featurePercentages);
@@ -166,6 +215,7 @@ const RatingScale = ({ onRate, onCancel }) => {
   // Handle submit
   const handleSubmit = () => {
     if (selectedFeatures.length === 0) {
+      // Instead of toast, show a visual indicator
       setShowFeatureHint(true);
       return;
     }
@@ -188,6 +238,9 @@ const RatingScale = ({ onRate, onCancel }) => {
         overflowY: 'auto',
         maxHeight: '100vh',
       }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
@@ -199,20 +252,23 @@ const RatingScale = ({ onRate, onCancel }) => {
           <ArrowBack />
         </IconButton>
         <Typography variant={isSmallScreen ? "h6" : "h5"} fontWeight="bold" fontFamily="Matt Bold">
-          Rate This Person
+          Adjust Your Rating
         </Typography>
         <Box sx={{ width: 40 }} /> {/* Spacer for alignment */}
       </Box>
       
       <Divider sx={{ mb: 1.5 }} />
       
-      {/* Rating Display */}
+      {/* Rating Display with Swipe Instructions */}
       <Box sx={{ textAlign: 'center', mb: 2 }}>
         <Typography variant={isSmallScreen ? "h3" : "h2"} fontWeight="bold" fontFamily="Matt Bold">
           {currentRating}
         </Typography>
         <Typography variant="body1" color="text.secondary" fontFamily="Matt Light">
           / 10
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+          Swipe left to increase, right to decrease
         </Typography>
         
         {/* Manual Rating Controls */}
@@ -241,14 +297,14 @@ const RatingScale = ({ onRate, onCancel }) => {
         </Box>
       </Box>
       
-      {/* Feature Selection */}
+      {/* Feature Selection - Redesigned */}
       <Box sx={{ mb: 2 }}>
         <Typography variant={isSmallScreen ? "subtitle1" : "h6"} fontWeight="bold" mb={1} fontFamily="Matt Bold" textAlign="center">
           Select Top 3 Features
         </Typography>
         
         <Typography variant="body2" color="text.secondary" mb={1.5} textAlign="center" fontFamily="Matt Light">
-          Click on the features that stand out the most (max 3)
+          Tap on the features that stand out the most (max 3)
         </Typography>
         
         {/* Feature Hint */}
@@ -328,7 +384,7 @@ const RatingScale = ({ onRate, onCancel }) => {
         )}
       </Box>
       
-      {/* Percentage Display */}
+      {/* Percentage Display - Simplified */}
       {selectedFeatures.length > 0 && (
         <Box sx={{ mb: 2 }}>
           <Typography variant={isSmallScreen ? "body1" : "subtitle1"} fontWeight="bold" mb={1} fontFamily="Matt Bold" textAlign="center">
@@ -363,7 +419,7 @@ const RatingScale = ({ onRate, onCancel }) => {
           </Stack>
         </Box>
       )}
-
+      
       {/* Scroll Animation */}
       {isScrolling && (
         <Box sx={{ 
@@ -403,14 +459,14 @@ const RatingScale = ({ onRate, onCancel }) => {
       
       {/* Submit Button */}
       <Box sx={{ width: '100%', mb: 2, mt: 'auto' }}>
-          <Button
-            variant="contained"
+        <Button
+          variant="contained"
           color="primary"
-            fullWidth
+          fullWidth
           onClick={handleSubmit}
           disabled={isScrolling}
           size={isSmallScreen ? "small" : "medium"}
-            sx={{
+          sx={{ 
             py: isSmallScreen ? 1 : 1.5,
             fontFamily: 'Matt Bold',
             '&:hover': { transform: 'scale(1.02)' },
@@ -429,10 +485,10 @@ const RatingScale = ({ onRate, onCancel }) => {
           sx={{ mt: 1, py: isSmallScreen ? 1 : 1.5, fontFamily: 'Matt Bold' }}
         >
           Cancel
-          </Button>
-        </Box>
+        </Button>
+      </Box>
     </Paper>
   );
 };
 
-export default RatingScale;
+export default MobileRatingScale; 

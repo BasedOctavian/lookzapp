@@ -8,15 +8,13 @@ export function useAttractivenessRating(doc) {
       return null;
     }
 
-    // List of required properties
-    const requiredProps = [
-      'height', 'weight', 'gender', 'eyeColor',
-      'carnalTilt', 'cheekbone', 'chin', 'facialThirds',
-      'interocular', 'jawline', 'nose'
+    // Check for required basic properties
+    const requiredBasicProps = [
+      'height', 'weight', 'gender', 'eyeColor'
     ];
 
-    // Check for missing or invalid properties
-    for (const prop of requiredProps) {
+    // Check for missing or invalid basic properties
+    for (const prop of requiredBasicProps) {
       if (doc[prop] === undefined) {
         console.error(`Missing property: ${prop}`, doc);
         return null;
@@ -31,21 +29,55 @@ export function useAttractivenessRating(doc) {
       return null;
     }
 
+    // Extract basic properties
     const {
       height,
       weight,
       gender,
-      eyeColor,
-      carnalTilt,
-      cheekbone,
-      chin,
-      facialThirds,
-      interocular,
-      jawline,
-      nose
+      eyeColor
     } = doc;
 
-    // Proceed with rating calculation (unchanged from your original code)
+    // Handle testScores if available
+    let carnalTilt, cheekbone, chin, facialThirds, interocular, jawline, nose;
+    
+    if (doc.testScores) {
+      // Map testScores to the required properties
+      carnalTilt = doc.testScores['Carnal Tilt'] || 0;
+      facialThirds = doc.testScores['Facial Thirds'] || 0;
+      cheekbone = doc.testScores['Cheekbone Location'] || 0;
+      interocular = doc.testScores['Interocular Distance'] || 0;
+      jawline = doc.testScores['Jawline'] || 0;
+      chin = doc.testScores['Chin'] || 0;
+      nose = doc.testScores['Nose'] || 0;
+    } else {
+      // Check for individual properties
+      const requiredTestProps = [
+        'carnalTilt', 'cheekbone', 'chin', 'facialThirds',
+        'interocular', 'jawline', 'nose'
+      ];
+      
+      for (const prop of requiredTestProps) {
+        if (doc[prop] === undefined) {
+          console.error(`Missing property: ${prop}`, doc);
+          return null;
+        }
+        if (typeof doc[prop] !== 'number') {
+          console.error(`Property ${prop} must be a number`, doc);
+          return null;
+        }
+      }
+      
+      // Extract individual test properties
+      carnalTilt = doc.carnalTilt;
+      cheekbone = doc.cheekbone;
+      chin = doc.chin;
+      facialThirds = doc.facialThirds;
+      interocular = doc.interocular;
+      jawline = doc.jawline;
+      nose = doc.nose;
+    }
+
+    // Proceed with rating calculation
     const faceRating = (
       carnalTilt +
       cheekbone +

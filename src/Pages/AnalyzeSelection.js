@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Paper, Grid, Card, CardActionArea, CardContent, Typography } from '@mui/material';
-import { orange, purple, blue } from '@mui/material/colors'; // Added blue for new card
+import { orange, purple, blue, green } from '@mui/material/colors'; // Added green for new card
 import TopBar from '../Components/TopBar';
 import Footer from '../Components/Footer';
 import '../App.css';
@@ -28,6 +28,13 @@ const analysisOptions = [
     description: 'Analyze features commonly associated with autism.',
     color: blue[500], // Using blue for distinction
     emojis: '🧠', // Brain emoji to represent analysis
+  },
+  {
+    title: 'GeekedGuess',
+    route: '/geeked-guess',
+    description: 'Analyze how open your eyes are and get insights about your alertness.',
+    color: green[500], // Using green for distinction
+    emojis: '👀', // Eyes emoji to represent eye analysis
   },
 ];
 

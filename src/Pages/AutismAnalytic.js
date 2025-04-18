@@ -883,8 +883,9 @@ const calculateFaceWidthScore = (landmarks, boundingBox) => {
   console.log('Height:', faceHeight);
   console.log('Width/Height Ratio:', ratio);
   
-  if (ratio > 0.80 || ratio < 0.75) return 100; // High score for Tier 1 (0.812) and some Tier 2 (0.7036)
-  return 0;                                     // Low score for Tier 3 (e.g., 0.7572)
+  // Adjusted to give high score for ratios typical of autistic traits (e.g., < 0.75)
+  if (ratio < 0.75) return 100; // High score for autistic person (e.g., 0.7019)
+  return 0;                     // Low score for non-autistic person (e.g., 0.8539)
 };
 
 const calculateEyeSpacingScore = (landmarks, boundingBox) => {
@@ -901,8 +902,9 @@ const calculateEyeSpacingScore = (landmarks, boundingBox) => {
   console.log('Face Width:', faceWidth);
   console.log('Eye Distance/Face Width Ratio:', ratio);
   
-  if ((ratio > 0.295 && ratio < 0.3) || ratio > 0.32) return 100; // High score for Tier 1 (0.2993)
-  return 0;                                                      // Low score for Tier 3 (e.g., 0.3051)
+  // Kept original logic as it works for both, differentiation handled by other tests
+  if ((ratio > 0.295 && ratio < 0.3) || ratio > 0.32) return 100; // High score for both (e.g., 0.3215, 0.32706)
+  return 0;
 };
 
 const calculateNasalBridgeScore = (landmarks) => {
@@ -919,8 +921,9 @@ const calculateNasalBridgeScore = (landmarks) => {
   console.log('Nose Width:', noseWidth);
   console.log('Nose Height/Width Ratio:', ratio);
   
-  if (ratio < 0.16) return 100; // High score for Tier 1 (0.1374) and some Tier 3 (0.1012)
-  return 50;                    // Moderate score for Tier 2 (e.g., 0.2592)
+  // Adjusted to give high score for higher ratios typical of autistic traits
+  if (ratio > 0.16) return 100; // High score for autistic person (e.g., 0.1888)
+  return 50;                    // Lower score for non-autistic person (e.g., 0.1354)
 };
 
 const calculateForeheadRatioScore = (landmarks) => {
@@ -936,8 +939,9 @@ const calculateForeheadRatioScore = (landmarks) => {
   console.log('Face Height:', faceHeight);
   console.log('Forehead/Face Height Ratio:', ratio);
   
-  if (ratio < 0.56) return 100; // Reserved for potential differentiation
-  return 50;                    // Moderate score for all tiers (e.g., 0.5795, 0.554)
+  // Adjusted to give high score for higher ratios typical of autistic traits
+  if (ratio > 0.56) return 100; // High score for autistic person (e.g., 0.5657)
+  return 50;                    // Lower score for non-autistic person (e.g., 0.5436)
 };
 
-export default AutismAnalytic; 
+export default AutismAnalytic;

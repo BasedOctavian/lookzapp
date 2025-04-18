@@ -10,11 +10,15 @@ import {
   Heading,
   useBreakpointValue,
   IconButton,
+  Center,
+  Badge,
+  Stack,
 } from '@chakra-ui/react';
+import { Modal, ModalOverlay, ModalContent, ModalBody, ModalCloseButton } from '@chakra-ui/modal';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUserData } from '../hooks/useUserData';
-import { ArrowLeft, ArrowRight, Star, Videocam, BarChart } from '@mui/icons-material';
+import { ArrowLeft, ArrowRight, Star, Videocam, BarChart, ThumbUp, ThumbDown, Settings, KeyboardArrowUp, KeyboardArrowDown } from '@mui/icons-material';
 import { useToast } from '@chakra-ui/toast';
 import TopBar from '../Components/TopBar';
 import Footer from '../Components/Footer';
@@ -29,8 +33,12 @@ import { useTopRatedData } from '../hooks/useTopRatedData';
 import '../App.css';
 import { doc, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase'; // Adjust the path to your Firestore instance
+import { CircularProgress } from '@mui/material';
+import { Typography } from '@mui/material';
+import { Divider } from '@mui/material';
 
 const RatingScale = lazy(() => import('../Components/RatingScale'));
+const MobileRatingScale = lazy(() => import('../Components/MobileRatingScale'));
 
 function GetRanked() {
   const location = useLocation();
@@ -41,6 +49,25 @@ function GetRanked() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [ratingKey, setRatingKey] = useState(0);
   const [isComparisonToggled, setIsComparisonToggled] = useState(false);
+  const [swipeDirection, setSwipeDirection] = useState(null);
+  const [showFeatureSelection, setShowFeatureSelection] = useState(false);
+  const [selectedRating, setSelectedRating] = useState(null);
+  const [touchStart, setTouchStart] = useState({ x: 0, y: 0 });
+  const [touchEnd, setTouchEnd] = useState({ x: 0, y: 0 });
+  const [isSwipeInProgress, setIsSwipeInProgress] = useState(false);
+  const [swipeThreshold, setSwipeThreshold] = useState(50);
+  const [swipeAnimation, setSwipeAnimation] = useState(null);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [showGenderFilter, setShowGenderFilter] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Add vertical swipe handling to the mobile experience
+  const [touchStartY, setTouchStartY] = useState(0);
+  const [touchEndY, setTouchEndY] = useState(0);
+  const [isVerticalSwipe, setIsVerticalSwipe] = useState(false);
+
+  // Add state for swipe indicators
+  const [showSwipeIndicator, setShowSwipeIndicator] = useState(true);
 
   const localVideoRef = useRef(null);
   const toast = useToast();
@@ -52,7 +79,13 @@ function GetRanked() {
   // Custom hooks
   const localStream = useVideoStream();
   const { entities: entitiesList, isLoading } = useEntities(category, genderFilter);
-  const currentEntity = entitiesList.length > 0 ? entitiesList[currentIndex] : null;
+  
+  // Limit entities to 10 for the TikTok/Reels experience
+  const limitedEntitiesList = useMemo(() => {
+    return entitiesList.slice(0, 10);
+  }, [entitiesList]);
+  
+  const currentEntity = limitedEntitiesList.length > 0 ? limitedEntitiesList[currentIndex] : null;
   const {
     ratedEntityData,
     entityRating,
@@ -105,6 +138,50 @@ function GetRanked() {
     return rankMap[`${currentEntity.type}-${currentEntity.id}`] || 'N/A';
   }, [currentEntity, rankMap]);
 
+  // Add useEffect to hide the indicator after a few seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSwipeIndicator(false);
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Prevent body scrolling when component is mounted
+  useEffect(() => {
+    // Save the original overflow style
+    const originalStyle = window.getComputedStyle(document.body).overflow;
+    const originalHeight = window.getComputedStyle(document.body).height;
+    const originalPosition = window.getComputedStyle(document.body).position;
+    const originalWidth = window.getComputedStyle(document.body).width;
+    const originalTop = window.getComputedStyle(document.body).top;
+    
+    // Disable scrolling
+    document.body.style.overflow = 'hidden';
+    document.body.style.height = '100%';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.top = '0';
+    
+    // Additional properties for iOS
+    document.body.style.overscrollBehavior = 'none';
+    document.body.style.WebkitOverscrollBehavior = 'none';
+    document.body.style.overscrollBehaviorY = 'none';
+    document.body.style.WebkitOverscrollBehaviorY = 'none';
+    
+    // Re-enable scrolling when component unmounts
+    return () => {
+      document.body.style.overflow = originalStyle;
+      document.body.style.height = originalHeight;
+      document.body.style.position = originalPosition;
+      document.body.style.width = originalWidth;
+      document.body.style.top = originalTop;
+      document.body.style.overscrollBehavior = '';
+      document.body.style.WebkitOverscrollBehavior = '';
+      document.body.style.overscrollBehaviorY = '';
+    };
+  }, []);
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -130,13 +207,16 @@ function GetRanked() {
         title: 'Rating Submitted',
         description: `You rated ${currentEntity.name}: ${rating}`,
         status: 'success',
-        duration: 3000,
+        duration: 2000,
         isClosable: true,
+        position: 'top',
       });
       setRatingKey((prevKey) => prevKey + 1);
-      setCurrentIndex((prevIndex) =>
-        entitiesList.length > 0 ? (prevIndex + 1) % entitiesList.length : prevIndex
-      );
+      
+      // Automatically move to next entity after rating
+      setTimeout(() => {
+        handleNextPhoto();
+      }, 500);
 
       // Update both the rater's and ratee's data in a single transaction
       await runTransaction(db, async (transaction) => {
@@ -201,6 +281,11 @@ function GetRanked() {
           }
         }
       });
+      
+      // Reset mobile rating state
+      setShowFeatureSelection(false);
+      setSelectedRating(null);
+      setSwipeDirection(null);
     } catch (error) {
       console.error('Error in rating submission or Firestore transaction:', error.message, error.stack);
       toast({
@@ -214,19 +299,71 @@ function GetRanked() {
   };
 
   const handleNextPhoto = () => {
-    setCurrentIndex((prevIndex) =>
-      entitiesList.length > 0 ? (prevIndex + 1) % entitiesList.length : prevIndex
-    );
-    setRatingKey((prevKey) => prevKey + 1);
+    if (isTransitioning) return;
+    
+    setIsTransitioning(true);
+    setSwipeAnimation({
+      transform: 'translateY(-100%)',
+      transition: 'transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1)',
+      willChange: 'transform'
+    });
+    
+    setTimeout(() => {
+      setCurrentIndex((prevIndex) =>
+        limitedEntitiesList.length > 0 ? (prevIndex + 1) % limitedEntitiesList.length : prevIndex
+      );
+      setRatingKey((prevKey) => prevKey + 1);
+      setSwipeAnimation({
+        transform: 'translateY(0)',
+        transition: 'transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1)',
+        willChange: 'transform'
+      });
+      
+      // Reset mobile rating state
+      setShowFeatureSelection(false);
+      setSelectedRating(null);
+      setSwipeDirection(null);
+      
+      setTimeout(() => {
+        setIsTransitioning(false);
+        setSwipeAnimation(null);
+      }, 300);
+    }, 300);
   };
 
   const handlePreviousPhoto = () => {
-    setCurrentIndex((prevIndex) =>
-      entitiesList.length > 0
-        ? (prevIndex - 1 + entitiesList.length) % entitiesList.length
-        : prevIndex
-    );
-    setRatingKey((prevKey) => prevKey + 1);
+    if (isTransitioning) return;
+    
+    setIsTransitioning(true);
+    setSwipeAnimation({
+      transform: 'translateY(100%)',
+      transition: 'transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1)',
+      willChange: 'transform'
+    });
+    
+    setTimeout(() => {
+      setCurrentIndex((prevIndex) =>
+        limitedEntitiesList.length > 0
+          ? (prevIndex - 1 + limitedEntitiesList.length) % limitedEntitiesList.length
+          : prevIndex
+      );
+      setRatingKey((prevKey) => prevKey + 1);
+      setSwipeAnimation({
+        transform: 'translateY(0)',
+        transition: 'transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1)',
+        willChange: 'transform'
+      });
+      
+      // Reset mobile rating state
+      setShowFeatureSelection(false);
+      setSelectedRating(null);
+      setSwipeDirection(null);
+      
+      setTimeout(() => {
+        setIsTransitioning(false);
+        setSwipeAnimation(null);
+      }, 300);
+    }, 300);
   };
 
   const chartData = useMemo(() => {
@@ -248,40 +385,184 @@ function GetRanked() {
     });
   }, [user, userData, ratedEntityData]);
 
+  // Update the mobile swipe gesture handlers
+  const handleTouchStart = (e) => {
+    // Prevent default scrolling behavior
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const touch = e.touches[0];
+    setTouchStart({ x: touch.clientX, y: touch.clientY });
+    setTouchEnd({ x: touch.clientX, y: touch.clientY });
+    setTouchStartY(touch.clientY);
+    setTouchEndY(touch.clientY);
+    setIsSwipeInProgress(true);
+    setIsVerticalSwipe(false);
+  };
+
+  const handleTouchMove = (e) => {
+    // Prevent default scrolling behavior
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const touch = e.touches[0];
+    setTouchEnd({ x: touch.clientX, y: touch.clientY });
+    setTouchEndY(touch.clientY);
+    
+    // Determine if this is a vertical swipe
+    const deltaX = Math.abs(touch.clientX - touchStart.x);
+    const deltaY = Math.abs(touch.clientY - touchStartY);
+    
+    if (deltaY > deltaX && deltaY > 50) {
+      setIsVerticalSwipe(true);
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    // Prevent default scrolling behavior
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsSwipeInProgress(false);
+    
+    // Calculate swipe distances
+    const deltaX = touchEnd.x - touchStart.x;
+    const deltaY = touchEnd.y - touchStartY;
+    
+    // If rating modal is open, don't allow vertical swipes
+    if (showRatingModal) {
+      return;
+    }
+    
+    // If it's a vertical swipe, handle navigation
+    if (isVerticalSwipe && Math.abs(deltaY) > 50) {
+      if (deltaY > 0) {
+        // Swipe down - go to previous user
+        handlePreviousPhoto();
+      } else {
+        // Swipe up - go to next user
+        handleNextPhoto();
+      }
+      return;
+    }
+    
+    // Otherwise handle horizontal swipe for rating
+    if (Math.abs(deltaX) > 50) {
+      if (deltaX < 0) {
+        // Swipe left - high rating (6-10) - INVERTED
+        setSelectedRating(8);
+        setShowRatingModal(true);
+      } else {
+        // Swipe right - low rating (1-5) - INVERTED
+        setSelectedRating(3);
+        setShowRatingModal(true);
+      }
+    }
+  };
+
+  // Handle feature selection and rating submission
+  const handleFeatureSelection = (featureScores) => {
+    handleRatingSubmit(selectedRating, featureScores);
+    setShowFeatureSelection(false);
+    setSelectedRating(null);
+  };
+
+  // Debug logging for feature selection state
+  useEffect(() => {
+    console.log('Feature selection state:', { showFeatureSelection, selectedRating });
+  }, [showFeatureSelection, selectedRating]);
+
+  const handleRate = (rating, selectedFeatures, featurePercentages) => {
+    // Calculate feature scores based on percentages
+    const featureScores = {};
+    for (const feature in featurePercentages) {
+      featureScores[feature] = (featurePercentages[feature] / 100) * rating;
+    }
+
+    // Submit the rating
+    submitRating(rating, featureScores);
+    setShowRatingModal(false);
+    setSelectedRating(null);
+    
+    // Automatically move to next entity after rating
+    setTimeout(() => {
+      handleNextPhoto();
+    }, 500);
+  };
+
+  const handleCancelRating = () => {
+    setShowRatingModal(false);
+    setSelectedRating(null);
+  };
+
   return (
     <>
       <TopBar />
-      <Flex direction="column" minH="100vh" bg="gray.50" overflowX="hidden">
-        <Container maxW="container.xl" py={{ base: 4, md: 6 }} overflow="hidden">
-          <VStack spacing={{ base: 4, md: 6 }} align="stretch">
-            {/* Gender Filter */}
-            <VStack align="center" mb={4}>
-              <Text fontSize="lg" fontWeight="bold" fontFamily={'Matt Light'}>
-                Filter by Gender
-              </Text>
-              <Flex wrap="wrap" gap={2} justify="center" width={{ base: '100%', md: 'auto' }}>
-                {['male', 'female', 'both'].map((gender) => (
-                  <Button
-                    key={gender}
-                    onClick={() => setGenderFilter(gender)}
-                    colorScheme={genderFilter === gender ? 'blue' : 'gray'}
-                    size="sm"
-                    flex={{ base: '1 0 30%', md: 'none' }}
-                    fontFamily={'Matt Bold'}
-                  >
-                    {gender.charAt(0).toUpperCase() + gender.slice(1)}
-                  </Button>
-                ))}
-              </Flex>
-            </VStack>
+      <Flex 
+        direction="column" 
+        h="calc(100vh - 60px)"
+        bg="black"
+        overflow="hidden"
+        position="relative"
+        sx={{
+          overscrollBehavior: 'none',
+          WebkitOverscrollBehavior: 'none',
+          overscrollBehaviorY: 'none',
+          WebkitOverscrollBehaviorY: 'none',
+        }}
+      >
+        <Container 
+          maxW="100%"
+          p={0}
+          h="100%"
+          overflow="hidden"
+          position="relative"
+          sx={{
+            overscrollBehavior: 'none',
+            WebkitOverscrollBehavior: 'none',
+            overscrollBehaviorY: 'none',
+            WebkitOverscrollBehaviorY: 'none',
+          }}
+        >
+          <VStack spacing={0} align="stretch" h="100%" sx={{
+            overscrollBehavior: 'none', // Prevent bounce effect
+            WebkitOverscrollBehavior: 'none', // For Safari
+            overscrollBehaviorY: 'none', // Prevent vertical bounce
+            WebkitOverscrollBehaviorY: 'none', // For Safari
+          }}>
+            {/* Gender Filter - Only show on desktop */}
+            {!isMobile && (
+              <VStack align="center" mb={4}>
+                <Text fontSize="lg" fontWeight="bold" fontFamily={'Matt Light'}>
+                  Filter by Gender
+                </Text>
+                <Flex wrap="wrap" gap={2} justify="center" width={{ base: '100%', md: 'auto' }}>
+                  {['male', 'female', 'both'].map((gender) => (
+                    <Button
+                      key={gender}
+                      onClick={() => setGenderFilter(gender)}
+                      colorScheme={genderFilter === gender ? 'blue' : 'gray'}
+                      size="sm"
+                      flex={{ base: '1 0 30%', md: 'none' }}
+                      fontFamily={'Matt Bold'}
+                      transition="all 0.2s"
+                      _hover={{ transform: 'scale(1.05)' }}
+                    >
+                      {gender.charAt(0).toUpperCase() + gender.slice(1)}
+                    </Button>
+                  ))}
+                </Flex>
+              </VStack>
+            )}
 
-            {/* Feature Rating Comparison */}
+            {/* Feature Rating Comparison - Only show on desktop */}
             {!isComparisonToggled &&
               user &&
               !userLoading &&
               !ratingLoading &&
               userData &&
-              ratedEntityData && (
+              ratedEntityData &&
+              !isMobile && (
                 <Box w="100%" p={4} bg="white" borderRadius="2xl" boxShadow={{ md: 'xl' }}>
                   <FeatureRatingComparison
                     chartData={chartData}
@@ -291,187 +572,315 @@ function GetRanked() {
                 </Box>
               )}
 
-            {/* Video and Photo Section */}
+            {/* TikTok/Reels Style Vertical Scroll Container */}
             <Box
-              position={{ base: 'static', md: 'sticky' }}
-              top={{ md: '0' }}
-              zIndex="10"
-              bg="white"
-              borderRadius="2xl"
-              boxShadow={{ md: 'xl' }}
-              p={4}
-              maxH={{ base: 'auto', md: '85vh' }}
-              mb={{ base: 4, md: 0 }}
+              position="relative"
+              w="100%"
+              h="100%"
+              overflow="hidden"
+              borderRadius={0}
+              boxShadow="none"
+              bg="black"
+              flex="1"
             >
-              <Flex
-                direction={{ base: 'column', md: 'row' }}
-                w="100%"
-                justify="center"
-                align="flex-start"
-                gap={6}
+              {/* Entity Photo with ProfilePopover */}
+              <ProfilePopover
+                name={currentEntity?.name}
+                photoUrl={currentEntity?.photo_url}
+                rank={entityRank}
               >
-                {/* Video or Comparison with ProfilePopover */}
-                <ProfilePopover
-                  name={userData?.displayName || 'You'}
-                  photoUrl={userData?.photo_url}
-                  rank={userRank}
+                <Box
+                  w="100%"
+                  h="100%"
+                  position="relative"
+                  overflow="hidden"
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  sx={{
+                    ...swipeAnimation,
+                    touchAction: 'none', // Prevent browser handling of touch events
+                    WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+                    userSelect: 'none', // Prevent text selection
+                    WebkitUserSelect: 'none', // For Safari
+                    MozUserSelect: 'none', // For Firefox
+                    msUserSelect: 'none', // For IE/Edge
+                    overscrollBehavior: 'none', // Prevent bounce effect
+                    WebkitOverscrollBehavior: 'none', // For Safari
+                    overscrollBehaviorY: 'none', // Prevent vertical bounce
+                    WebkitOverscrollBehaviorY: 'none', // For Safari
+                  }}
                 >
-                  <Box
-                    w={{ base: '100%', md: '45%' }}
-                    h={{ base: '40vh', md: '50vh' }}
-                    borderWidth="2px"
-                    borderColor="gray.100"
-                    borderRadius="xl"
-                    overflow="hidden"
-                    boxShadow="lg"
-                    bg="gray.200"
-                    position="relative"
-                    cursor="pointer"
-                    onClick={() => {
-                      if (user) {
-                        window.open(
-                          `http://lookzapp.com/profile/${encodeURIComponent(user.uid)}`,
-                          '_blank'
-                        );
-                      } else {
-                        toast({
-                          title: 'Not logged in',
-                          description: 'Please log in to view your profile.',
-                          status: 'info',
-                          duration: 3000,
-                          isClosable: true,
-                        });
-                      }
-                    }}
-                    aria-label={`View ${user ? userData?.displayName || 'your' : 'guest'} profile`}
-                    title={`View ${user ? userData?.displayName || 'your' : 'guest'} profile`}
-                  >
-                    {isComparisonToggled ? (
-                      user && !userLoading && !ratingLoading && userData && ratedEntityData ? (
-                        <Box width="100%" height="100%" overflow="auto">
-                          <FeatureRatingComparison
-                            chartData={chartData}
-                            entityName={currentEntity?.name || 'Entity'}
-                            isMobile={isMobile}
-                          />
-                        </Box>
-                      ) : (
-                        <Spinner size="xl" color="blue.500" />
-                      )
-                    ) : (
-                      <Box w="100%" h="100%" bg="black">
-                        <video
-                          ref={setVideoRef}
-                          autoPlay
-                          muted
-                          playsInline
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                        <HStack
-                          position="absolute"
-                          bottom="2"
-                          left="2"
-                          color="white"
-                          bg="rgba(0, 0, 0, 0.6)"
-                          px={2}
-                          py={1}
-                          borderRadius="md"
-                          spacing={1}
-                        >
-                          <Text fontSize="sm" fontWeight="medium" fontFamily={'Matt Bold'}>
-                            {user ? userData?.displayName || 'You' : 'Guest'}
-                          </Text>
-                          {user && !userLoading && (
-                            <HStack spacing={1}>
-                              <Star sx={{ fontSize: 16, color: '#FFD700' }} />
-                              <Text fontSize="sm" fontWeight="medium" fontFamily={'Matt Bold'}>
-                                {localRating?.toFixed(1) || 'N/A'}
-                              </Text>
-                            </HStack>
-                          )}
-                        </HStack>
-                      </Box>
-                    )}
-                    <IconButton
-                      aria-label={isComparisonToggled ? 'Switch to Video' : 'Switch to Comparison'}
-                      position="absolute"
-                      bottom="2"
-                      right="2"
-                      size="sm(AM)"
-                      borderRadius="full"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsComparisonToggled(!isComparisonToggled);
-                      }}
-                      zIndex="1"
-                      colorScheme="blue"
-                    >
-                      {isComparisonToggled ? <Videocam /> : <BarChart />}
-                    </IconButton>
-                  </Box>
-                </ProfilePopover>
-
-                {/* Entity Photo with ProfilePopover */}
-                <ProfilePopover
-                  name={currentEntity?.name}
-                  photoUrl={currentEntity?.photo_url}
-                  rank={entityRank}
-                >
-                  <Box
-                    w={{ base: '100%', md: '45%' }}
-                    h={{ base: '40vh', md: '50vh' }}
-                    borderWidth="2px"
-                    borderColor="gray.100"
-                    borderRadius="xl"
-                    overflow="hidden"
-                    boxShadow="lg"
-                    bg="gray.200"
-                    position={{ base: 'sticky', md: 'relative' }}
-                    top={0}
-                    zIndex={1}
-                    cursor="pointer"
-                    onClick={() => {
-                      if (currentEntity) {
-                        const url = currentEntity.type === 'streamer'
-                          ? `http://lookzapp.com/influencer-profile/${encodeURIComponent(currentEntity.id)}`
-                          : `http://lookzapp.com/profile/${encodeURIComponent(currentEntity.id)}`;
-                        window.open(url, '_blank');
-                      } else {
-                        toast({
-                          title: 'No entity selected',
-                          description: 'There is no entity to view.',
-                          status: 'info',
-                          duration: 3000,
-                          isClosable: true,
-                        });
-                      }
-                    }}
-                    aria-label={`View ${currentEntity ? currentEntity.name : 'entity'} profile`}
-                    title={`View ${currentEntity ? currentEntity.name : 'entity'} profile`}
-                  >
-                    {isLoading || ratingLoading ? (
+                  {isLoading || ratingLoading ? (
+                    <Center h="100%">
                       <Spinner size="xl" color="blue.500" />
-                    ) : currentEntity ? (
-                      <img
-                        src={currentEntity.photo_url}
-                        alt={currentEntity.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                      />
-                    ) : (
+                    </Center>
+                  ) : currentEntity ? (
+                    <>
+                      {!showRatingModal ? (
+                        <>
+                          <img
+                            src={currentEntity.photo_url}
+                            alt={currentEntity.name}
+                            style={{ 
+                              width: '100%', 
+                              height: '100%', 
+                              objectFit: 'cover',
+                              transition: 'transform 0.3s ease-out',
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              willChange: 'transform', // Optimize for animations
+                            }}
+                          />
+                          
+                          {/* Swipe Indicators */}
+                          {showSwipeIndicator && (
+                            <>
+                              <Box
+                                position="absolute"
+                                top="20px"
+                                left="0"
+                                right="0"
+                                display="flex"
+                                justifyContent="center"
+                                zIndex="10"
+                                sx={{
+                                  animation: 'fadeInOut 2s ease-in-out infinite',
+                                  '@keyframes fadeInOut': {
+                                    '0%': { opacity: 0.3 },
+                                    '50%': { opacity: 1 },
+                                    '100%': { opacity: 0.3 },
+                                  },
+                                }}
+                              >
+                                <Text
+                                  fontSize="sm"
+                                  color="white"
+                                  bg="rgba(0,0,0,0.5)"
+                                  px={2}
+                                  py={1}
+                                  borderRadius="md"
+                                  fontFamily="Matt Light"
+                                  backdropFilter="blur(4px)"
+                                >
+                                  Swipe up for next
+                                </Text>
+                              </Box>
+                              <Box
+                                position="absolute"
+                                bottom="20px"
+                                left="0"
+                                right="0"
+                                display="flex"
+                                justifyContent="center"
+                                zIndex="10"
+                                sx={{
+                                  animation: 'fadeInOut 2s ease-in-out infinite',
+                                  '@keyframes fadeInOut': {
+                                    '0%': { opacity: 0.3 },
+                                    '50%': { opacity: 1 },
+                                    '100%': { opacity: 0.3 },
+                                  },
+                                }}
+                              >
+                                <Text
+                                  fontSize="sm"
+                                  color="white"
+                                  bg="rgba(0,0,0,0.5)"
+                                  px={2}
+                                  py={1}
+                                  borderRadius="md"
+                                  fontFamily="Matt Light"
+                                  backdropFilter="blur(4px)"
+                                >
+                                  Swipe down for previous
+                                </Text>
+                              </Box>
+                              <Box
+                                position="absolute"
+                                top="50%"
+                                left="0"
+                                right="0"
+                                display="flex"
+                                justifyContent="center"
+                                zIndex="10"
+                                sx={{
+                                  animation: 'fadeInOut 2s ease-in-out infinite',
+                                  '@keyframes fadeInOut': {
+                                    '0%': { opacity: 0.3 },
+                                    '50%': { opacity: 1 },
+                                    '100%': { opacity: 0.3 },
+                                  },
+                                }}
+                              >
+                                <Text
+                                  fontSize="sm"
+                                  color="white"
+                                  bg="rgba(0,0,0,0.5)"
+                                  px={2}
+                                  py={1}
+                                  borderRadius="md"
+                                  fontFamily="Matt Light"
+                                  backdropFilter="blur(4px)"
+                                >
+                                  Swipe left for high rating, right for low
+                                </Text>
+                              </Box>
+                            </>
+                          )}
+                          
+                          {/* Navigation Arrows */}
+                          <IconButton
+                            aria-label="Previous Photo"
+                            position="absolute"
+                            left="10px"
+                            top="50%"
+                            transform="translateY(-50%)"
+                            size="lg"
+                            colorScheme="teal"
+                            onClick={handlePreviousPhoto}
+                            zIndex="1000"
+                            rounded="full"
+                            style={{
+                              backgroundColor: 'rgba(0, 128, 128, 0.3)',
+                              backdropFilter: 'blur(4px)',
+                              transition: 'all 0.2s',
+                            }}
+                            _hover={{
+                              backgroundColor: 'rgba(0, 128, 128, 0.5)',
+                              transform: 'translateY(-50%) scale(1.1)',
+                            }}
+                            variant="ghost"
+                            icon={<KeyboardArrowUp />}
+                          />
+                          <IconButton
+                            aria-label="Next Photo"
+                            position="absolute"
+                            right="10px"
+                            top="50%"
+                            transform="translateY(-50%)"
+                            size="lg"
+                            colorScheme="teal"
+                            onClick={handleNextPhoto}
+                            zIndex="1000"
+                            rounded="full"
+                            style={{
+                              backgroundColor: 'rgba(0, 128, 128, 0.3)',
+                              backdropFilter: 'blur(4px)',
+                              transition: 'all 0.2s',
+                            }}
+                            _hover={{
+                              backgroundColor: 'rgba(0, 128, 128, 0.5)',
+                              transform: 'translateY(-50%) scale(1.1)',
+                            }}
+                            variant="ghost"
+                            icon={<KeyboardArrowDown />}
+                          />
+                          
+                          {/* Progress Indicator */}
+                          <HStack 
+                            position="absolute" 
+                            bottom="10px" 
+                            left="0" 
+                            right="0" 
+                            justify="center" 
+                            spacing={1}
+                            zIndex="10"
+                          >
+                            {limitedEntitiesList.map((_, idx) => (
+                              <Box
+                                key={idx}
+                                w="8px"
+                                h="8px"
+                                borderRadius="full"
+                                bg={idx === currentIndex ? "white" : "rgba(255,255,255,0.5)"}
+                                transition="all 0.3s"
+                                _hover={{ transform: 'scale(1.2)' }}
+                              />
+                            ))}
+                          </HStack>
+                        </>
+                      ) : (
+                        <Box
+                          position="absolute"
+                          top={0}
+                          left={0}
+                          right={0}
+                          bottom={0}
+                          bg="white"
+                          zIndex={1000}
+                          display="flex"
+                          flexDirection="column"
+                          alignItems="center"
+                          justifyContent="center"
+                          overflow="hidden"
+                          height="100%"
+                          width="100%"
+                          animation="fadeIn 0.3s ease-out"
+                          sx={{
+                            '@keyframes fadeIn': {
+                              '0%': { opacity: 0 },
+                              '100%': { opacity: 1 },
+                            },
+                          }}
+                        >
+                          <Typography 
+                            variant="body2" 
+                            color="text.secondary" 
+                            sx={{ 
+                              position: 'absolute', 
+                              top: 10, 
+                              left: 0, 
+                              right: 0, 
+                              textAlign: 'center',
+                              px: 2,
+                              py: 1,
+                              bg: 'rgba(0,0,0,0.05)',
+                              borderRadius: 'md',
+                              mx: 2,
+                              maxWidth: '80%',
+                              margin: '0 auto'
+                            }}
+                          >
+                            Vertical swipes are locked until you submit your rating
+                          </Typography>
+                          <Suspense fallback={<CircularProgress size={60} color="primary" />}>
+                            <MobileRatingScale 
+                              selectedRating={selectedRating} 
+                              onRate={handleRate} 
+                              onCancel={handleCancelRating}
+                            />
+                          </Suspense>
+                        </Box>
+                      )}
+                    </>
+                  ) : (
+                    <Center h="100%">
                       <Text fontSize="lg" color="gray.500" fontFamily={'Matt Bold'}>
                         No entities available for the selected filter
                       </Text>
-                    )}
+                    </Center>
+                  )}
+                  
+                  {/* Entity Info Overlay */}
+                  {currentEntity && !showRatingModal && (
                     <HStack
                       position="absolute"
-                      bottom="2"
-                      left="2"
+                      bottom="40px"
+                      left="10px"
                       color="white"
                       bg="rgba(0, 0, 0, 0.6)"
                       px={2}
                       py={1}
                       borderRadius="md"
                       spacing={1}
+                      zIndex="10"
+                      backdropFilter="blur(4px)"
+                      transition="all 0.2s"
+                      _hover={{ transform: 'translateY(-2px)' }}
                     >
                       <Text fontSize="sm" fontWeight="medium" fontFamily={'Matt Bold'}>
                         {currentEntity ? currentEntity.name : 'No User'}
@@ -490,112 +899,155 @@ function GetRanked() {
                         </Text>
                       )}
                     </HStack>
-                    {currentEntity && currentEntity.type === 'streamer' && (
+                  )}
+                  
+                  {/* Influencer Badge */}
+                  {currentEntity && currentEntity.type === 'streamer' && !showRatingModal && (
+                    <Box 
+                      position="absolute" 
+                      top="10px" 
+                      right="10px" 
+                      zIndex="10"
+                      transition="all 0.2s"
+                      _hover={{ transform: 'scale(1.1)' }}
+                    >
                       <InfluencerGalleryCircle name={currentEntity.name} />
-                    )}
-                  </Box>
-                </ProfilePopover>
-              </Flex>
+                    </Box>
+                  )}
+                </Box>
+              </ProfilePopover>
             </Box>
 
-            {/* Navigation Buttons */}
-            <Flex
-              display={{ base: 'none', md: 'flex' }}
-              direction={{ base: 'column', md: 'row' }}
-              gap={4}
-              justify="center"
-              mt={{ base: 2, md: 0 }}
-            >
-              {entitiesList.length > 0 && (
-                <>
-                  <Button
-                    colorScheme="teal"
-                    size="lg"
-                    px={8}
-                    onClick={handlePreviousPhoto}
-                    _hover={{ transform: { md: 'scale(1.05)' } }}
-                    width={{ base: '100%', md: 'auto' }}
-                    fontFamily={'Matt Bold'}
-                  >
-                    Previous Photo
-                  </Button>
-                  <Button
-                    colorScheme="teal"
-                    size="lg"
-                    px={8}
-                    onClick={handleNextPhoto}
-                    _hover={{ transform: { md: 'scale(1.05)' } }}
-                    width={{ base: '100%', md: 'auto' }}
-                    fontFamily={'Matt Bold'}
-                  >
-                    Next Photo
-                  </Button>
-                </>
-              )}
-            </Flex>
-
-            {/* Rating Scale */}
-            <Suspense fallback={<Spinner />}>
-              <Box
-                w="100%"
-                bg="white"
-                p={{ base: 4, md: 6 }}
-                borderRadius="2xl"
-                boxShadow={{ md: 'xl' }}
-              >
-                {currentEntity ? (
-                  <RatingScale key={ratingKey} onRate={handleRatingSubmit} />
-                ) : (
-                  <Text>No entities available for the selected filter.</Text>
-                )}
-              </Box>
-            </Suspense>
+            {/* Rating Scale - Only show on desktop */}
+            {!isMobile && (
+              <Suspense fallback={<Spinner />}>
+                <Box
+                  w="100%"
+                  bg="white"
+                  p={{ base: 4, md: 6 }}
+                  borderRadius="2xl"
+                  boxShadow={{ md: 'xl' }}
+                  transition="all 0.3s"
+                  _hover={{ transform: 'translateY(-2px)', boxShadow: '2xl' }}
+                >
+                  {currentEntity ? (
+                    <RatingScale key={ratingKey} onRate={handleRatingSubmit} />
+                  ) : (
+                    <Text>No entities available for the selected filter.</Text>
+                  )}
+                </Box>
+              </Suspense>
+            )}
           </VStack>
 
-          {/* Mobile Arrow Controls */}
-          {isMobile && entitiesList.length > 0 && (
-            <>
-              <IconButton
-                aria-label="Previous Photo"
-                position="fixed"
-                bottom="10px"
-                left="10px"
-                size="lg"
-                colorScheme="teal"
-                onClick={handlePreviousPhoto}
-                zIndex="1000"
-                rounded="full"
-                style={{
-                  backgroundColor: 'rgba(0, 128, 128, 0.3)',
-                  marginBottom: 55,
+          {/* Mobile Settings Icon for Gender Filter */}
+          {isMobile && (
+            <IconButton
+              aria-label="Gender Filter"
+              position="fixed"
+              bottom="10px"
+              right="10px"
+              size="lg"
+              colorScheme="teal"
+              onClick={() => setShowGenderFilter(!showGenderFilter)}
+              zIndex="1000"
+              rounded="full"
+              style={{
+                backgroundColor: 'rgba(0, 128, 128, 0.3)',
+                marginBottom: 55,
+                backdropFilter: 'blur(4px)',
+                transition: 'all 0.2s',
+              }}
+              _hover={{
+                backgroundColor: 'rgba(0, 128, 128, 0.5)',
+                transform: 'scale(1.1)',
+              }}
+              variant="ghost"
+            >
+              <Settings />
+            </IconButton>
+          )}
+
+          {/* Mobile Gender Filter Modal */}
+          {isMobile && showGenderFilter && (
+            <Box
+              sx={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                bgcolor: 'rgba(0, 0, 0, 0.5)',
+                zIndex: 1000,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backdropFilter: 'blur(4px)',
+                animation: 'fadeIn 0.3s ease-out',
+                '@keyframes fadeIn': {
+                  '0%': { opacity: 0 },
+                  '100%': { opacity: 1 },
+                },
+              }}
+            >
+              <Box
+                sx={{
+                  width: '90%',
+                  maxWidth: '400px',
+                  bgcolor: 'white',
+                  borderRadius: '12px',
+                  p: 3,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+                  animation: 'slideUp 0.3s ease-out',
+                  '@keyframes slideUp': {
+                    '0%': { transform: 'translateY(20px)', opacity: 0 },
+                    '100%': { transform: 'translateY(0)', opacity: 1 },
+                  },
                 }}
-                variant="ghost"
               >
-                <ArrowLeft />
-              </IconButton>
-              <IconButton
-                aria-label="Next Photo"
-                position="fixed"
-                bottom="10px"
-                right="10px"
-                size="lg"
-                colorScheme="teal"
-                onClick={handleNextPhoto}
-                zIndex="1000"
-                rounded="full"
-                style={{
-                  backgroundColor: 'rgba(0, 128, 128, 0.3)',
-                  marginBottom: 55,
-                }}
-                variant="ghost"
-              >
-                <ArrowRight />
-              </IconButton>
-            </>
+                <Typography variant="h6" fontWeight="bold" fontFamily="Matt Bold" textAlign="center">
+                  Filter by Gender
+                </Typography>
+                <Divider sx={{ my: 1 }} />
+                <Stack spacing={2}>
+                  {['male', 'female', 'both'].map((gender) => (
+                    <Button
+                      key={gender}
+                      onClick={() => {
+                        setGenderFilter(gender);
+                        setShowGenderFilter(false);
+                      }}
+                      variant={genderFilter === gender ? 'contained' : 'outlined'}
+                      color="primary"
+                      fullWidth
+                      sx={{ 
+                        py: 1.5,
+                        fontFamily: 'Matt Bold',
+                        '&:hover': { transform: 'scale(1.02)' },
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {gender.charAt(0).toUpperCase() + gender.slice(1)}
+                    </Button>
+                  ))}
+                </Stack>
+                <Button
+                  onClick={() => setShowGenderFilter(false)}
+                  variant="outlined"
+                  color="secondary"
+                  fullWidth
+                  sx={{ mt: 2, py: 1.5 }}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            </Box>
           )}
         </Container>
       </Flex>
-      <Footer />
     </>
   );
 }

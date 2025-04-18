@@ -1,105 +1,140 @@
-import React, { useState, useEffect } from 'react';
-import { ChakraProvider, Button, Flex, Box, Text } from '@chakra-ui/react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
+import { ChakraProvider, Button, Flex, Box, Text, Spinner } from '@chakra-ui/react';
 import { system } from '@chakra-ui/react/preset';
-import VideoCall from './Pages/VideoCall';
-import CreateAccount from './Pages/CreateAccount';
-import SignIn from './Pages/SignIn';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { SnackbarProvider } from 'notistack';
 import PrivateRoute from './Pages/PrivateRoute';
-import TopRatedUsersTable from './Pages/TopRatedUsersTable';
-import Profile from './Pages/Profile/Profile';
-import HomeScreen from './Pages/HomeScreen';
-import Updates from './Pages/Updates';
-import GeoCall from './Pages/GeoCall';
-import TwoTruths from './Pages/TwoTruths';
-import GetRankedSelection from './Pages/GetRankedSelection';
-import GetRanked from './Pages/GetRanked';
-import InfluencerProfile from './Pages/Profile/InfluencerProfile';
-import Analyze from './Pages/Analyze';
-import Admin from './Pages/Admin/Admin';
-import Looksmatch from './Pages/Looksmatch';
-import GamesSelection from './Pages/GamesSelection';
-import AnalyzeSelection from './Pages/AnalyzeSelection';
-import AutismAnalytic from './Pages/AutismAnalytic';
+
+// Lazy load components for better performance
+const VideoCall = lazy(() => import('./Pages/VideoCall'));
+const CreateAccount = lazy(() => import('./Pages/CreateAccount'));
+const SignIn = lazy(() => import('./Pages/SignIn'));
+const TopRatedUsersTable = lazy(() => import('./Pages/TopRatedUsersTable'));
+const Profile = lazy(() => import('./Pages/Profile/Profile'));
+const HomeScreen = lazy(() => import('./Pages/HomeScreen'));
+const Updates = lazy(() => import('./Pages/Updates'));
+const GeoCall = lazy(() => import('./Pages/GeoCall'));
+const TwoTruths = lazy(() => import('./Pages/TwoTruths'));
+const GetRankedSelection = lazy(() => import('./Pages/GetRankedSelection'));
+const GetRanked = lazy(() => import('./Pages/GetRanked'));
+const InfluencerProfile = lazy(() => import('./Pages/Profile/InfluencerProfile'));
+const Analyze = lazy(() => import('./Pages/Analyze'));
+const Admin = lazy(() => import('./Pages/Admin/Admin'));
+const Looksmatch = lazy(() => import('./Pages/Looksmatch'));
+const GamesSelection = lazy(() => import('./Pages/GamesSelection'));
+const AnalyzeSelection = lazy(() => import('./Pages/AnalyzeSelection'));
+const AutismAnalytic = lazy(() => import('./Pages/AutismAnalytic'));
+const GeekedGuess = lazy(() => import('./Pages/GeekedGuess'));
+
+// Loading component for Suspense
+const LoadingSpinner = () => (
+  <Flex justify="center" align="center" h="100vh">
+    <Spinner size="xl" />
+  </Flex>
+);
 
 function App() {
-  // State to show or hide the warning overlay
   const [showWarning, setShowWarning] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Check if the user has seen the warning before
   useEffect(() => {
-    const hasSeenWarning = localStorage.getItem('hasSeenWarning');
-    if (!hasSeenWarning) {
-      setShowWarning(true);
+    try {
+      const hasSeenWarning = localStorage.getItem('hasSeenWarning');
+      if (!hasSeenWarning) {
+        setShowWarning(true);
+      }
+    } catch (err) {
+      console.error('Error accessing localStorage:', err);
+      setError('Unable to access browser storage. Some features may be limited.');
     }
   }, []);
 
-  // Handle the button click to dismiss the warning
   const handleAcknowledge = () => {
-    localStorage.setItem('hasSeenWarning', 'true');
-    setShowWarning(false);
+    try {
+      localStorage.setItem('hasSeenWarning', 'true');
+      setShowWarning(false);
+    } catch (err) {
+      console.error('Error saving to localStorage:', err);
+      setError('Unable to save preferences. Some features may be limited.');
+    }
   };
+
+  // Error boundary component
+  if (error) {
+    return (
+      <Flex justify="center" align="center" h="100vh">
+        <Box p={4} bg="red.50" borderRadius="md">
+          <Text color="red.500">{error}</Text>
+        </Box>
+      </Flex>
+    );
+  }
 
   return (
     <ChakraProvider value={system}>
-      <Router>
-        <Routes>
-          <Route path="/createaccount" element={<CreateAccount />} />
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/leaderboard" element={<PrivateRoute><TopRatedUsersTable /></PrivateRoute>} />
-          <Route path="/video-chat" element={<PrivateRoute><VideoCall /></PrivateRoute>} />
-          <Route path="/" element={<Navigate to="/home" />} />
-          <Route path="/profile/:userId" element={<PrivateRoute><Profile /></PrivateRoute>} />
-          <Route path="/influencer-profile/:influencerId" element={<PrivateRoute><InfluencerProfile /></PrivateRoute>} />
-          <Route path="/home" element={<HomeScreen />} />
-          <Route path="/updates" element={<PrivateRoute><Updates /></PrivateRoute>} />
-          <Route path="/geo-locate" element={<PrivateRoute><GeoCall /></PrivateRoute>} />
-          <Route path="/two-truths" element={<PrivateRoute><TwoTruths /></PrivateRoute>} />
-          <Route path="/analysis" element={<PrivateRoute><Analyze /></PrivateRoute>} />
-          <Route path="/looksmatch" element={<PrivateRoute><Looksmatch /></PrivateRoute>} />
-          <Route path="/get-ranked-selection" element={<GetRankedSelection />} />
-          <Route path="/ranking" element={<GetRanked />} />
-          <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
-          <Route path="/games-selection" element={<PrivateRoute><GamesSelection /></PrivateRoute>} />
-          <Route path="/analyze-selection" element={<PrivateRoute><AnalyzeSelection /></PrivateRoute>} />
-          <Route path="/autism-analytic" element={<AutismAnalytic />} />
-        </Routes>
+      <SnackbarProvider maxSnack={3}>
+        <Router>
+          <Suspense fallback={<LoadingSpinner />}>
+            <Routes>
+              <Route path="/createaccount" element={<CreateAccount />} />
+              <Route path="/signin" element={<SignIn />} />
+              <Route path="/leaderboard" element={<PrivateRoute><TopRatedUsersTable /></PrivateRoute>} />
+              <Route path="/video-chat" element={<PrivateRoute><VideoCall /></PrivateRoute>} />
+              <Route path="/" element={<Navigate to="/home" />} />
+              <Route path="/profile/:userId" element={<PrivateRoute><Profile /></PrivateRoute>} />
+              <Route path="/influencer-profile/:influencerId" element={<PrivateRoute><InfluencerProfile /></PrivateRoute>} />
+              <Route path="/home" element={<HomeScreen />} />
+              <Route path="/updates" element={<PrivateRoute><Updates /></PrivateRoute>} />
+              <Route path="/geo-locate" element={<PrivateRoute><GeoCall /></PrivateRoute>} />
+              <Route path="/two-truths" element={<PrivateRoute><TwoTruths /></PrivateRoute>} />
+              <Route path="/analysis" element={<PrivateRoute><Analyze /></PrivateRoute>} />
+              <Route path="/looksmatch" element={<PrivateRoute><Looksmatch /></PrivateRoute>} />
+              <Route path="/get-ranked-selection" element={<GetRankedSelection />} />
+              <Route path="/ranking" element={<GetRanked />} />
+              <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
+              <Route path="/games-selection" element={<PrivateRoute><GamesSelection /></PrivateRoute>} />
+              <Route path="/analyze-selection" element={<PrivateRoute><AnalyzeSelection /></PrivateRoute>} />
+              <Route path="/autism-analytic" element={<AutismAnalytic />} />
+              <Route path="/geeked-guess" element={<GeekedGuess />} />
+              <Route path="*" element={<Navigate to="/home" />} />
+            </Routes>
+          </Suspense>
 
-        {/* Custom warning overlay */}
-        {showWarning && (
-          <Flex
-            position="fixed"
-            top="0"
-            left="0"
-            width="100vw"
-            height="100vh"
-            alignItems="center"
-            justifyContent="center"
-            bg="rgba(0, 0, 0, 0.5)"
-            backdropFilter="blur(10px)"
-            zIndex="1000"
-          >
-            <Box
-              bg="white"
-              p="8"
-              borderRadius="md"
-              boxShadow="lg"
-              textAlign="center"
-              maxWidth="500px"
+          {showWarning && (
+            <Flex
+              position="fixed"
+              top="0"
+              left="0"
+              width="100vw"
+              height="100vh"
+              alignItems="center"
+              justifyContent="center"
+              bg="rgba(0, 0, 0, 0.5)"
+              backdropFilter="blur(10px)"
+              zIndex="1000"
             >
-              <Text fontSize="2xl" fontWeight="bold" mb="4">
-                Warning
-              </Text>
-              <Text mb="6">
-              This site facilitates video chatting but does not monitor or control user interactions. Users are fully responsible for their actions. We disclaim liability for any content shared. By using this service, you agree to comply with all laws and our terms. Report any issues immediately.
-              </Text>
-              <Button colorScheme="blue" onClick={handleAcknowledge}>
-                I understand
-              </Button>
-            </Box>
-          </Flex>
-        )}
-      </Router>
+              <Box
+                bg="white"
+                p="8"
+                borderRadius="md"
+                boxShadow="lg"
+                textAlign="center"
+                maxWidth="500px"
+              >
+                <Text fontSize="2xl" fontWeight="bold" mb="4">
+                  Warning
+                </Text>
+                <Text mb="6">
+                  This site facilitates video chatting but does not monitor or control user interactions. Users are fully responsible for their actions. We disclaim liability for any content shared. By using this service, you agree to comply with all laws and our terms. Report any issues immediately.
+                </Text>
+                <Button colorScheme="blue" onClick={handleAcknowledge}>
+                  I understand
+                </Button>
+              </Box>
+            </Flex>
+          )}
+        </Router>
+      </SnackbarProvider>
     </ChakraProvider>
   );
 }
