@@ -39,7 +39,7 @@ import {
   LinearProgress,
 } from '@mui/material';
 
-// Define tests, weights, and params
+// Define tests, weights, and params (Undereyes removed)
 const tests = [
   'Carnal Tilt',
   'Facial Thirds',
@@ -64,7 +64,7 @@ const weights = {
 const testParams = {
   'Carnal Tilt': 10,
   'Facial Thirds': 100,
-  'Cheekbone Location': 0.5,
+  'Cheekbone Location': 11,  // Adjusted for exponential decay to rate cheekbones accurately
   'Interocular Distance': 200,
   'Jawline': 200,
   'Chin': 300,
@@ -84,21 +84,18 @@ const calculateEyeCenter = (landmarks, indices) => {
 };
 
 // FaceScanner Component
-const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender, onLightingQualityChange }) => {
+const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const intervalRef = useRef(null);
   const scoresRef = useRef([]);
+  const [isCollecting, setIsCollecting] = useState(false);
+  const [countdown, setCountdown] = useState(null);
+  const [score, setScore] = useState(0);
   const [faceDetected, setFaceDetected] = useState(false);
   const [webcamError, setWebcamError] = useState(null);
   const [model, setModel] = useState(null);
   const [videoReady, setVideoReady] = useState(false);
-  const [isCollecting, setIsCollecting] = useState(false);
-  const [countdown, setCountdown] = useState(null);
-  const [facePosition, setFacePosition] = useState({ x: 0, y: 0, scale: 1 });
-  const [lightingQuality, setLightingQuality] = useState(0);
-  const [canStartScan, setCanStartScan] = useState(false);
-  const lastUpdateRef = useRef(0);
   const toast = useToast();
 
   useEffect(() => {
@@ -125,12 +122,14 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender
             if (isMounted) {
               setVideoReady(true);
               videoRef.current.play().catch((err) => {
+                console.error('Error playing video:', err);
                 if (isMounted) setWebcamError('Failed to play video');
               });
             }
           };
         }
       } catch (err) {
+        console.error('Error accessing webcam:', err);
         if (isMounted) setWebcamError('Webcam access denied or unavailable');
       }
     };
@@ -148,161 +147,139 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender
   useEffect(() => {
     if (!model || !videoReady) return;
 
-    const detectFace = async () => {
+    const detectFaceAndRunTest = async () => {
       if (!videoRef.current || !canvasRef.current) return;
-
-      const now = Date.now();
-      if (now - lastUpdateRef.current < 100) return;
-      lastUpdateRef.current = now;
 
       const video = videoRef.current;
       const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      const predictions = await model.estimateFaces(video);
       const context = canvas.getContext('2d');
+      context.clearRect(0, 0, canvas.width, canvas.height);
 
-      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-      }
+      context.strokeStyle = 'white';
+      context.lineWidth = 1;
+      context.beginPath();
+      context.moveTo(canvas.width / 2, 0);
+      context.lineTo(canvas.width / 2, canvas.height);
+      context.moveTo(0, canvas.height / 2);
+      context.lineTo(canvas.width, canvas.height / 2);
+      context.ellipse(canvas.width / 2, canvas.height / 2, canvas.width / 6, canvas.height / 4, 0, 0, 2 * Math.PI);
+      context.stroke();
 
-      requestAnimationFrame(() => {
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      if (predictions.length > 0) {
+        setFaceDetected(true);
+        onFaceDetected(true);
+        const face = predictions[0];
+        const landmarks = face.scaledMesh;
+        const boundingBox = face.boundingBox;
 
-        if (now % 500 < 100) {
-          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-          const data = imageData.data;
-          let totalBrightness = 0;
-          const sampleSize = Math.floor(data.length / 4);
-          for (let i = 0; i < data.length; i += 16) {
-            totalBrightness += (data[i] + data[i + 1] + data[i + 2]) / 3;
-          }
-          const averageBrightness = totalBrightness / (sampleSize / 4);
-          const rawBrightness = (averageBrightness / 255) * 100;
-          setLightingQuality(Math.min(100, Math.max(0, rawBrightness)));
-        }
+        // Collect measurements
+        const leftEyeCenter = calculateEyeCenter(landmarks, [33, 133, 159, 145]);
+        const rightEyeCenter = calculateEyeCenter(landmarks, [362, 263, 386, 374]);
+        const dy = rightEyeCenter[1] - leftEyeCenter[1];
+        const dx = rightEyeCenter[0] - leftEyeCenter[0];
+        const carnalTiltAngle = Math.abs(Math.atan2(dy, dx) * (180 / Math.PI));
 
-        context.strokeStyle = 'white';
-        context.lineWidth = 1;
-        context.beginPath();
-        context.moveTo(canvas.width / 2, 0);
-        context.lineTo(canvas.width / 2, canvas.height);
-        context.moveTo(0, canvas.height / 2);
-        context.lineTo(canvas.width, canvas.height / 2);
-        context.ellipse(canvas.width / 2, canvas.height / 2, canvas.width / 6, canvas.height / 4, 0, 0, 2 * Math.PI);
-        context.stroke();
+        const forehead = landmarks[10][1];
+        const noseBase = landmarks[1][1];
+        const chin = landmarks[152][1];
+        const upperThirdLength = noseBase - forehead;
+        const lowerThirdLength = chin - noseBase;
+        const facialThirdsRatio = upperThirdLength / lowerThirdLength;
 
-        model.estimateFaces(video).then(predictions => {
-          if (predictions.length > 0) {
-            console.log('Face detected in frame');
-            const face = predictions[0];
-            const landmarks = face.scaledMesh;
-            const boundingBox = face.boundingBox;
+        const leftCheekHeight = landmarks[116][1];
+        const rightCheekHeight = landmarks[345][1];
+        const cheekHeightDiff = Math.abs(leftCheekHeight - rightCheekHeight);
 
-            const faceCenterX = (boundingBox.topLeft[0] + boundingBox.bottomRight[0]) / 2;
-            const faceCenterY = (boundingBox.topLeft[1] + boundingBox.bottomRight[1]) / 2;
-            const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
-            const faceHeight = boundingBox.bottomRight[1] - boundingBox.topLeft[1];
-            const idealFaceWidth = canvas.width * 0.4;
-            const idealFaceHeight = canvas.height * 0.5;
+        const eyeDistance = Math.sqrt((rightEyeCenter[0] - leftEyeCenter[0]) ** 2 + (rightEyeCenter[1] - leftEyeCenter[1]) ** 2);
+        const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
+        const interocularRatio = eyeDistance / faceWidth;
 
-            const scaleX = faceWidth / idealFaceWidth;
-            const scaleY = faceHeight / idealFaceHeight;
-            const scale = Math.min(scaleX, scaleY);
+        const jawWidth = Math.abs(landmarks[123][0] - landmarks[352][0]);
+        const jawRatio = jawWidth / faceWidth;
 
-            const offsetX = (faceCenterX - canvas.width / 2) / (canvas.width / 2);
-            const offsetY = (faceCenterY - canvas.height / 2) / (canvas.height / 2);
+        const noseTip = landmarks[1][1];
+        const mouth = landmarks[17][1];
+        const chinLength = chin - mouth;
+        const faceHeight = chin - noseTip;
+        const chinRatio = chinLength / faceHeight;
 
-            if (
-              Math.abs(offsetX - facePosition.x) > 0.05 ||
-              Math.abs(offsetY - facePosition.y) > 0.05 ||
-              Math.abs(scale - facePosition.scale) > 0.05
-            ) {
-              setFacePosition({ x: offsetX, y: offsetY, scale });
-            }
+        const noseWidth = Math.abs(landmarks[129][0] - landmarks[358][0]);
+        const noseRatio = noseWidth / faceWidth;
 
-            const isFaceCentered = Math.abs(offsetX) < 0.2 && Math.abs(offsetY) < 0.2;
-            const isFaceScaled = Math.abs(scale - 1) < 0.2;
-            const isLightingGood = lightingQuality > 50;
-            const canStart = isFaceCentered && isFaceScaled && isLightingGood;
-            console.log('Face position check:', { isFaceCentered, isFaceScaled, isLightingGood, canStart });
-            setCanStartScan(canStart);
+        const measurements = {
+          leftEyeCenter,
+          rightEyeCenter,
+          carnalTiltAngle,
+          upperThirdLength,
+          lowerThirdLength,
+          facialThirdsRatio,
+          leftCheekHeight,
+          rightCheekHeight,
+          cheekHeightDiff,
+          eyeDistance,
+          faceWidth,
+          interocularRatio,
+          jawWidth,
+          jawRatio,
+          chinLength,
+          faceHeight,
+          chinRatio,
+          noseWidth,
+          noseRatio
+        };
 
-            if (!faceDetected) {
-              console.log('Setting faceDetected to true');
-              setFaceDetected(true);
-              onFaceDetected(true);
-            }
-
-            context.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-            context.lineWidth = 2;
-            context.beginPath();
-            context.arc(canvas.width / 2, canvas.height / 2, 5, 0, 2 * Math.PI);
-            context.stroke();
-
-            if (isCollecting) {
-              if (isFaceCentered && isFaceScaled && isLightingGood) {
-                const testScores = {};
-                tests.forEach((test) => {
-                  if (test !== 'Overall') {
-                    testScores[test] = runTest(test, landmarks, boundingBox, testParams, gender);
-                  }
-                });
-                scoresRef.current.push(testScores);
-              }
-            }
-
-            landmarks.forEach(([x, y], index) => {
-              if (index % 3 === 0) {
-                context.beginPath();
-                context.arc(x, y, 1, 0, 2 * Math.PI);
-                context.fillStyle = 'red';
-                context.fill();
-              }
-            });
-          } else if (faceDetected) {
-            setFaceDetected(false);
-            onFaceDetected(false);
-            setFacePosition({ x: 0, y: 0, scale: 1 });
-            setCanStartScan(false);
+        const testScores = {};
+        tests.forEach((test) => {
+          if (test !== 'Overall') {
+            testScores[test] = runTest(test, landmarks, boundingBox, testParams, gender);
           }
         });
-      });
+        const totalWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
+        const currentScore =
+          totalWeight > 0
+            ? Object.entries(testScores).reduce(
+                (sum, [test, score]) => sum + score * weights[test],
+                0
+              ) / totalWeight
+            : 0;
+        setScore(currentScore);
+        if (isCollecting) {
+          scoresRef.current.push({ ...testScores, measurements });
+          console.log('Test scores collected:', testScores);
+        }
+
+        landmarks.forEach(([x, y]) => {
+          context.beginPath();
+          context.arc(x, y, 1, 0, 2 * Math.PI);
+          context.fillStyle = 'red';
+          context.fill();
+        });
+      } else {
+        setFaceDetected(false);
+        onFaceDetected(false);
+        setScore(0);
+      }
     };
 
-    intervalRef.current = setInterval(detectFace, 100);
+    intervalRef.current = setInterval(detectFaceAndRunTest, 500);
     return () => clearInterval(intervalRef.current);
-  }, [model, videoReady, isCollecting, onFaceDetected, gender, faceDetected, facePosition, lightingQuality]);
+  }, [model, videoReady, isCollecting, onFaceDetected, gender]);
 
   useEffect(() => {
     if (!startScanning || isCollecting) return;
 
-    const isFaceCentered = Math.abs(facePosition.x) < 0.2 && Math.abs(facePosition.y) < 0.2;
-    const isFaceScaled = Math.abs(facePosition.scale - 1) < 0.2;
-    const isLightingGood = lightingQuality > 50;
-
-    if (!isFaceCentered || !isFaceScaled || !isLightingGood) {
-      toast({
-        title: 'Please adjust your position',
-        description: !isFaceCentered ? 'Center your face in the frame' :
-                    !isFaceScaled ? 'Move closer or further from the camera' :
-                    'Improve lighting conditions',
-        status: 'warning',
-        duration: 3000,
-      });
-      return;
-    }
-
-    console.log('Starting countdown process');
     setIsCollecting(true);
     setCountdown(5);
     scoresRef.current = [];
+    console.log('Countdown started');
 
     const interval = setInterval(() => {
-      console.log('Countdown tick');
       setCountdown((prev) => {
-        console.log('Previous countdown value:', prev);
         const next = prev - 1;
-        console.log('Next countdown value:', next);
         if (next <= 0) {
           clearInterval(interval);
           return 0;
@@ -312,32 +289,19 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender
     }, 1000);
 
     const timer = setTimeout(() => {
-      console.log('Scanning complete, timer finished');
       setIsCollecting(false);
       setCountdown(null);
       const collectedScores = scoresRef.current;
-      console.log('Collected scores length:', collectedScores.length);
-      if (collectedScores.length < 30) { // Assuming ~10fps, expect ~50 frames, require at least 30
-        toast({
-          title: 'Error',
-          description: 'Insufficient valid frames. Please keep your face centered and lighting good during the scan.',
-          status: 'error',
-          duration: 5000,
-        });
-        onScanningComplete(null);
-      } else {
+      if (collectedScores.length > 0) {
         const testAverages = {};
         tests.forEach((test) => {
           if (test !== 'Overall') {
             const testScores = collectedScores.map((scores) => scores[test]);
-            const sortedScores = [...testScores].sort((a, b) => a - b);
-            const q1 = sortedScores[Math.floor(sortedScores.length * 0.25)];
-            const q3 = sortedScores[Math.floor(sortedScores.length * 0.75)];
-            const iqr = q3 - q1;
-            const lowerBound = q1 - 1.5 * iqr;
-            const upperBound = q3 + 1.5 * iqr;
-            const filteredScores = testScores.filter(score => score >= lowerBound && score <= upperBound);
-            const average = filteredScores.reduce((sum, val) => sum + val, 0) / filteredScores.length;
+            const sortedTestScores = [...testScores].sort((a, b) => a - b);
+            const n = sortedTestScores.length;
+            const k = Math.ceil(n / 4);
+            const trimmedScores = sortedTestScores.slice(k);
+            const average = trimmedScores.reduce((sum, val) => sum + val, 0) / trimmedScores.length;
             testAverages[test] = average;
           }
         });
@@ -350,7 +314,11 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender
               ) / totalWeight
             : 0;
 
-        onScanningComplete({ finalScore, testScores: testAverages });
+        const measurements = collectedScores[collectedScores.length - 1].measurements;
+        
+        onScanningComplete({ finalScore, testAverages, measurements });
+      } else {
+        onScanningComplete(null);
       }
       scoresRef.current = [];
     }, 5000);
@@ -359,13 +327,7 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender
       clearInterval(interval);
       clearTimeout(timer);
     };
-  }, [startScanning, onScanningComplete, facePosition, lightingQuality, toast]);
-
-  useEffect(() => {
-    if (lightingQuality !== undefined) {
-      onLightingQualityChange?.(lightingQuality);
-    }
-  }, [lightingQuality, onLightingQualityChange]);
+  }, [startScanning, onScanningComplete]);
 
   if (webcamError) {
     toast({ title: 'Error', description: webcamError, status: 'error', duration: 5000, isClosable: true });
@@ -403,34 +365,11 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender
           Scanning: {countdown}
         </Text>
       )}
-      {!isCollecting && faceDetected && (
-        <VStack
-          position="absolute"
-          bottom="20px"
-          left="50%"
-          transform="translateX(-50%)"
-          spacing={2}
-          bg="rgba(0,0,0,0.7)"
-          p={3}
-          borderRadius="md"
-        >
-          <Text color="white" fontSize="sm">
-            {lightingQuality < 50 ? '💡 Improve lighting' :
-             Math.abs(facePosition.x) > 0.2 ? '← Center face horizontally →' :
-             Math.abs(facePosition.y) > 0.2 ? '↑ Center face vertically ↓' :
-             Math.abs(facePosition.scale - 1) > 0.2 ? '↔ Adjust distance from camera' :
-             '✓ Ready to scan'}
-          </Text>
-          <Text color="white" fontSize="sm">
-            Lighting: {lightingQuality.toFixed(0)}%
-          </Text>
-        </VStack>
-      )}
     </Box>
   );
 };
 
-// UserInfoForm Component with Name Field
+// Updated UserInfoForm Component with Name Field
 const UserInfoForm = ({ onSubmit, gender }) => {
   const [unitSystem, setUnitSystem] = useState('imperial');
   const [name, setName] = useState('');
@@ -633,11 +572,11 @@ const UserInfoForm = ({ onSubmit, gender }) => {
   );
 };
 
-// ResultDisplay Component with tierLabel
+// Updated ResultDisplay Component with tierLabel
 const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
   const cappedRating = Math.min(Math.max(rating, 15.69), 99);
   const cappedFaceRating = faceRating ? Math.min(Math.max(faceRating, 15.69), 99) : null;
-
+  
   return (
     <MuiBox
       position="relative"
@@ -655,6 +594,7 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
       }}
     >
       <MuiBox display="flex" flexDirection="row" alignItems="center" gap={4}>
+        {/* Overall Rating */}
         <MuiBox position="relative" display="inline-flex">
           <CircularProgress
             variant="determinate"
@@ -687,6 +627,8 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
             </Typography>
           </MuiBox>
         </MuiBox>
+
+        {/* Face Rating */}
         {cappedFaceRating !== null && (
           <MuiBox position="relative" display="inline-flex">
             <CircularProgress
@@ -722,6 +664,7 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
           </MuiBox>
         )}
       </MuiBox>
+      
       <Typography variant="h6" component="div" color="textPrimary" mt={2}>
         {tierLabel}
       </Typography>
@@ -729,10 +672,11 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
   );
 };
 
-// DetailedResultDisplay Component
+// Updated DetailedResultDisplay Component
 const DetailedResultDisplay = ({ overallRating, faceRating, testScores }) => {
   const navigate = useNavigate();
 
+  // Define tier based on overallRating
   let tierLabel, tierDescription;
   if (overallRating >= 80) {
     tierLabel = 'Very Attractive';
@@ -775,10 +719,10 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores }) => {
           Your Attractiveness Rating
         </Typography>
         <MuiBox display="flex" justifyContent="center" mb={4}>
-          <ResultDisplay
-            rating={overallRating}
-            tierLabel={tierLabel}
-            faceRating={faceRating}
+          <ResultDisplay 
+            rating={overallRating} 
+            tierLabel={tierLabel} 
+            faceRating={faceRating} 
           />
         </MuiBox>
         <Typography variant="body1" color="textSecondary" align="center">
@@ -788,6 +732,7 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores }) => {
     );
   }
 
+  // Sort features by score to show most significant ones first
   const sortedFeatures = Object.entries(testScores)
     .sort(([, a], [, b]) => b - a)
     .map(([test, score]) => ({
@@ -802,10 +747,10 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores }) => {
         Your Attractiveness Rating
       </Typography>
       <MuiBox display="flex" justifyContent="center" mb={4}>
-        <ResultDisplay
-          rating={overallRating}
-          tierLabel={tierLabel}
-          faceRating={faceRating}
+        <ResultDisplay 
+          rating={overallRating} 
+          tierLabel={tierLabel} 
+          faceRating={faceRating} 
         />
       </MuiBox>
 
@@ -991,7 +936,6 @@ const AttractivenessRatingProcess = () => {
   const [userInfo, setUserInfo] = useState(null);
   const [faceDetected, setFaceDetected] = useState(false);
   const [updated, setUpdated] = useState(false);
-  const [lightingQuality, setLightingQuality] = useState(0);
   const { rating: rawRating } = useAttractivenessRating(userInfo);
   const cappedRating = rawRating !== null ? Math.min(Math.max(rawRating, 15.69), 99) : null;
   const toast = useToast();
@@ -1047,7 +991,9 @@ const AttractivenessRatingProcess = () => {
             { merge: true }
           );
           setUpdated(true);
+          console.log('User document updated:', { ranking: dividedRating, timesRanked: 1 });
         } catch (error) {
+          console.error('Error updating user document:', error);
           toast({
             title: 'Error',
             description: 'Failed to save your rating. Please try again.',
@@ -1079,7 +1025,9 @@ const AttractivenessRatingProcess = () => {
             timestamp: new Date(),
           };
           await addDoc(collection(db, 'faceRatings'), ratingData);
+          console.log('Rating saved to Firestore:', ratingData);
         } catch (error) {
+          console.error('Error saving rating to Firestore:', error);
           toast({
             title: 'Error',
             description: 'Failed to save rating to Firestore.',
@@ -1117,22 +1065,10 @@ const AttractivenessRatingProcess = () => {
   };
 
   const handleStartScanning = () => {
-    console.log('handleStartScanning called, faceDetected:', faceDetected);
     if (faceDetected) {
-      if (lightingQuality < 50) {
-        console.log('Lighting quality too low:', lightingQuality);
-        toast({
-          title: 'Error',
-          description: 'Lighting is too low. Please improve lighting conditions before scanning.',
-          status: 'warning',
-          duration: 3000,
-        });
-        return;
-      }
-      console.log('Setting currentStep to scanning');
       setCurrentStep('scanning');
+      console.log('Starting scanning');
     } else {
-      console.log('Face not detected');
       toast({
         title: 'Error',
         description: 'Face not detected. Please adjust your position.',
@@ -1144,23 +1080,79 @@ const AttractivenessRatingProcess = () => {
 
   const handleScanningComplete = (result) => {
     if (result !== null) {
-      const { finalScore, testScores } = result;
+      const { finalScore, testAverages, measurements } = result;
+      const transformedTestScores = {};
+      for (const [test, score] of Object.entries(testAverages)) {
+        const propName = testToPropMap[test];
+        if (propName) {
+          transformedTestScores[propName] = score;
+        }
+      }
+
+      // Calculate face rating (average of all facial feature scores)
+      const faceRating = Object.values(testAverages).reduce((sum, score) => sum + score, 0) / Object.keys(testAverages).length;
+
+      // Log all measurements at once
+      console.log('=== Face Measurements Summary ===');
+      console.log('Carnal Tilt:', {
+        leftEyeCenter: measurements?.leftEyeCenter,
+        rightEyeCenter: measurements?.rightEyeCenter,
+        angleInDegrees: measurements?.carnalTiltAngle
+      });
+      console.log('Facial Thirds:', {
+        upperThirdLength: measurements?.upperThirdLength,
+        lowerThirdLength: measurements?.lowerThirdLength,
+        actualRatio: measurements?.facialThirdsRatio,
+        idealRatio: gender === 'W' ? 1.2 : 1.0
+      });
+      console.log('Cheekbones:', {
+        leftCheekHeight: measurements?.leftCheekHeight,
+        rightCheekHeight: measurements?.rightCheekHeight,
+        heightDifference: measurements?.cheekHeightDiff
+      });
+      console.log('Interocular Distance:', {
+        eyeDistance: measurements?.eyeDistance,
+        faceWidth: measurements?.faceWidth,
+        actualRatio: measurements?.interocularRatio,
+        idealRatio: gender === 'W' ? 0.47 : 0.45
+      });
+      console.log('Jawline:', {
+        jawWidth: measurements?.jawWidth,
+        faceWidth: measurements?.faceWidth,
+        actualRatio: measurements?.jawRatio,
+        idealRatio: gender === 'W' ? 0.7 : 0.8
+      });
+      console.log('Chin:', {
+        chinLength: measurements?.chinLength,
+        faceHeight: measurements?.faceHeight,
+        actualRatio: measurements?.chinRatio,
+        idealRatio: gender === 'W' ? 0.3 : 0.33
+      });
+      console.log('Nose:', {
+        noseWidth: measurements?.noseWidth,
+        faceWidth: measurements?.faceWidth,
+        actualRatio: measurements?.noseRatio,
+        idealRatio: gender === 'W' ? 0.23 : 0.25
+      });
+      console.log('=== End Measurements Summary ===');
+
       if (scanFor === 'myself') {
         setUserInfo((prev) => ({
           ...prev,
-          testScores,
-          faceRating: finalScore,
+          ...transformedTestScores,
+          testScores: testAverages,
+          faceRating: faceRating
         }));
         setCurrentStep('result');
       } else {
         setFaceScore(finalScore + 7);
-        setTestScores(testScores);
+        setTestScores(testAverages);
         setCurrentStep('form');
       }
     } else {
       toast({
         title: 'Error',
-        description: 'Scan failed. Please try again.',
+        description: 'No face detected during scan. Please try again.',
         status: 'error',
         duration: 3000,
       });
@@ -1170,6 +1162,7 @@ const AttractivenessRatingProcess = () => {
 
   const handleFaceDetected = (detected) => {
     setFaceDetected(detected);
+    console.log('Face detected:', detected);
   };
 
   const handleFormSubmit = (info) => {
@@ -1180,9 +1173,10 @@ const AttractivenessRatingProcess = () => {
         transformedTestScores[propName] = score;
       }
     }
-
+    
+    // Calculate face rating (average of all facial feature scores)
     const faceRating = Object.values(testScores).reduce((sum, score) => sum + score, 0) / Object.keys(testScores).length;
-
+    
     const updatedUserInfo = {
       name: info.name,
       ...transformedTestScores,
@@ -1195,6 +1189,7 @@ const AttractivenessRatingProcess = () => {
       faceRating: faceRating
     };
     setUserInfo(updatedUserInfo);
+    console.log('Form submitted, userInfo:', updatedUserInfo);
     setCurrentStep('result');
   };
 
@@ -1266,7 +1261,6 @@ const AttractivenessRatingProcess = () => {
               onScanningComplete={handleScanningComplete}
               onFaceDetected={handleFaceDetected}
               gender={userInfo?.gender || gender}
-              onLightingQualityChange={setLightingQuality}
             />
           </Box>
         )}
@@ -1274,7 +1268,8 @@ const AttractivenessRatingProcess = () => {
           <VStack spacing={4} align="center">
             <Heading size="lg">Let's Scan the Face!</Heading>
             <Text fontSize="lg" textAlign="center">
-              Position your face in front of the camera and click 'Start Scanning' when ready. The scan will take 5 seconds.
+              Put the face in front of the camera. Make sure there is good lighting and keep the face straight. Results can
+              vary slightly if not. The scan starts when we see the face!
             </Text>
             <Button
               colorScheme="teal"
@@ -1335,6 +1330,11 @@ const calculateTiltScore = (landmarks, multiplier, gender) => {
   const dy = rightEyeCenter[1] - leftEyeCenter[1];
   const dx = rightEyeCenter[0] - leftEyeCenter[0];
   const angle = Math.abs(Math.atan2(dy, dx) * (180 / Math.PI));
+  console.log('Face Measurements - Carnal Tilt:', {
+    leftEyeCenter,
+    rightEyeCenter,
+    angleInDegrees: angle
+  });
   const adjustedMultiplier = gender === 'W' ? multiplier * 0.8 : multiplier;
   return Math.max(0, 100 - angle * adjustedMultiplier);
 };
@@ -1347,6 +1347,12 @@ const calculateFacialThirdsScore = (landmarks, multiplier, gender) => {
   const third2 = chin - noseBase;
   const idealRatio = gender === 'M' ? 1.0 : 1.2;
   const ratio = third1 / third2;
+  console.log('Face Measurements - Facial Thirds:', {
+    upperThirdLength: third1,
+    lowerThirdLength: third2,
+    actualRatio: ratio,
+    idealRatio
+  });
   const deviation = Math.abs(1 - ratio / idealRatio);
   return Math.max(0, 100 - deviation * multiplier);
 };
@@ -1355,8 +1361,12 @@ const calculateCheekboneScore = (landmarks, multiplier, gender) => {
   const cheekLeft = landmarks[116][1];
   const cheekRight = landmarks[345][1];
   const diff = Math.abs(cheekLeft - cheekRight);
-  const adjustedMultiplier = gender === 'W' ? multiplier * 1.2 : multiplier;
-  return Math.max(0, 100 - diff * adjustedMultiplier);
+  const forehead = landmarks[10][1];
+  const chin = landmarks[152][1];
+  const faceHeight = chin - forehead;
+  const normalized_diff = faceHeight > 0 ? diff / faceHeight : 0;
+  const score = 100 * Math.exp(-multiplier * normalized_diff);
+  return score;
 };
 
 const calculateInterocularDistanceScore = (landmarks, boundingBox, multiplier, gender) => {
@@ -1366,6 +1376,12 @@ const calculateInterocularDistanceScore = (landmarks, boundingBox, multiplier, g
   const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
   const ratio = distance / faceWidth;
   const idealRatio = gender === 'M' ? 0.45 : 0.47;
+  console.log('Face Measurements - Interocular Distance:', {
+    eyeDistance: distance,
+    faceWidth,
+    actualRatio: ratio,
+    idealRatio
+  });
   const deviation = Math.abs(ratio - idealRatio);
   return Math.max(0, 100 - deviation * multiplier);
 };
@@ -1375,6 +1391,12 @@ const calculateJawlineScore = (landmarks, boundingBox, multiplier, gender) => {
   const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
   const ratio = jawWidth / faceWidth;
   const idealRatio = gender === 'M' ? 0.8 : 0.7;
+  console.log('Face Measurements - Jawline:', {
+    jawWidth,
+    faceWidth,
+    actualRatio: ratio,
+    idealRatio
+  });
   const deviation = Math.abs(ratio - idealRatio);
   return Math.max(0, 100 - deviation * multiplier);
 };
@@ -1387,6 +1409,12 @@ const calculateChinScore = (landmarks, multiplier, gender) => {
   const faceHeight = chin - noseTip;
   const ratio = chinLength / faceHeight;
   const idealRatio = gender === 'M' ? 0.33 : 0.3;
+  console.log('Face Measurements - Chin:', {
+    chinLength,
+    faceHeight,
+    actualRatio: ratio,
+    idealRatio
+  });
   const deviation = Math.abs(ratio - idealRatio);
   return Math.max(0, 100 - deviation * multiplier);
 };
@@ -1396,6 +1424,12 @@ const calculateNoseScore = (landmarks, boundingBox, multiplier, gender) => {
   const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
   const ratio = noseWidth / faceWidth;
   const idealRatio = gender === 'M' ? 0.25 : 0.23;
+  console.log('Face Measurements - Nose:', {
+    noseWidth,
+    faceWidth,
+    actualRatio: ratio,
+    idealRatio
+  });
   const deviation = Math.abs(ratio - idealRatio);
   return Math.max(0, 100 - deviation * multiplier);
 };
