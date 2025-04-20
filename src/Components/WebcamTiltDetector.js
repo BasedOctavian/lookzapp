@@ -37,7 +37,10 @@ import {
   TableHead,
   TableRow,
   LinearProgress,
+  Slider,
+  Divider,
 } from '@mui/material';
+import { RestartAlt as RestartAltIcon } from '@mui/icons-material';
 
 // Define tests, weights, and params (Undereyes removed)
 const tests = [
@@ -52,13 +55,13 @@ const tests = [
 ];
 
 const weights = {
-  'Carnal Tilt': 3,
+  'Carnal Tilt': 3.0,
   'Facial Thirds': 1.5,
-  'Cheekbone Location': 2,
-  'Interocular Distance': 1,
+  'Cheekbone Location': 2.0,
+  'Interocular Distance': 1.0,
   'Jawline': 1.5,
   'Chin': 1.5,
-  'Nose': 1,
+  'Nose': 1.0,
 };
 
 const testParams = {
@@ -672,19 +675,322 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
   );
 };
 
+// New component for adjusting physical attributes
+const PhysicalAttributesAdjuster = ({ userInfo, onAttributesChange }) => {
+  const [attributes, setAttributes] = useState({
+    height: userInfo?.height || 70,
+    weight: userInfo?.weight || 150,
+    eyeColor: userInfo?.eyeColor || 'brown',
+    gender: userInfo?.gender || 'M'
+  });
+
+  // Update attributes when userInfo changes
+  useEffect(() => {
+    if (userInfo) {
+      setAttributes({
+        height: userInfo.height || 70,
+        weight: userInfo.weight || 150,
+        eyeColor: userInfo.eyeColor || 'brown',
+        gender: userInfo.gender || 'M'
+      });
+    }
+  }, [userInfo]);
+
+  const handleChange = (field, value) => {
+    const newAttributes = { ...attributes, [field]: value };
+    setAttributes(newAttributes);
+    onAttributesChange(newAttributes);
+  };
+
+  const handleReset = () => {
+    if (userInfo) {
+      setAttributes({
+        height: userInfo.height || 70,
+        weight: userInfo.weight || 150,
+        eyeColor: userInfo.eyeColor || 'brown',
+        gender: userInfo.gender || 'M'
+      });
+      onAttributesChange({
+        height: userInfo.height || 70,
+        weight: userInfo.weight || 150,
+        eyeColor: userInfo.eyeColor || 'brown',
+        gender: userInfo.gender || 'M'
+      });
+    }
+  };
+
+  return (
+    <MuiBox sx={{ mt: 4, mb: 6 }}>
+      <Typography variant="h5" gutterBottom fontWeight="bold" align="center">
+        Adjust Physical Attributes
+      </Typography>
+      <Typography variant="body2" color="textSecondary" align="center" mb={3}>
+        Experiment with different physical attributes to see how they affect your overall rating
+      </Typography>
+      
+      <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
+        <Stack spacing={3}>
+          <MuiFormControl>
+            <MuiFormLabel>Gender</MuiFormLabel>
+            <MuiSelect
+              value={attributes.gender}
+              onChange={(e) => handleChange('gender', e.target.value)}
+              fullWidth
+            >
+              <MenuItem value="M">Male</MenuItem>
+              <MenuItem value="W">Female</MenuItem>
+            </MuiSelect>
+          </MuiFormControl>
+          
+          <MuiFormControl>
+            <MuiFormLabel>Height (inches)</MuiFormLabel>
+            <Slider
+              value={attributes.height}
+              onChange={(e, value) => handleChange('height', value)}
+              min={50}
+              max={90}
+              step={0.5}
+              marks={[
+                { value: 50, label: '4\'2"' },
+                { value: 60, label: '5\'0"' },
+                { value: 70, label: '5\'10"' },
+                { value: 80, label: '6\'8"' }
+              ]}
+              valueLabelDisplay="auto"
+              valueLabelFormat={(value) => {
+                const feet = Math.floor(value / 12);
+                const inches = value % 12;
+                return `${feet}'${inches}"`;
+              }}
+            />
+          </MuiFormControl>
+          
+          <MuiFormControl>
+            <MuiFormLabel>Weight (pounds)</MuiFormLabel>
+            <Slider
+              value={attributes.weight}
+              onChange={(e, value) => handleChange('weight', value)}
+              min={80}
+              max={300}
+              step={1}
+              marks={[
+                { value: 80, label: '80' },
+                { value: 150, label: '150' },
+                { value: 220, label: '220' },
+                { value: 300, label: '300' }
+              ]}
+              valueLabelDisplay="auto"
+            />
+          </MuiFormControl>
+          
+          <MuiFormControl>
+            <MuiFormLabel>Eye Color</MuiFormLabel>
+            <MuiSelect
+              value={attributes.eyeColor}
+              onChange={(e) => handleChange('eyeColor', e.target.value)}
+              fullWidth
+            >
+              <MenuItem value="blue">Blue</MenuItem>
+              <MenuItem value="green">Green</MenuItem>
+              <MenuItem value="brown">Brown</MenuItem>
+            </MuiSelect>
+          </MuiFormControl>
+          
+          <MuiBox display="flex" justifyContent="center" mt={2}>
+            <MuiButton 
+              variant="outlined" 
+              color="secondary" 
+              onClick={handleReset}
+              startIcon={<RestartAltIcon />}
+            >
+              Reset to Original Values
+            </MuiButton>
+          </MuiBox>
+        </Stack>
+      </Paper>
+    </MuiBox>
+  );
+};
+
+// New component for adjusting feature weights
+const WeightAdjuster = ({ weights, onWeightsChange }) => {
+  const [localWeights, setLocalWeights] = useState(weights);
+  const [originalWeights, setOriginalWeights] = useState(weights);
+  const [physicalWeights, setPhysicalWeights] = useState({
+    eyeColor: 3.0,
+    height: 16,
+    weight: 20
+  });
+  const [originalPhysicalWeights, setOriginalPhysicalWeights] = useState({
+    eyeColor: 3.0,
+    height: 16,
+    weight: 20
+  });
+
+  // Update local weights when props change
+  useEffect(() => {
+    setLocalWeights(weights);
+    setOriginalWeights(weights);
+  }, [weights]);
+
+  const handleWeightChange = (feature, value) => {
+    const newWeights = { ...localWeights, [feature]: value };
+    setLocalWeights(newWeights);
+    onWeightsChange(newWeights, physicalWeights);
+  };
+
+  const handlePhysicalWeightChange = (feature, value) => {
+    const newPhysicalWeights = { ...physicalWeights, [feature]: value };
+    setPhysicalWeights(newPhysicalWeights);
+    onWeightsChange(localWeights, newPhysicalWeights);
+  };
+
+  const handleReset = () => {
+    setLocalWeights(originalWeights);
+    setPhysicalWeights(originalPhysicalWeights);
+    onWeightsChange(originalWeights, originalPhysicalWeights);
+  };
+
+  return (
+    <MuiBox sx={{ mt: 4, mb: 6 }}>
+      <Typography variant="h5" gutterBottom fontWeight="bold" align="center">
+        Adjust Feature Weights
+      </Typography>
+      <Typography variant="body2" color="textSecondary" align="center" mb={3}>
+        Experiment with different weights to see how they affect the overall rating
+      </Typography>
+      
+      <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
+        <Typography variant="h6" gutterBottom fontWeight="medium" align="center">
+          Facial Features
+        </Typography>
+        <Stack spacing={3}>
+          {Object.entries(localWeights).map(([feature, weight]) => (
+            <MuiFormControl key={feature}>
+              <MuiFormLabel>{feature} Weight</MuiFormLabel>
+              <Slider
+                value={weight}
+                onChange={(e, value) => handleWeightChange(feature, value)}
+                min={0.5}
+                max={5}
+                step={0.1}
+                marks={[
+                  { value: 0.5, label: '0.5' },
+                  { value: 1, label: '1.0' },
+                  { value: 2, label: '2.0' },
+                  { value: 3, label: '3.0' },
+                  { value: 4, label: '4.0' },
+                  { value: 5, label: '5.0' }
+                ]}
+                valueLabelDisplay="auto"
+              />
+            </MuiFormControl>
+          ))}
+        </Stack>
+
+        <Divider sx={{ my: 3 }} />
+
+        <Typography variant="h6" gutterBottom fontWeight="medium" align="center">
+          Physical Attributes
+        </Typography>
+        <Stack spacing={3}>
+          <MuiFormControl>
+            <MuiFormLabel>Eye Color Weight</MuiFormLabel>
+            <Slider
+              value={physicalWeights.eyeColor}
+              onChange={(e, value) => handlePhysicalWeightChange('eyeColor', value)}
+              min={0}
+              max={30}
+              step={1}
+              marks={[
+                { value: 0, label: '0' },
+                { value: 3, label: '3' },
+                { value: 10, label: '10' },
+                { value: 20, label: '20' },
+                { value: 30, label: '30' }
+              ]}
+              valueLabelDisplay="auto"
+            />
+          </MuiFormControl>
+          
+          <MuiFormControl>
+            <MuiFormLabel>Height Weight</MuiFormLabel>
+            <Slider
+              value={physicalWeights.height}
+              onChange={(e, value) => handlePhysicalWeightChange('height', value)}
+              min={0}
+              max={50}
+              step={1}
+              marks={[
+                { value: 0, label: '0' },
+                { value: 10, label: '10' },
+                { value: 16, label: '16' },
+                { value: 20, label: '20' },
+                { value: 30, label: '30' },
+                { value: 40, label: '40' },
+                { value: 50, label: '50' }
+              ]}
+              valueLabelDisplay="auto"
+            />
+          </MuiFormControl>
+          
+          <MuiFormControl>
+            <MuiFormLabel>Weight Weight</MuiFormLabel>
+            <Slider
+              value={physicalWeights.weight}
+              onChange={(e, value) => handlePhysicalWeightChange('weight', value)}
+              min={0}
+              max={50}
+              step={1}
+              marks={[
+                { value: 0, label: '0' },
+                { value: 10, label: '10' },
+                { value: 20, label: '20' },
+                { value: 30, label: '30' },
+                { value: 40, label: '40' },
+                { value: 50, label: '50' }
+              ]}
+              valueLabelDisplay="auto"
+            />
+          </MuiFormControl>
+        </Stack>
+          
+        <MuiBox display="flex" justifyContent="center" mt={3}>
+          <MuiButton 
+            variant="outlined" 
+            color="secondary" 
+            onClick={handleReset}
+            startIcon={<RestartAltIcon />}
+          >
+            Reset to Original Weights
+          </MuiButton>
+        </MuiBox>
+      </Paper>
+    </MuiBox>
+  );
+};
+
 // Updated DetailedResultDisplay Component
-const DetailedResultDisplay = ({ overallRating, faceRating, testScores }) => {
+const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo }) => {
   const navigate = useNavigate();
+  const [adjustedRating, setAdjustedRating] = useState(overallRating);
+  const [adjustedUserInfo, setAdjustedUserInfo] = useState(userInfo);
+  const [adjustedWeights, setAdjustedWeights] = useState(weights);
+  const [adjustedPhysicalWeights, setAdjustedPhysicalWeights] = useState({
+    eyeColor: 3.0,
+    height: 16,
+    weight: 20
+  });
 
   // Define tier based on overallRating
   let tierLabel, tierDescription;
-  if (overallRating >= 80) {
+  if (adjustedRating >= 80) {
     tierLabel = 'Very Attractive';
     tierDescription = 'Your features align closely with conventional standards of attractiveness.';
-  } else if (overallRating >= 60) {
+  } else if (adjustedRating >= 60) {
     tierLabel = 'Attractive';
     tierDescription = 'Your features are generally appealing and well-proportioned.';
-  } else if (overallRating >= 40) {
+  } else if (adjustedRating >= 40) {
     tierLabel = 'Average';
     tierDescription = 'Your features are typical and neither particularly striking nor unattractive.';
   } else {
@@ -710,6 +1016,127 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores }) => {
     'Jawline': 'Evaluates the definition and symmetry of the jawline.',
     'Chin': 'Assesses the shape and proportion of the chin.',
     'Nose': 'Analyzes the size and shape of the nose relative to the face.'
+  };
+
+  // Function to calculate rating based on attributes and weights
+  const calculateRating = (userData, featureWeights, physicalWeights) => {
+    if (!userData) return overallRating;
+    
+    // Extract basic properties
+    const {
+      height,
+      weight,
+      gender,
+      eyeColor,
+      testScores
+    } = userData;
+
+    // Handle testScores if available
+    let carnalTilt, cheekbone, chin, facialThirds, interocular, jawline, nose;
+    
+    if (testScores) {
+      // Map testScores to the required properties
+      carnalTilt = testScores['Carnal Tilt'] || 0;
+      facialThirds = testScores['Facial Thirds'] || 0;
+      cheekbone = testScores['Cheekbone Location'] || 0;
+      interocular = testScores['Interocular Distance'] || 0;
+      jawline = testScores['Jawline'] || 0;
+      chin = testScores['Chin'] || 0;
+      nose = testScores['Nose'] || 0;
+    } else {
+      // Check for individual properties
+      carnalTilt = userData.carnalTilt || 0;
+      cheekbone = userData.cheekbone || 0;
+      chin = userData.chin || 0;
+      facialThirds = userData.facialThirds || 0;
+      interocular = userData.interocular || 0;
+      jawline = userData.jawline || 0;
+      nose = userData.nose || 0;
+    }
+
+    // Calculate weighted face rating
+    const totalWeight = Object.values(featureWeights).reduce((sum, w) => sum + w, 0);
+    const faceRating = totalWeight > 0
+      ? (
+          carnalTilt * featureWeights['Carnal Tilt'] +
+          facialThirds * featureWeights['Facial Thirds'] +
+          cheekbone * featureWeights['Cheekbone Location'] +
+          interocular * featureWeights['Interocular Distance'] +
+          jawline * featureWeights['Jawline'] +
+          chin * featureWeights['Chin'] +
+          nose * featureWeights['Nose']
+        ) / totalWeight
+      : 0;
+
+    let eyeColorScore;
+    switch (eyeColor.toLowerCase()) {
+      case 'blue':
+      case 'green':
+        eyeColorScore = 10;
+        break;
+      case 'brown':
+        eyeColorScore = 0;
+        break;
+      default:
+        eyeColorScore = -5;
+    }
+
+    let heightScore;
+    if (gender === 'M') {
+      if (height <= 66) heightScore = 5;
+      else if (height <= 72) heightScore = 5 + ((height - 66) / 6) * 15;
+      else heightScore = Math.min(30, 20 + ((height - 72) / 6) * 10);
+    } else if (gender === 'W') {
+      if (height <= 60) heightScore = 5;
+      else if (height <= 66) heightScore = 5 + ((height - 60) / 6) * 15;
+      else heightScore = Math.max(5, 20 - ((height - 66) / 6) * 5);
+    }
+
+    let weightScore;
+    if (gender === 'M') {
+      const idealWeight = (height - 60) * 7 + 110;
+      const deviation = Math.abs(weight - idealWeight);
+      weightScore = Math.max(0, 20 - 0.5 * deviation);
+    } else if (gender === 'W') {
+      const idealWeight = 100 + 5 * (height - 60);
+      const deviation = Math.abs(weight - idealWeight);
+      weightScore = Math.max(0, 20 - 0.4 * deviation);
+    }
+
+    const bonus = (gender === 'M' && height > 72 && (eyeColor === 'blue' || eyeColor === 'green')) ? 5 : 0;
+    const faceRatingWeight = gender === 'W' ? 0.7 : 0.65;
+    
+    // Apply physical weights
+    const weightedEyeColorScore = eyeColorScore * (physicalWeights.eyeColor / 10);
+    const weightedHeightScore = heightScore * (physicalWeights.height / 20);
+    const weightedWeightScore = weightScore * (physicalWeights.weight / 20);
+    
+    const rawScore = (faceRatingWeight * faceRating) + weightedEyeColorScore + weightedHeightScore + weightedWeightScore + bonus;
+    const finalRating = 100 / (1 + Math.exp(-0.1 * (rawScore - 50)));
+
+    return Math.min(Math.max(finalRating, 15.69), 99);
+  };
+
+  const handleAttributesChange = (newAttributes) => {
+    // Create a new userInfo object with the adjusted attributes
+    const updatedUserInfo = {
+      ...userInfo,
+      ...newAttributes
+    };
+    setAdjustedUserInfo(updatedUserInfo);
+    
+    // Calculate new rating based on adjusted attributes and weights
+    const newRating = calculateRating(updatedUserInfo, adjustedWeights, adjustedPhysicalWeights);
+    setAdjustedRating(newRating);
+  };
+
+  const handleWeightsChange = (newWeights, newPhysicalWeights) => {
+    setAdjustedWeights(newWeights);
+    setAdjustedPhysicalWeights(newPhysicalWeights);
+    
+    // Recalculate rating with new weights
+    const newRating = calculateRating(adjustedUserInfo, newWeights, newPhysicalWeights);
+    setAdjustedRating(newRating);
   };
 
   if (!testScores) {
@@ -748,7 +1175,7 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores }) => {
       </Typography>
       <MuiBox display="flex" justifyContent="center" mb={4}>
         <ResultDisplay 
-          rating={overallRating} 
+          rating={adjustedRating} 
           tierLabel={tierLabel} 
           faceRating={faceRating} 
         />
@@ -848,6 +1275,18 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores }) => {
         </Stack>
       </MuiBox>
 
+      {/* Physical Attributes Adjuster */}
+      <PhysicalAttributesAdjuster 
+        userInfo={userInfo} 
+        onAttributesChange={handleAttributesChange} 
+      />
+
+      {/* Weight Adjuster */}
+      <WeightAdjuster 
+        weights={weights} 
+        onWeightsChange={handleWeightsChange} 
+      />
+
       <MuiBox sx={{ mt: 4, mb: 6 }}>
         <Typography variant="h5" gutterBottom fontWeight="bold" align="center">
           What This Means
@@ -870,10 +1309,30 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores }) => {
             {Object.entries(featureDescriptions).map(([test, description]) => (
               <li key={test}>
                 <Typography variant="body1">
-                  <strong>{test}:</strong> {description} (Weight: {weights[test]})
+                  <strong>{test}:</strong> {description} (Weight: {adjustedWeights[test]})
                 </Typography>
               </li>
             ))}
+          </ul>
+          <Typography variant="body1" paragraph mt={2}>
+            Physical attributes also contribute to the overall rating:
+          </Typography>
+          <ul>
+            <li>
+              <Typography variant="body1">
+                <strong>Eye Color:</strong> Blue and green eyes receive a bonus (Weight: {adjustedPhysicalWeights.eyeColor})
+              </Typography>
+            </li>
+            <li>
+              <Typography variant="body1">
+                <strong>Height:</strong> Optimal height ranges vary by gender (Weight: {adjustedPhysicalWeights.height})
+              </Typography>
+            </li>
+            <li>
+              <Typography variant="body1">
+                <strong>Weight:</strong> Ideal weight is calculated based on height and gender (Weight: {adjustedPhysicalWeights.weight})
+              </Typography>
+            </li>
           </ul>
           <Typography variant="body1" color="textSecondary" mt={2}>
             *Note: This is an experimental estimation based on facial features and not a definitive measure of attractiveness. Beauty is subjective and multifaceted.*
@@ -1294,6 +1753,7 @@ const AttractivenessRatingProcess = () => {
               overallRating={cappedRating}
               faceRating={userInfo.faceRating}
               testScores={userInfo.testScores}
+              userInfo={userInfo}
             />
           </VStack>
         )}
