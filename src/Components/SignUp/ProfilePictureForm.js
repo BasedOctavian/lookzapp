@@ -135,14 +135,14 @@ function ProfilePictureForm({
 
   return (
     <Stack spacing={2}>
-      <FormControl>
-        <FormLabel>Profile Picture (optional)</FormLabel>
+      <FormControl required>
+        <FormLabel>Profile Picture</FormLabel>
         <Button variant="outlined" component="label">
           Upload Profile Picture
           <input type="file" accept="image/*" hidden onChange={handleFileChange} />
         </Button>
         <FormHelperText>
-          Please upload a picture with a clearly detectable face.
+          Please upload a picture with a clearly detectable face. This is required.
         </FormHelperText>
         {isDetecting && (
           <Stack direction="row" spacing={1} alignItems="center">
@@ -171,7 +171,7 @@ function ProfilePictureForm({
           size="large"
           fullWidth
           onClick={onSubmit}
-          disabled={isLoading || isDetecting}
+          disabled={isLoading || isDetecting || !profilePictureFile}
         >
           {isLoading ? 'Signing Up...' : 'Sign Up'}
         </Button>

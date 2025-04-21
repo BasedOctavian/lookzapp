@@ -95,6 +95,10 @@ function CreateAccount() {
   };
 
   const handleSubmit = async () => {
+    if (!formData.profilePictureFile) {
+      showSnackbar('Please upload a profile picture', 'error');
+      return;
+    }
     setIsLoading(true);
     try {
       const totalHeightInches =
