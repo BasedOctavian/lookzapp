@@ -11,7 +11,7 @@ const Footer = () => {
           © {currentYear} Lookzapp. All rights reserved.
         </Text>
         <Text fontSize="sm" color="gray.500" fontFamily={'Matt Light'}>
-          Operated by Octavian
+          Octavian Ideas
         </Text>
       </Stack>
     </Box>

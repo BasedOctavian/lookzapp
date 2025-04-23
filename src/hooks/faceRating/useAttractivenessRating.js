@@ -8,13 +8,13 @@ export function useAttractivenessRating(doc) {
       return null;
     }
 
-    // Check for required basic properties
-    const requiredBasicProps = [
-      'height', 'weight', 'gender', 'eyeColor'
+    const requiredProps = [
+      'height', 'weight', 'gender', 'eyeColor',
+      'carnalTilt', 'cheekbone', 'chin', 'facialThirds',
+      'interocular', 'jawline', 'nose'
     ];
 
-    // Check for missing or invalid basic properties
-    for (const prop of requiredBasicProps) {
+    for (const prop of requiredProps) {
       if (doc[prop] === undefined) {
         console.error(`Missing property: ${prop}`, doc);
         return null;
@@ -29,65 +29,47 @@ export function useAttractivenessRating(doc) {
       return null;
     }
 
-    // Extract basic properties
     const {
       height,
       weight,
       gender,
-      eyeColor
+      eyeColor,
+      carnalTilt,
+      cheekbone,
+      chin,
+      facialThirds,
+      interocular,
+      jawline,
+      nose
     } = doc;
 
-    // Handle testScores if available
-    let carnalTilt, cheekbone, chin, facialThirds, interocular, jawline, nose;
-    
-    if (doc.testScores) {
-      // Map testScores to the required properties
-      carnalTilt = doc.testScores['Carnal Tilt'] || 0;
-      facialThirds = doc.testScores['Facial Thirds'] || 0;
-      cheekbone = doc.testScores['Cheekbone Location'] || 0;
-      interocular = doc.testScores['Interocular Distance'] || 0;
-      jawline = doc.testScores['Jawline'] || 0;
-      chin = doc.testScores['Chin'] || 0;
-      nose = doc.testScores['Nose'] || 0;
+    // Calculate face rating
+    let faceRating;
+    if (gender === 'M') {
+      // Weighted average for men
+      faceRating = (
+        (carnalTilt * 0.05) +
+        (cheekbone * 0.3) +
+        (chin * 0.3) +
+        (facialThirds * 0.15) +
+        (interocular * 0.05) +
+        (jawline * 0.15) +
+        (nose * 0.05)
+      );
     } else {
-      // Check for individual properties
-      const requiredTestProps = [
-        'carnalTilt', 'cheekbone', 'chin', 'facialThirds',
-        'interocular', 'jawline', 'nose'
-      ];
-      
-      for (const prop of requiredTestProps) {
-        if (doc[prop] === undefined) {
-          console.error(`Missing property: ${prop}`, doc);
-          return null;
-        }
-        if (typeof doc[prop] !== 'number') {
-          console.error(`Property ${prop} must be a number`, doc);
-          return null;
-        }
-      }
-      
-      // Extract individual test properties
-      carnalTilt = doc.carnalTilt;
-      cheekbone = doc.cheekbone;
-      chin = doc.chin;
-      facialThirds = doc.facialThirds;
-      interocular = doc.interocular;
-      jawline = doc.jawline;
-      nose = doc.nose;
+      // Simple average for women
+      faceRating = (
+        carnalTilt +
+        cheekbone +
+        chin +
+        facialThirds +
+        interocular +
+        jawline +
+        nose
+      ) / 7;
     }
 
-    // Proceed with rating calculation
-    const faceRating = (
-      carnalTilt +
-      cheekbone +
-      chin +
-      facialThirds +
-      interocular +
-      jawline +
-      nose
-    ) / 7;
-
+    // Calculate eye color score
     let eyeColorScore;
     switch (eyeColor.toLowerCase()) {
       case 'blue':
@@ -101,34 +83,47 @@ export function useAttractivenessRating(doc) {
         eyeColorScore = -5;
     }
 
-    let heightScore;
+    // Calculate BMI
+    const BMI = (weight / (height * height)) * 703;
+
+    // Calculate physical rating
+    let physicalRating;
     if (gender === 'M') {
-      if (height <= 66) heightScore = 5;
-      else if (height <= 72) heightScore = 5 + ((height - 66) / 6) * 15;
-      else heightScore = Math.min(30, 20 + ((height - 72) / 6) * 10);
+      const idealBMI = 23.5;
+      const sigma = 2.5;
+      let physiqueScore = 30 * Math.exp(-Math.pow(BMI - idealBMI, 2) / (2 * sigma * sigma));
+      // Apply harsh penalty for men under 66 inches
+      if (height < 66) {
+        physiqueScore *= 0.3; // 70% reduction
+      }
+      const heightBonus = Math.min(10, Math.max(0, (height - 66) / 6 * 5));
+      physicalRating = physiqueScore + heightBonus;
     } else if (gender === 'W') {
-      if (height <= 60) heightScore = 5;
-      else if (height <= 66) heightScore = 5 + ((height - 60) / 6) * 15;
-      else heightScore = Math.max(5, 20 - ((height - 66) / 6) * 5);
+      const idealBMI = 20.5;
+      const sigma = 2.0;
+      let physiqueScore = 30 * Math.exp(-Math.pow(BMI - idealBMI, 2) / (2 * sigma * sigma));
+      // Apply harsh penalty for women over 71 inches
+      if (height > 71) {
+        physiqueScore *= 0.3; // 70% reduction
+      }
+      physicalRating = physiqueScore;
     }
 
-    let weightScore;
-    if (gender === 'M') {
-      const idealWeight = (height - 60) * 7 + 110;
-      const deviation = Math.abs(weight - idealWeight);
-      weightScore = Math.max(0, 20 - 0.5 * deviation);
-    } else if (gender === 'W') {
-      const idealWeight = 100 + 5 * (height - 60);
-      const deviation = Math.abs(weight - idealWeight);
-      weightScore = Math.max(0, 20 - 0.4 * deviation);
-    }
-
+    // Calculate bonus
     const bonus = (gender === 'M' && height > 72 && (eyeColor === 'blue' || eyeColor === 'green')) ? 5 : 0;
-    const faceRatingWeight = gender === 'W' ? 0.7 : 0.65;
-    const rawScore = (faceRatingWeight * faceRating) + eyeColorScore + heightScore + weightScore + bonus;
-    const finalRating = 100 / (1 + Math.exp(-0.1 * (rawScore - 50)));
 
-    return finalRating;
+    // Calculate overall rating
+    const faceRatingWeight = gender === 'male' ? 0.65 : 0.7; // Existing gender-specific weight
+    const physicalRatingWeight = 0.5; // New weight to reduce physical impact
+    const rawScore = (faceRatingWeight * faceRating) + (physicalRatingWeight * physicalRating) + eyeColorScore + bonus;
+    const overallRating = 100 / (1 + Math.exp(-0.1 * (rawScore - 50)));
+
+    // Log scores
+    console.log(`Face Rating: ${faceRating.toFixed(2)}`);
+    console.log(`Physical Rating: ${physicalRating.toFixed(2)}`);
+    console.log(`Overall Rating: ${overallRating.toFixed(2)}`);
+
+    return overallRating;
   }, [doc]);
 
   return { rating };
