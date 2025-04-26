@@ -30,7 +30,8 @@ import {
   Typography,
   Box as MuiBox,
   LinearProgress,
-  Slider,
+  InputAdornment,
+  Grid,
 } from '@mui/material';
 import { maleConfig } from '../hooks/faceRating/maleConfig';
 import { femaleConfig } from '../hooks/faceRating/femaleConfig';
@@ -556,7 +557,7 @@ const calculateTestScores = (measurements, params) => {
   return testScores;
 };
 
-// UserInfoForm Component
+// UserInfoForm Component with Improvements
 const UserInfoForm = ({ onSubmit, gender }) => {
   const [unitSystem, setUnitSystem] = useState('imperial');
   const [name, setName] = useState('');
@@ -566,6 +567,7 @@ const UserInfoForm = ({ onSubmit, gender }) => {
   const [heightInches, setHeightInches] = useState('');
   const [heightCm, setHeightCm] = useState('');
   const [weightValue, setWeightValue] = useState('');
+  const [errors, setErrors] = useState({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'error' });
 
   const ethnicityMap = {
@@ -608,24 +610,37 @@ const UserInfoForm = ({ onSubmit, gender }) => {
     setHeightInches('');
     setHeightCm('');
     setWeightValue('');
+    setErrors({});
   }, [unitSystem]);
 
-  const handleSubmit = () => {
-    if (!name || !ethnicity || !eyeColor) {
-      setSnackbar({ open: true, message: 'All fields are required', severity: 'error' });
-      return;
-    }
+  const validateForm = () => {
+    const newErrors = {};
+    if (!name) newErrors.name = 'Name is required';
+    if (!ethnicity) newErrors.ethnicity = 'Ethnicity is required';
+    if (!eyeColor) newErrors.eyeColor = 'Eye color is required';
 
     if (unitSystem === 'imperial') {
-      if (!heightFeet || !heightInches || !weightValue) {
-        setSnackbar({ open: true, message: 'Height and weight are required', severity: 'error' });
-        return;
-      }
+      const feet = parseFloat(heightFeet);
+      const inches = parseFloat(heightInches);
+      const weight = parseFloat(weightValue);
+      if (!heightFeet || isNaN(feet) || feet < 4 || feet > 7) newErrors.heightFeet = 'Feet must be between 4 and 7';
+      if (!heightInches || isNaN(inches) || inches < 0 || inches >= 12) newErrors.heightInches = 'Inches must be between 0 and 11';
+      if (!weightValue || isNaN(weight) || weight < 80 || weight > 400) newErrors.weight = 'Weight must be between 80 and 400 lbs';
     } else {
-      if (!heightCm || !weightValue) {
-        setSnackbar({ open: true, message: 'Height and weight are required', severity: 'error' });
-        return;
-      }
+      const cm = parseFloat(heightCm);
+      const kg = parseFloat(weightValue);
+      if (!heightCm || isNaN(cm) || cm < 120 || cm > 210) newErrors.heightCm = 'Height must be between 120 and 210 cm';
+      if (!weightValue || isNaN(kg) || kg < 36 || kg > 180) newErrors.weight = 'Weight must be between 36 and 180 kg';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = () => {
+    if (!validateForm()) {
+      setSnackbar({ open: true, message: 'Please correct the errors in the form', severity: 'error' });
+      return;
     }
 
     let totalHeightInches, totalWeightPounds;
@@ -633,19 +648,11 @@ const UserInfoForm = ({ onSubmit, gender }) => {
       const feet = parseFloat(heightFeet);
       const inches = parseFloat(heightInches);
       const weight = parseFloat(weightValue);
-      if (isNaN(feet) || isNaN(inches) || isNaN(weight)) {
-        setSnackbar({ open: true, message: 'Height and weight must be numbers', severity: 'error' });
-        return;
-      }
       totalHeightInches = feet * 12 + inches;
       totalWeightPounds = weight;
     } else {
       const cm = parseFloat(heightCm);
       const kg = parseFloat(weightValue);
-      if (isNaN(cm) || isNaN(kg)) {
-        setSnackbar({ open: true, message: 'Height and weight must be numbers', severity: 'error' });
-        return;
-      }
       totalHeightInches = cm / 2.54;
       totalWeightPounds = kg * 2.20462;
     }
@@ -670,6 +677,7 @@ const UserInfoForm = ({ onSubmit, gender }) => {
       weight: totalWeightPounds,
       gender: gender,
     });
+    setSnackbar({ open: true, message: 'Form submitted successfully', severity: 'success' });
   };
 
   const handleRevert = () => {
@@ -682,67 +690,135 @@ const UserInfoForm = ({ onSubmit, gender }) => {
     setHeightInches('');
     setHeightCm('');
     setWeightValue('');
+    setErrors({});
+    setSnackbar({ open: true, message: 'Form cleared', severity: 'info' });
   };
 
   return (
     <>
-      <Stack direction="column" spacing={2} alignItems="stretch">
-        <MuiFormControl>
-          <MuiFormLabel>Name</MuiFormLabel>
-          <TextField value={name} onChange={(e) => setName(e.target.value)} fullWidth />
+      <Stack spacing={4} sx={{ maxWidth: '600px', mx: 'auto' }}>
+        <MuiFormControl error={!!errors.name}>
+          <MuiFormLabel required>Name</MuiFormLabel>
+          <TextField
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Enter name"
+            autoFocus
+            helperText={errors.name}
+            fullWidth
+          />
         </MuiFormControl>
         <MuiFormControl>
           <MuiFormLabel>Unit System</MuiFormLabel>
-          <MuiSelect value={unitSystem} onChange={(e) => setUnitSystem(e.target.value)} fullWidth>
-            <MenuItem value="imperial">Imperial</MenuItem>
-            <MenuItem value="metric">Metric</MenuItem>
+          <MuiSelect
+            value={unitSystem}
+            onChange={(e) => setUnitSystem(e.target.value)}
+            fullWidth
+          >
+            <MenuItem value="imperial">Imperial (ft, in, lbs)</MenuItem>
+            <MenuItem value="metric">Metric (cm, kg)</MenuItem>
           </MuiSelect>
         </MuiFormControl>
-        <MuiFormControl>
-          <MuiFormLabel>Ethnicity</MuiFormLabel>
-          <MuiSelect value={ethnicity} onChange={(e) => setEthnicity(e.target.value)} displayEmpty fullWidth>
+        {unitSystem === 'imperial' ? (
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <MuiFormControl error={!!errors.heightFeet} fullWidth>
+                <MuiFormLabel required>Height (feet)</MuiFormLabel>
+                <TextField
+                  type="number"
+                  value={heightFeet}
+                  onChange={(e) => setHeightFeet(e.target.value)}
+                  InputProps={{ endAdornment: <InputAdornment position="end">ft</InputAdornment> }}
+                  helperText={errors.heightFeet}
+                />
+              </MuiFormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <MuiFormControl error={!!errors.heightInches} fullWidth>
+                <MuiFormLabel required>Height (inches)</MuiFormLabel>
+                <TextField
+                  type="number"
+                  value={heightInches}
+                  onChange={(e) => setHeightInches(e.target.value)}
+                  InputProps={{ endAdornment: <InputAdornment position="end">in</InputAdornment> }}
+                  helperText={errors.heightInches}
+                />
+              </MuiFormControl>
+            </Grid>
+          </Grid>
+        ) : (
+          <MuiFormControl error={!!errors.heightCm}>
+            <MuiFormLabel required>Height (cm)</MuiFormLabel>
+            <TextField
+              type="number"
+              value={heightCm}
+              onChange={(e) => setHeightCm(e.target.value)}
+              InputProps={{ endAdornment: <InputAdornment position="end">cm</InputAdornment> }}
+              helperText={errors.heightCm}
+              fullWidth
+            />
+          </MuiFormControl>
+        )}
+        <MuiFormControl error={!!errors.weight}>
+          <MuiFormLabel required>Weight</MuiFormLabel>
+          <TextField
+            type="number"
+            value={weightValue}
+            onChange={(e) => setWeightValue(e.target.value)}
+            InputProps={{
+              endAdornment: <InputAdornment position="end">{unitSystem === 'imperial' ? 'lbs' : 'kg'}</InputAdornment>,
+            }}
+            helperText={errors.weight}
+            fullWidth
+          />
+        </MuiFormControl>
+        <MuiFormControl error={!!errors.ethnicity}>
+          <MuiFormLabel required>Ethnicity</MuiFormLabel>
+          <MuiSelect
+            value={ethnicity}
+            onChange={(e) => setEthnicity(e.target.value)}
+            displayEmpty
+            fullWidth
+          >
             <MenuItem value="" disabled>Select ethnicity</MenuItem>
             {Object.keys(ethnicityMap).map((option) => (
               <MenuItem key={option} value={option}>{option}</MenuItem>
             ))}
           </MuiSelect>
+          <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+            Used to adjust analysis based on general trends.
+          </Typography>
+          {errors.ethnicity && <Typography color="error" variant="body2">{errors.ethnicity}</Typography>}
         </MuiFormControl>
-        <MuiFormControl>
-          <MuiFormLabel>Eye Color</MuiFormLabel>
-          <MuiSelect value={eyeColor} onChange={(e) => setEyeColor(e.target.value)} displayEmpty fullWidth>
+        <MuiFormControl error={!!errors.eyeColor}>
+          <MuiFormLabel required>Eye Color</MuiFormLabel>
+          <MuiSelect
+            value={eyeColor}
+            onChange={(e) => setEyeColor(e.target.value)}
+            displayEmpty
+            fullWidth
+          >
             <MenuItem value="" disabled>Select eye color</MenuItem>
             {Object.keys(eyeColorMap).map((option) => (
               <MenuItem key={option} value={option}>{option}</MenuItem>
             ))}
           </MuiSelect>
-        </MuiFormControl>
-        {unitSystem === 'imperial' ? (
-          <>
-            <MuiFormControl>
-              <MuiFormLabel>Height (feet)</MuiFormLabel>
-              <TextField type="number" value={heightFeet} onChange={(e) => setHeightFeet(e.target.value)} fullWidth />
-            </MuiFormControl>
-            <MuiFormControl>
-              <MuiFormLabel>Height (inches)</MuiFormLabel>
-              <TextField type="number" value={heightInches} onChange={(e) => setHeightInches(e.target.value)} fullWidth />
-            </MuiFormControl>
-          </>
-        ) : (
-          <MuiFormControl>
-            <MuiFormLabel>Height (cm)</MuiFormLabel>
-            <TextField type="number" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} fullWidth />
-          </MuiFormControl>
-        )}
-        <MuiFormControl>
-          <MuiFormLabel>Weight ({unitSystem === 'imperial' ? 'pounds' : 'kg'})</MuiFormLabel>
-          <TextField type="number" value={weightValue} onChange={(e) => setWeightValue(e.target.value)} fullWidth />
+          <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+            Mapped to categories for analysis purposes.
+          </Typography>
+          {errors.eyeColor && <Typography color="error" variant="body2">{errors.eyeColor}</Typography>}
         </MuiFormControl>
         <Stack direction="row" spacing={2} justifyContent="center">
-          <MuiButton variant="contained" color="primary" onClick={handleSubmit}>
+          <MuiButton
+            variant="contained"
+            color="primary"
+            onClick={handleSubmit}
+            disabled={Object.keys(errors).length > 0 || !name || !ethnicity || !eyeColor || !weightValue || (unitSystem === 'imperial' ? !heightFeet || !heightInches : !heightCm)}
+          >
             Submit
           </MuiButton>
-          <MuiButton variant="contained" color="secondary" onClick={handleRevert}>
-            Revert
+          <MuiButton variant="outlined" onClick={handleRevert}>
+            Clear Form
           </MuiButton>
         </Stack>
       </Stack>
@@ -763,7 +839,7 @@ const UserInfoForm = ({ onSubmit, gender }) => {
 const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
   const cappedRating = Math.min(Math.max(rating, 15.69), 99);
   const cappedFaceRating = faceRating ? Math.min(Math.max(faceRating, 15.69), 99) : null;
-  
+
   return (
     <MuiBox
       position="relative"
@@ -855,7 +931,7 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
   );
 };
 
-// DetailedResultDisplay Component with Sliders
+// DetailedResultDisplay Component with Improved Adjustable Attributes
 const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo, setUserInfo }) => {
   const navigate = useNavigate();
   const [params, setParams] = useState(userInfo.gender === 'M' ? maleConfig : femaleConfig);
@@ -921,12 +997,11 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
         ...Object.fromEntries(Object.entries(newTestScores).map(([test, score]) => [testToPropMap[test], score])),
         testScores: newTestScores,
         faceRating: newFaceRating,
-        params: params // Store adjusted parameters
+        params: params
       }));
     }
   }, [params, userInfo?.measurements, setUserInfo]);
 
-  // Simplified rendering to ensure all sections are visible
   const sortedFeatures = testScores
     ? Object.entries(testScores)
         .filter(([test]) => test !== 'Overall')
@@ -944,10 +1019,10 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
         Your Attractiveness Rating
       </Typography>
       <MuiBox display="flex" justifyContent="center" mb={4}>
-        <ResultDisplay 
-          rating={overallRating} 
-          tierLabel={tierLabel} 
-          faceRating={faceRating} 
+        <ResultDisplay
+          rating={overallRating}
+          tierLabel={tierLabel}
+          faceRating={faceRating}
         />
       </MuiBox>
       {testScores && (
@@ -1039,13 +1114,19 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
         <Typography variant="h5" gutterBottom fontWeight="bold" align="center">
           Adjust Attributes
         </Typography>
-        <Stack spacing={3}>
+        <Typography variant="body2" color="textSecondary" mb={2} textAlign="center">
+          Modify these attributes to see how they affect your overall attractiveness rating.
+        </Typography>
+        <Stack spacing={3} sx={{ maxWidth: '400px', mx: 'auto' }}>
           <MuiFormControl>
             <MuiFormLabel>Height (inches)</MuiFormLabel>
             <TextField
               type="number"
               value={userInfo.height || ''}
               onChange={(e) => setUserInfo(prev => ({ ...prev, height: parseFloat(e.target.value) || 0 }))}
+              InputProps={{ endAdornment: <InputAdornment position="end">in</InputAdornment> }}
+              inputProps={{ min: 48, max: 84 }}
+              fullWidth
             />
           </MuiFormControl>
           <MuiFormControl>
@@ -1054,6 +1135,9 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
               type="number"
               value={userInfo.weight || ''}
               onChange={(e) => setUserInfo(prev => ({ ...prev, weight: parseFloat(e.target.value) || 0 }))}
+              InputProps={{ endAdornment: <InputAdornment position="end">lbs</InputAdornment> }}
+              inputProps={{ min: 80, max: 400 }}
+              fullWidth
             />
           </MuiFormControl>
           <MuiFormControl>
@@ -1061,7 +1145,9 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
             <MuiSelect
               value={userInfo.eyeColor || ''}
               onChange={(e) => setUserInfo(prev => ({ ...prev, eyeColor: e.target.value }))}
+              fullWidth
             >
+              <MenuItem value="" disabled>Select eye color</MenuItem>
               {eyeColorOptions.map(option => (
                 <MenuItem key={option.label} value={option.value}>
                   {option.label}
@@ -1073,8 +1159,14 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
             <MuiFormLabel>Gender</MuiFormLabel>
             <MuiSelect
               value={userInfo.gender || ''}
-              onChange={(e) => setUserInfo(prev => ({ ...prev, gender: e.target.value }))}
+              onChange={(e) => {
+                const newGender = e.target.value;
+                setParams(newGender === 'M' ? maleConfig : femaleConfig);
+                setUserInfo(prev => ({ ...prev, gender: newGender }));
+              }}
+              fullWidth
             >
+              <MenuItem value="" disabled>Select gender</MenuItem>
               {genderOptions.map(option => (
                 <MenuItem key={option.value} value={option.value}>
                   {option.label}
@@ -1083,86 +1175,10 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
             </MuiSelect>
           </MuiFormControl>
         </Stack>
-        <Typography variant="body2" color="textSecondary" mt={2}>
+        <Typography variant="body2" color="textSecondary" mt={2} textAlign="center">
           *Note: Changing gender affects the overall rating but not facial feature scores.*
         </Typography>
       </MuiBox>
-      {testScores && (
-        <MuiBox sx={{ mt: 4, mb: 6, border: '2px solid blue' }}>
-          <Typography variant="h5" gutterBottom fontWeight="bold" align="center">
-            Adjust Parameters
-          </Typography>
-          <Stack spacing={3}>
-            {tests.filter(test => test !== 'Overall').map(test => (
-              <MuiBox key={test}>
-                <Typography variant="h6">{test}</Typography>
-                <Stack spacing={2}>
-                  <MuiFormControl>
-                    <MuiFormLabel>Weight</MuiFormLabel>
-                    <Slider
-                      value={params.weights[test]}
-                      onChange={(e, value) => setParams(prev => ({
-                        ...prev,
-                        weights: { ...prev.weights, [test]: value }
-                      }))}
-                      min={0}
-                      max={5}
-                      step={0.1}
-                      valueLabelDisplay="auto"
-                    />
-                  </MuiFormControl>
-                  <MuiFormControl>
-                    <MuiFormLabel>Param (Multiplier)</MuiFormLabel>
-                    <Slider
-                      value={params.params[test]}
-                      onChange={(e, value) => setParams(prev => ({
-                        ...prev,
-                        params: { ...prev.params, [test]: value }
-                      }))}
-                      min={0}
-                      max={500}
-                      step={10}
-                      valueLabelDisplay="auto"
-                    />
-                  </MuiFormControl>
-                  {testsWithIdealRatios.has(test) && (
-                    <MuiFormControl>
-                      <MuiFormLabel>Ideal Ratio</MuiFormLabel>
-                      <Slider
-                        value={params.idealRatios[test]}
-                        onChange={(e, value) => setParams(prev => ({
-                          ...prev,
-                          idealRatios: { ...prev.idealRatios, [test]: value }
-                        }))}
-                        min={0}
-                        max={2}
-                        step={0.01}
-                        valueLabelDisplay="auto"
-                      />
-                    </MuiFormControl>
-                  )}
-                  {test === 'Carnal Tilt' && (
-                    <MuiFormControl>
-                      <MuiFormLabel>Multiplier Factor</MuiFormLabel>
-                      <Slider
-                        value={params.carnalTiltMultiplierFactor}
-                        onChange={(e, value) => setParams(prev => ({
-                          ...prev,
-                          carnalTiltMultiplierFactor: value
-                        }))}
-                        min={0}
-                        max={2}
-                        step={0.1}
-                        valueLabelDisplay="auto"
-                      />
-                    </MuiFormControl>
-                  )}
-                </Stack>
-              </MuiBox>
-            ))}
-          </Stack>
-        </MuiBox>
-      )}
       <MuiBox sx={{ mt: 4, mb: 6 }}>
         <Typography variant="h5" gutterBottom fontWeight="bold" align="center">
           What This Means
@@ -1179,7 +1195,7 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
             {tierDescription}
           </Typography>
           <Typography variant="body1" paragraph>
-            This analysis evaluates facial features against adjustable standards. The overall rating is a weighted average of feature scores, modified by the sliders above.
+            This analysis evaluates facial features against adjustable standards. The overall rating is a weighted average of feature scores.
           </Typography>
           <Typography variant="body1" color="textSecondary" mt={2}>
             *Note: This is an experimental estimation. Beauty is subjective.*
@@ -1326,7 +1342,7 @@ const AttractivenessRatingProcess = () => {
             faceRating: userInfo.faceRating,
             testScores: userInfo.testScores,
             finalRating: cappedRating,
-            params: userInfo.params, // Save adjusted parameters
+            params: userInfo.params,
             timestamp: new Date(),
           };
           await addDoc(collection(db, 'faceRatings'), ratingData);
@@ -1438,9 +1454,9 @@ const AttractivenessRatingProcess = () => {
         transformedTestScores[propName] = score;
       }
     }
-    
+
     const faceRating = Object.values(testScores).reduce((sum, score) => sum + score, 0) / Object.keys(testScores).length;
-    
+
     const updatedUserInfo = {
       name: info.name,
       ...transformedTestScores,
@@ -1458,8 +1474,8 @@ const AttractivenessRatingProcess = () => {
   };
 
   const testScoresValues = userInfo?.testScores ? Object.values(userInfo.testScores) : [];
-  const currentFaceRating = testScoresValues.length > 0 
-    ? testScoresValues.reduce((sum, score) => sum + score, 0) / testScoresValues.length 
+  const currentFaceRating = testScoresValues.length > 0
+    ? testScoresValues.reduce((sum, score) => sum + score, 0) / testScoresValues.length
     : null;
 
   const genderMap = {
@@ -1492,9 +1508,11 @@ const AttractivenessRatingProcess = () => {
         )}
         {currentStep === 'genderSelection' && scanFor === 'someoneElse' && (
           <VStack spacing={4} align="center">
-            <Heading size="lg">Select Gender</Heading>
-            <MuiFormControl>
-              <MuiFormLabel>Pick One</MuiFormLabel>
+            <Heading size="lg">Select Gender for Analysis</Heading>
+            <Text fontSize="md" textAlign="center" maxW="400px">
+              Gender is used to tailor the attractiveness analysis based on typical standards.
+            </Text>
+            <MuiFormControl sx={{ minWidth: '300px' }}>
               <MuiSelect
                 value={gender}
                 onChange={(e) => handleGenderSelection(e.target.value)}
@@ -1502,7 +1520,7 @@ const AttractivenessRatingProcess = () => {
                 fullWidth
               >
                 <MenuItem value="" disabled>
-                  Choose here
+                  Choose gender
                 </MenuItem>
                 {Object.keys(genderMap).map((option) => (
                   <MenuItem key={option} value={option}>
@@ -1537,7 +1555,7 @@ const AttractivenessRatingProcess = () => {
         {currentStep === 'instructions' && (
           <VStack spacing={4} align="center">
             <Heading size="lg">Let's Scan the Face!</Heading>
-            <Text fontSize="lg" textAlign="center">
+            <Text fontSize="lg" textAlign="center" maxW="500px">
               Position the face in front of the camera with good lighting and keep it straight.
             </Text>
             <Button
@@ -1552,7 +1570,7 @@ const AttractivenessRatingProcess = () => {
         )}
         {currentStep === 'form' && scanFor === 'someoneElse' && (
           <VStack spacing={6} align="stretch">
-            <Heading size="lg">Tell Us About Them</Heading>
+            <Heading size="lg" textAlign="center">Tell Us About Them</Heading>
             <UserInfoForm onSubmit={handleFormSubmit} gender={gender} />
           </VStack>
         )}

@@ -11,7 +11,7 @@ export const maleConfig = {
   params: {
     'Carnal Tilt': 10,
     'Facial Thirds': 500,
-    'Cheekbone Location': 20,
+    'Cheekbone Location': 2, // Adjusted from 20 to achieve a score > 90
     'Interocular Distance': 5000,
     'Jawline': 5000,
     'Chin': 1000,
