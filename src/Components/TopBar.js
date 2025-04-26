@@ -5,7 +5,6 @@ import {
   HStack,
   Text,
   Button,
-  Spacer,
   useBreakpointValue,
   VStack,
   Icon,
@@ -18,7 +17,6 @@ import {
   FaGamepad,
   FaVideo,
   FaStar,
-  FaSearch,
   FaBars,
   FaEye,
 } from 'react-icons/fa';
@@ -101,89 +99,151 @@ const TopBar = () => {
       mb={6}
       style={{ position: 'sticky', top: 0, zIndex: 100 }}
     >
-      <Flex align="center">
+      <Flex align="center" justify="center" gap={4}>
+        {/* Left Navigation Items */}
+        {isDesktop && (
+          <HStack spacing={2} flex="1" justify="flex-end">
+            {navItems.slice(0, Math.ceil(navItems.length / 2)).map((item) => {
+              if (item.dropdown) {
+                return (
+                  <Popover key={item.title} trigger="hover">
+                    <PopoverTrigger>
+                      <Button variant="ghost" colorScheme="gray" size="sm">
+                        <HStack spacing={1}>
+                          <Icon as={item.icon} w={4} h={4} color="gray.700" />
+                          <Text fontSize="sm" fontWeight="medium" color="gray.700">
+                            {item.title}
+                          </Text>
+                        </HStack>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent bg="white" borderColor="gray.200">
+                      <PopoverArrow bg="white" />
+                      <PopoverBody>
+                        <VStack align="start" spacing={1}>
+                          {item.dropdown.map((subItem) => (
+                            <Button
+                              key={subItem.title}
+                              variant="ghost"
+                              color="black"
+                              _hover={{ bg: 'gray.100' }}
+                              w="full"
+                              justifyContent="flex-start"
+                              onClick={() => navigate(subItem.route)}
+                            >
+                              {subItem.title}
+                            </Button>
+                          ))}
+                        </VStack>
+                      </PopoverBody>
+                    </PopoverContent>
+                  </Popover>
+                );
+              } else {
+                return (
+                  <Button
+                    key={item.title}
+                    variant="ghost"
+                    colorScheme="gray"
+                    size="sm"
+                    onClick={() => navigate(item.route)}
+                  >
+                    <HStack spacing={1}>
+                      <Icon as={item.icon} w={4} h={4} color="gray.700" />
+                      <Text fontSize="sm" fontWeight="medium" color="gray.700">
+                        {item.title}
+                      </Text>
+                    </HStack>
+                  </Button>
+                );
+              }
+            })}
+          </HStack>
+        )}
+
         {/* Logo */}
         <Box
           as="img"
           src="/lookzapp trans 2.png"
           alt="Lookzapp Logo"
-          maxH="50px"
+          maxH="70px"
           cursor="pointer"
           onClick={() => navigate('/')}
         />
-        <Spacer />
 
+        {/* Right Navigation Items */}
         {isDesktop ? (
-          <HStack spacing={4}>
-          {navItems.map((item) => {
-            if (item.dropdown) {
-              return (
-                <Popover key={item.title} trigger="hover">
-                  <PopoverTrigger>
-                    <Button variant="ghost" colorScheme="gray">
-                      <HStack spacing={1}>
-                        <Icon as={item.icon} w={4} h={4} color="gray.700" />
-                        <Text fontSize="sm" fontWeight="medium" color="gray.700">
-                          {item.title}
-                        </Text>
-                      </HStack>
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent bg="white" borderColor="gray.200">
-                    <PopoverArrow bg="white" />
-                    <PopoverBody>
-                      <VStack align="start" spacing={1}>
-                        {item.dropdown.map((subItem) => (
-                          <Button
-                            key={subItem.title}
-                            variant="ghost"
-                            color="black"
-                            _hover={{ bg: 'gray.100' }}
-                            w="full"
-                            justifyContent="flex-start"
-                            onClick={() => navigate(subItem.route)}
-                          >
-                            {subItem.title}
-                          </Button>
-                        ))}
-                      </VStack>
-                    </PopoverBody>
-                  </PopoverContent>
-                </Popover>
-              );
-            } else {
-              return (
-                <Button
-                  key={item.title}
-                  variant="ghost"
-                  colorScheme="gray"
-                  onClick={() => navigate(item.route)}
-                >
-                  <HStack spacing={1}>
-                    <Icon as={item.icon} w={4} h={4} color="gray.700" />
-                    <Text fontSize="sm" fontWeight="medium" color="gray.700">
-                      {item.title}
-                    </Text>
-                  </HStack>
-                </Button>
-              );
-            }
-          })}
-          {/* Profile Icon */}
-          <MuiIconButton aria-label="Profile" onClick={() => navigate('/profile/' + user?.uid)}>
-            <FaUser color="gray.700" size={16} />
-          </MuiIconButton>
-          {/* Sign In/Sign Out Button for Desktop */}
-          {user ? (
-            <Button variant="ghost" colorScheme="gray" onClick={handleSignOut}>
-              Sign Out
-            </Button>
-          ) : (
-            <Button variant="ghost" colorScheme="gray" onClick={() => navigate('/signin')}>
-              Sign In
-            </Button>
-          )}
-        </HStack>
+          <HStack spacing={2} flex="1" justify="flex-start">
+            {navItems.slice(Math.ceil(navItems.length / 2)).map((item) => {
+              if (item.dropdown) {
+                return (
+                  <Popover key={item.title} trigger="hover">
+                    <PopoverTrigger>
+                      <Button variant="ghost" colorScheme="gray" size="sm">
+                        <HStack spacing={1}>
+                          <Icon as={item.icon} w={4} h={4} color="gray.700" />
+                          <Text fontSize="sm" fontWeight="medium" color="gray.700">
+                            {item.title}
+                          </Text>
+                        </HStack>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent bg="white" borderColor="gray.200">
+                      <PopoverArrow bg="white" />
+                      <PopoverBody>
+                        <VStack align="start" spacing={1}>
+                          {item.dropdown.map((subItem) => (
+                            <Button
+                              key={subItem.title}
+                              variant="ghost"
+                              color="black"
+                              _hover={{ bg: 'gray.100' }}
+                              w="full"
+                              justifyContent="flex-start"
+                              onClick={() => navigate(subItem.route)}
+                            >
+                              {subItem.title}
+                            </Button>
+                          ))}
+                        </VStack>
+                      </PopoverBody>
+                    </PopoverContent>
+                  </Popover>
+                );
+              } else {
+                return (
+                  <Button
+                    key={item.title}
+                    variant="ghost"
+                    colorScheme="gray"
+                    size="sm"
+                    onClick={() => navigate(item.route)}
+                  >
+                    <HStack spacing={1}>
+                      <Icon as={item.icon} w={4} h={4} color="gray.700" />
+                      <Text fontSize="sm" fontWeight="medium" color="gray.700">
+                        {item.title}
+                      </Text>
+                    </HStack>
+                  </Button>
+                );
+              }
+            })}
+            {/* Profile Icon */}
+            <MuiIconButton aria-label="Profile" onClick={() => navigate('/profile/' + user?.uid)}>
+              <FaUser color="gray.700" size={16} />
+            </MuiIconButton>
+            {/* Sign In/Sign Out Button for Desktop */}
+            {user ? (
+              <Button variant="ghost" colorScheme="gray" size="sm" onClick={handleSignOut}>
+                Sign Out
+              </Button>
+            ) : (
+              <Button variant="ghost" colorScheme="gray" size="sm" onClick={() => navigate('/signin')}>
+                Sign In
+              </Button>
+            )}
+          </HStack>
         ) : (
           <MuiIconButton onClick={handleToggle}>
             <FaBars />

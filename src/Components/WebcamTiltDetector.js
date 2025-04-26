@@ -30,9 +30,12 @@ import {
   Typography,
   Box as MuiBox,
   LinearProgress,
+  Slider,
 } from '@mui/material';
+import { maleConfig } from '../hooks/faceRating/maleConfig';
+import { femaleConfig } from '../hooks/faceRating/femaleConfig';
 
-// Define tests, weights, and params (Undereyes removed)
+// Define tests (same for both genders)
 const tests = [
   'Carnal Tilt',
   'Facial Thirds',
@@ -44,25 +47,7 @@ const tests = [
   'Overall',
 ];
 
-const weights = {
-  'Carnal Tilt': 3,
-  'Facial Thirds': 1.5,
-  'Cheekbone Location': 2,
-  'Interocular Distance': 1,
-  'Jawline': 1.5,
-  'Chin': 1.5,
-  'Nose': 1,
-};
-
-const testParams = {
-  'Carnal Tilt': 10,
-  'Facial Thirds': 100,
-  'Cheekbone Location': 11,
-  'Interocular Distance': 200,
-  'Jawline': 200,
-  'Chin': 300,
-  'Nose': 400,
-};
+const testsWithIdealRatios = new Set(['Facial Thirds', 'Interocular Distance', 'Jawline', 'Chin', 'Nose']);
 
 // Options for adjustable attributes
 const eyeColorOptions = [
@@ -91,7 +76,7 @@ const calculateEyeCenter = (landmarks, indices) => {
   return [sumX / count, sumY / count, sumZ / count];
 };
 
-// WebcamTiltDetector Component with Face Scanning Logic from FaceScanner
+// WebcamTiltDetector Component with Face Scanning Logic
 const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected, gender, onReadyToScanChange }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -107,7 +92,8 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
   const [showFlash, setShowFlash] = useState(false);
   const toast = useToast();
 
-  // Load the FaceMesh model and set up webcam
+  const config = gender === 'M' ? maleConfig : femaleConfig;
+
   useEffect(() => {
     let isMounted = true;
 
@@ -132,14 +118,12 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
             if (isMounted) {
               setVideoReady(true);
               videoRef.current.play().catch((err) => {
-                console.error('Error playing video:', err);
                 if (isMounted) setWebcamError('Failed to play video');
               });
             }
           };
         }
       } catch (err) {
-        console.error('Error accessing webcam:', err);
         if (isMounted) setWebcamError('Webcam access denied or unavailable');
       }
     };
@@ -154,7 +138,6 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
     };
   }, []);
 
-  // Face detection and mesh drawing logic
   useEffect(() => {
     if (!model || !videoReady) return;
 
@@ -170,7 +153,6 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
       const context = canvas.getContext('2d');
       context.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw guidelines
       context.strokeStyle = 'white';
       context.lineWidth = 1;
       context.beginPath();
@@ -190,7 +172,6 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
         const landmarks = face.scaledMesh;
         const boundingBox = face.boundingBox;
 
-        // Draw blue mesh (from FaceScanner)
         landmarks.forEach(([x, y]) => {
           context.beginPath();
           context.arc(x, y, 1, 0, 2 * Math.PI);
@@ -198,7 +179,6 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
           context.fill();
         });
 
-        // Collect measurements
         const leftEyeCenter = calculateEyeCenter(landmarks, [33, 133, 159, 145]);
         const rightEyeCenter = calculateEyeCenter(landmarks, [362, 263, 386, 374]);
         const dy = rightEyeCenter[1] - leftEyeCenter[1];
@@ -208,6 +188,7 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
         const forehead = landmarks[10][1];
         const noseBase = landmarks[1][1];
         const chin = landmarks[152][1];
+        const faceHeightFull = chin - forehead;
         const upperThirdLength = noseBase - forehead;
         const lowerThirdLength = chin - noseBase;
         const facialThirdsRatio = upperThirdLength / lowerThirdLength;
@@ -251,19 +232,19 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
           faceHeight,
           chinRatio,
           noseWidth,
-          noseRatio
+          noseRatio,
+          faceHeightFull,
         };
 
         const testScores = {};
         tests.forEach((test) => {
           if (test !== 'Overall') {
-            testScores[test] = runTest(test, landmarks, boundingBox, testParams, gender);
+            testScores[test] = runTest(test, landmarks, boundingBox, config);
           }
         });
 
         if (isCollecting) {
           scoresRef.current.push({ ...testScores, measurements });
-          console.log('Test scores collected:', testScores);
         }
       } else {
         setFaceDetected(false);
@@ -274,14 +255,12 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
 
     intervalRef.current = setInterval(detectFaceAndRunTest, 500);
     return () => clearInterval(intervalRef.current);
-  }, [model, videoReady, isCollecting, onFaceDetected, gender]);
+  }, [model, videoReady, isCollecting, onFaceDetected, config]);
 
-  // Notify parent when ready to scan (face detected for 3 seconds)
   useEffect(() => {
     onReadyToScanChange(faceDetectedTime >= 3);
   }, [faceDetectedTime, onReadyToScanChange]);
 
-  // Flash effect when countdown reaches zero
   useEffect(() => {
     if (countdown === 0) {
       setShowFlash(true);
@@ -289,13 +268,11 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
     }
   }, [countdown]);
 
-  // Start scanning logic (from FaceScanner)
   useEffect(() => {
     if (startScanning && !isCollecting) {
       setIsCollecting(true);
       setCountdown(5);
       scoresRef.current = [];
-      console.log('Countdown started');
 
       const interval = setInterval(() => {
         setCountdown((prev) => {
@@ -325,11 +302,11 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
               testAverages[test] = average;
             }
           });
-          const totalWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
+          const totalWeight = Object.values(config.weights).reduce((sum, w) => sum + w, 0);
           const finalScore =
             totalWeight > 0
               ? Object.entries(testAverages).reduce(
-                  (sum, [test, score]) => sum + score * weights[test],
+                  (sum, [test, score]) => sum + score * config.weights[test],
                   0
                 ) / totalWeight
               : 0;
@@ -347,7 +324,7 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
         clearTimeout(timer);
       };
     }
-  }, [startScanning, onScanningComplete]);
+  }, [startScanning, onScanningComplete, config]);
 
   if (webcamError) {
     toast({ title: 'Error', description: webcamError, status: 'error', duration: 5000, isClosable: true });
@@ -409,6 +386,174 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
       )}
     </Box>
   );
+};
+
+// Scoring Helper Functions with Measurements
+const runTest = (test, landmarks, boundingBox, config) => {
+  const params = config.params[test];
+  switch (test) {
+    case 'Carnal Tilt':
+      return calculateTiltScore(landmarks, params, config.carnalTiltMultiplierFactor);
+    case 'Facial Thirds':
+      return calculateFacialThirdsScore(landmarks, params, config.idealRatios['Facial Thirds']);
+    case 'Cheekbone Location':
+      return calculateCheekboneScore(landmarks, params);
+    case 'Interocular Distance':
+      return calculateInterocularDistanceScore(landmarks, boundingBox, params, config.idealRatios['Interocular Distance']);
+    case 'Jawline':
+      return calculateJawlineScore(landmarks, boundingBox, params, config.idealRatios['Jawline']);
+    case 'Chin':
+      return calculateChinScore(landmarks, params, config.idealRatios['Chin']);
+    case 'Nose':
+      return calculateNoseScore(landmarks, boundingBox, params, config.idealRatios['Nose']);
+    default:
+      return 0;
+  }
+};
+
+const calculateTiltScore = (landmarks, multiplier, multiplierFactor) => {
+  const leftEyeCenter = calculateEyeCenter(landmarks, [33, 133, 159, 145]);
+  const rightEyeCenter = calculateEyeCenter(landmarks, [362, 263, 386, 374]);
+  const dy = rightEyeCenter[1] - leftEyeCenter[1];
+  const dx = rightEyeCenter[0] - leftEyeCenter[0];
+  const angle = Math.abs(Math.atan2(dy, dx) * (180 / Math.PI));
+  const adjustedMultiplier = multiplier * multiplierFactor;
+  return Math.max(0, 100 - angle * adjustedMultiplier);
+};
+
+const calculateFacialThirdsScore = (landmarks, multiplier, idealRatio) => {
+  const forehead = landmarks[10][1];
+  const noseBase = landmarks[1][1];
+  const chin = landmarks[152][1];
+  const third1 = noseBase - forehead;
+  const third2 = chin - noseBase;
+  const ratio = third1 / third2;
+  const deviation = Math.abs(1 - ratio / idealRatio);
+  return Math.max(0, 100 - deviation * multiplier);
+};
+
+const calculateCheekboneScore = (landmarks, multiplier) => {
+  const cheekLeft = landmarks[116][1];
+  const cheekRight = landmarks[345][1];
+  const diff = Math.abs(cheekLeft - cheekRight);
+  const forehead = landmarks[10][1];
+  const chin = landmarks[152][1];
+  const faceHeight = chin - forehead;
+  const normalized_diff = faceHeight > 0 ? diff / faceHeight : 0;
+  return 100 * Math.exp(-multiplier * normalized_diff);
+};
+
+const calculateInterocularDistanceScore = (landmarks, boundingBox, multiplier, idealRatio) => {
+  const leftEyeCenter = calculateEyeCenter(landmarks, [33, 133, 159, 145]);
+  const rightEyeCenter = calculateEyeCenter(landmarks, [362, 263, 386, 374]);
+  const distance = Math.sqrt((rightEyeCenter[0] - leftEyeCenter[0]) ** 2 + (rightEyeCenter[1] - leftEyeCenter[1]) ** 2);
+  const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
+  const ratio = distance / faceWidth;
+  const deviation = Math.abs(ratio - idealRatio);
+  return Math.max(0, 100 - deviation * multiplier);
+};
+
+const calculateJawlineScore = (landmarks, boundingBox, multiplier, idealRatio) => {
+  const jawWidth = Math.abs(landmarks[123][0] - landmarks[352][0]);
+  const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
+  const ratio = jawWidth / faceWidth;
+  const deviation = Math.abs(ratio - idealRatio);
+  return Math.max(0, 100 - deviation * multiplier);
+};
+
+const calculateChinScore = (landmarks, multiplier, idealRatio) => {
+  const noseTip = landmarks[1][1];
+  const chin = landmarks[152][1];
+  const mouth = landmarks[17][1];
+  const chinLength = chin - mouth;
+  const faceHeight = chin - noseTip;
+  const ratio = chinLength / faceHeight;
+  const deviation = Math.abs(ratio - idealRatio);
+  return Math.max(0, 100 - deviation * multiplier);
+};
+
+const calculateNoseScore = (landmarks, boundingBox, multiplier, idealRatio) => {
+  const noseWidth = Math.abs(landmarks[129][0] - landmarks[358][0]);
+  const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
+  const ratio = noseWidth / faceWidth;
+  const deviation = Math.abs(ratio - idealRatio);
+  return Math.max(0, 100 - deviation * multiplier);
+};
+
+// Refactored Scoring Functions for Real-Time Updates
+const calculateTiltScoreAdjusted = (angle, multiplier, multiplierFactor) => {
+  const adjustedMultiplier = multiplier * multiplierFactor;
+  return Math.max(0, 100 - angle * adjustedMultiplier);
+};
+
+const calculateFacialThirdsScoreAdjusted = (ratio, multiplier, idealRatio) => {
+  const deviation = Math.abs(1 - ratio / idealRatio);
+  return Math.max(0, 100 - deviation * multiplier);
+};
+
+const calculateCheekboneScoreAdjusted = (cheekHeightDiff, faceHeightFull, multiplier) => {
+  const normalized_diff = faceHeightFull > 0 ? cheekHeightDiff / faceHeightFull : 0;
+  return 100 * Math.exp(-multiplier * normalized_diff);
+};
+
+const calculateInterocularDistanceScoreAdjusted = (ratio, multiplier, idealRatio) => {
+  const deviation = Math.abs(ratio - idealRatio);
+  return Math.max(0, 100 - deviation * multiplier);
+};
+
+const calculateJawlineScoreAdjusted = (ratio, multiplier, idealRatio) => {
+  const deviation = Math.abs(ratio - idealRatio);
+  return Math.max(0, 100 - deviation * multiplier);
+};
+
+const calculateChinScoreAdjusted = (ratio, multiplier, idealRatio) => {
+  const deviation = Math.abs(ratio - idealRatio);
+  return Math.max(0, 100 - deviation * multiplier);
+};
+
+const calculateNoseScoreAdjusted = (ratio, multiplier, idealRatio) => {
+  const deviation = Math.abs(ratio - idealRatio);
+  return Math.max(0, 100 - deviation * multiplier);
+};
+
+const calculateTestScores = (measurements, params) => {
+  const testScores = {};
+  testScores['Carnal Tilt'] = calculateTiltScoreAdjusted(
+    measurements.carnalTiltAngle,
+    params.params['Carnal Tilt'],
+    params.carnalTiltMultiplierFactor
+  );
+  testScores['Facial Thirds'] = calculateFacialThirdsScoreAdjusted(
+    measurements.facialThirdsRatio,
+    params.params['Facial Thirds'],
+    params.idealRatios['Facial Thirds']
+  );
+  testScores['Cheekbone Location'] = calculateCheekboneScoreAdjusted(
+    measurements.cheekHeightDiff,
+    measurements.faceHeightFull,
+    params.params['Cheekbone Location']
+  );
+  testScores['Interocular Distance'] = calculateInterocularDistanceScoreAdjusted(
+    measurements.interocularRatio,
+    params.params['Interocular Distance'],
+    params.idealRatios['Interocular Distance']
+  );
+  testScores['Jawline'] = calculateJawlineScoreAdjusted(
+    measurements.jawRatio,
+    params.params['Jawline'],
+    params.idealRatios['Jawline']
+  );
+  testScores['Chin'] = calculateChinScoreAdjusted(
+    measurements.chinRatio,
+    params.params['Chin'],
+    params.idealRatios['Chin']
+  );
+  testScores['Nose'] = calculateNoseScoreAdjusted(
+    measurements.noseRatio,
+    params.params['Nose'],
+    params.idealRatios['Nose']
+  );
+  return testScores;
 };
 
 // UserInfoForm Component
@@ -710,9 +855,10 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
   );
 };
 
-// DetailedResultDisplay Component with Adjustable Attributes
+// DetailedResultDisplay Component with Sliders
 const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo, setUserInfo }) => {
   const navigate = useNavigate();
+  const [params, setParams] = useState(userInfo.gender === 'M' ? maleConfig : femaleConfig);
 
   let tierLabel, tierDescription;
   if (overallRating >= 80) {
@@ -749,34 +895,48 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
     'Nose': 'Analyzes the size and shape of the nose relative to the face.'
   };
 
-  if (!testScores) {
-    return (
-      <MuiBox sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
-        <Typography variant="h4" gutterBottom align="center" fontWeight="bold">
-          Your Attractiveness Rating
-        </Typography>
-        <MuiBox display="flex" justifyContent="center" mb={4}>
-          <ResultDisplay 
-            rating={overallRating} 
-            tierLabel={tierLabel} 
-            faceRating={faceRating} 
-          />
-        </MuiBox>
-        <Typography variant="body1" color="textSecondary" align="center">
-          *Note: This is an experimental estimation based on facial features and not a definitive measure of attractiveness.*
-        </Typography>
-      </MuiBox>
-    );
-  }
+  const testToPropMap = {
+    'Carnal Tilt': 'carnalTilt',
+    'Facial Thirds': 'facialThirds',
+    'Cheekbone Location': 'cheekbone',
+    'Interocular Distance': 'interocular',
+    'Jawline': 'jawline',
+    'Chin': 'chin',
+    'Nose': 'nose',
+  };
 
-  const sortedFeatures = Object.entries(testScores)
-    .filter(([test]) => test !== 'Overall')
-    .sort(([, a], [, b]) => b - a)
-    .map(([test, score]) => ({
-      test,
-      score,
-      impact: score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : score >= 40 ? 'Average' : 'Needs Improvement'
-    }));
+  useEffect(() => {
+    if (userInfo?.measurements) {
+      const measurements = userInfo.measurements;
+      const newTestScores = calculateTestScores(measurements, params);
+      const totalWeight = Object.values(params.weights).reduce((sum, w) => sum + w, 0);
+      const newFaceRating = totalWeight > 0
+        ? Object.entries(newTestScores).reduce(
+            (sum, [test, score]) => sum + score * params.weights[test],
+            0
+          ) / totalWeight
+        : 0;
+      setUserInfo(prev => ({
+        ...prev,
+        ...Object.fromEntries(Object.entries(newTestScores).map(([test, score]) => [testToPropMap[test], score])),
+        testScores: newTestScores,
+        faceRating: newFaceRating,
+        params: params // Store adjusted parameters
+      }));
+    }
+  }, [params, userInfo?.measurements, setUserInfo]);
+
+  // Simplified rendering to ensure all sections are visible
+  const sortedFeatures = testScores
+    ? Object.entries(testScores)
+        .filter(([test]) => test !== 'Overall')
+        .sort(([, a], [, b]) => b - a)
+        .map(([test, score]) => ({
+          test,
+          score,
+          impact: score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : score >= 40 ? 'Average' : 'Needs Improvement'
+        }))
+    : [];
 
   return (
     <MuiBox sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
@@ -790,97 +950,91 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
           faceRating={faceRating} 
         />
       </MuiBox>
-      <MuiBox sx={{ mt: 4, mb: 6 }}>
-        <Typography variant="h5" gutterBottom fontWeight="bold" align="center">
-          Key Features Analysis
-        </Typography>
-        <Stack spacing={3}>
-          {sortedFeatures.map(({ test, score, impact }, index) => {
-            const color = impact === 'Excellent' ? '#4CAF50' : impact === 'Good' ? '#8BC34A' : impact === 'Average' ? '#FFC107' : '#FF5722';
-            return (
-              <MuiBox
-                key={test}
-                sx={{
-                  animation: `slideIn 0.5s ease-out ${index * 0.1}s both`,
-                  '@keyframes slideIn': {
-                    '0%': { transform: 'translateX(-20px)', opacity: 0 },
-                    '100%': { transform: 'translateX(0)', opacity: 1 }
-                  },
-                  p: 2,
-                  borderRadius: 2,
-                  bgcolor: 'rgba(0,0,0,0.02)',
-                  border: `1px solid ${color}20`
-                }}
-              >
-                <MuiBox display="flex" alignItems="center" mb={1}>
-                  <Typography variant="h4" mr={2}>
-                    {featureIcons[test]}
-                  </Typography>
-                  <MuiBox flex={1}>
-                    <Typography variant="body1" fontWeight="medium">
-                      {test}
+      {testScores && (
+        <MuiBox sx={{ mt: 4, mb: 6 }}>
+          <Typography variant="h5" gutterBottom fontWeight="bold" align="center">
+            Key Features Analysis
+          </Typography>
+          <Stack spacing={3}>
+            {sortedFeatures.map(({ test, score, impact }, index) => {
+              const color = impact === 'Excellent' ? '#4CAF50' : impact === 'Good' ? '#8BC34A' : impact === 'Average' ? '#FFC107' : '#FF5722';
+              return (
+                <MuiBox
+                  key={test}
+                  sx={{
+                    animation: `slideIn 0.5s ease-out ${index * 0.1}s both`,
+                    '@keyframes slideIn': {
+                      '0%': { transform: 'translateX(-20px)', opacity: 0 },
+                      '100%': { transform: 'translateX(0)', opacity: 1 }
+                    },
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: 'rgba(0,0,0,0.02)',
+                    border: `1px solid ${color}20`
+                  }}
+                >
+                  <MuiBox display="flex" alignItems="center" mb={1}>
+                    <Typography variant="h4" mr={2}>
+                      {featureIcons[test]}
                     </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      {featureDescriptions[test]}
+                    <MuiBox flex={1}>
+                      <Typography variant="body1" fontWeight="medium">
+                        {test}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        {featureDescriptions[test]}
+                      </Typography>
+                    </MuiBox>
+                    <Typography
+                      variant="body1"
+                      color={color}
+                      fontWeight="bold"
+                      sx={{
+                        bgcolor: `${color}20`,
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: 1
+                      }}
+                    >
+                      {impact}
                     </Typography>
                   </MuiBox>
-                  <Typography
-                    variant="body1"
-                    color={color}
-                    fontWeight="bold"
-                    sx={{
-                      bgcolor: `${color}20`,
-                      px: 1.5,
-                      py: 0.5,
-                      borderRadius: 1
-                    }}
-                  >
-                    {impact}
-                  </Typography>
-                </MuiBox>
-                <MuiBox sx={{ position: 'relative', mt: 1 }}>
-                  <LinearProgress
-                    variant="determinate"
-                    value={score}
-                    sx={{
-                      height: 8,
-                      borderRadius: 3,
-                      backgroundColor: 'rgba(0,0,0,0.1)',
-                      '& .MuiLinearProgress-bar': {
-                        backgroundColor: color,
+                  <MuiBox sx={{ position: 'relative', mt: 1 }}>
+                    <LinearProgress
+                      variant="determinate"
+                      value={score}
+                      sx={{
+                        height: 8,
                         borderRadius: 3,
-                        transition: 'width 1s ease-in-out'
-                      }
-                    }}
-                  />
-                  <MuiBox
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      mt: 0.5
-                    }}
-                  >
-                    <Typography
-                      variant="body2"
-                      color="textSecondary"
-                      sx={{ fontWeight: 'medium' }}
+                        backgroundColor: 'rgba(0,0,0,0.1)',
+                        '& .MuiLinearProgress-bar': {
+                          backgroundColor: color,
+                          borderRadius: 3,
+                          transition: 'width 1s ease-in-out'
+                        }
+                      }}
+                    />
+                    <MuiBox
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        mt: 0.5
+                      }}
                     >
-                      Low Attractiveness
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      color="textSecondary"
-                      sx={{ fontWeight: 'medium' }}
-                    >
-                      High Attractiveness
-                    </Typography>
+                      <Typography variant="body2" color="textSecondary" sx={{ fontWeight: 'medium' }}>
+                        Low
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary" sx={{ fontWeight: 'medium' }}>
+                        High
+                      </Typography>
+                    </MuiBox>
                   </MuiBox>
                 </MuiBox>
-              </MuiBox>
-            );
-          })}
-        </Stack>
-      </MuiBox>
+              );
+            })}
+          </Stack>
+        </MuiBox>
+      )}
       <MuiBox sx={{ mt: 4, mb: 6 }}>
         <Typography variant="h5" gutterBottom fontWeight="bold" align="center">
           Adjust Attributes
@@ -930,9 +1084,85 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
           </MuiFormControl>
         </Stack>
         <Typography variant="body2" color="textSecondary" mt={2}>
-          *Note: Changing gender will affect the overall rating calculation but not the individual facial feature scores, as they were calculated based on the initial gender.*
+          *Note: Changing gender affects the overall rating but not facial feature scores.*
         </Typography>
       </MuiBox>
+      {testScores && (
+        <MuiBox sx={{ mt: 4, mb: 6, border: '2px solid blue' }}>
+          <Typography variant="h5" gutterBottom fontWeight="bold" align="center">
+            Adjust Parameters
+          </Typography>
+          <Stack spacing={3}>
+            {tests.filter(test => test !== 'Overall').map(test => (
+              <MuiBox key={test}>
+                <Typography variant="h6">{test}</Typography>
+                <Stack spacing={2}>
+                  <MuiFormControl>
+                    <MuiFormLabel>Weight</MuiFormLabel>
+                    <Slider
+                      value={params.weights[test]}
+                      onChange={(e, value) => setParams(prev => ({
+                        ...prev,
+                        weights: { ...prev.weights, [test]: value }
+                      }))}
+                      min={0}
+                      max={5}
+                      step={0.1}
+                      valueLabelDisplay="auto"
+                    />
+                  </MuiFormControl>
+                  <MuiFormControl>
+                    <MuiFormLabel>Param (Multiplier)</MuiFormLabel>
+                    <Slider
+                      value={params.params[test]}
+                      onChange={(e, value) => setParams(prev => ({
+                        ...prev,
+                        params: { ...prev.params, [test]: value }
+                      }))}
+                      min={0}
+                      max={500}
+                      step={10}
+                      valueLabelDisplay="auto"
+                    />
+                  </MuiFormControl>
+                  {testsWithIdealRatios.has(test) && (
+                    <MuiFormControl>
+                      <MuiFormLabel>Ideal Ratio</MuiFormLabel>
+                      <Slider
+                        value={params.idealRatios[test]}
+                        onChange={(e, value) => setParams(prev => ({
+                          ...prev,
+                          idealRatios: { ...prev.idealRatios, [test]: value }
+                        }))}
+                        min={0}
+                        max={2}
+                        step={0.01}
+                        valueLabelDisplay="auto"
+                      />
+                    </MuiFormControl>
+                  )}
+                  {test === 'Carnal Tilt' && (
+                    <MuiFormControl>
+                      <MuiFormLabel>Multiplier Factor</MuiFormLabel>
+                      <Slider
+                        value={params.carnalTiltMultiplierFactor}
+                        onChange={(e, value) => setParams(prev => ({
+                          ...prev,
+                          carnalTiltMultiplierFactor: value
+                        }))}
+                        min={0}
+                        max={2}
+                        step={0.1}
+                        valueLabelDisplay="auto"
+                      />
+                    </MuiFormControl>
+                  )}
+                </Stack>
+              </MuiBox>
+            ))}
+          </Stack>
+        </MuiBox>
+      )}
       <MuiBox sx={{ mt: 4, mb: 6 }}>
         <Typography variant="h5" gutterBottom fontWeight="bold" align="center">
           What This Means
@@ -949,19 +1179,10 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
             {tierDescription}
           </Typography>
           <Typography variant="body1" paragraph>
-            This analysis evaluates specific facial features against conventional standards of attractiveness. The overall rating is calculated as a weighted average of the following feature scores:
+            This analysis evaluates facial features against adjustable standards. The overall rating is a weighted average of feature scores, modified by the sliders above.
           </Typography>
-          <ul>
-            {Object.entries(featureDescriptions).map(([test, description]) => (
-              <li key={test}>
-                <Typography variant="body1">
-                  <strong>{test}:</strong> {description} (Weight: {weights[test]})
-                </Typography>
-              </li>
-            ))}
-          </ul>
           <Typography variant="body1" color="textSecondary" mt={2}>
-            *Note: This is an experimental estimation based on facial features and not a definitive measure of attractiveness. Beauty is subjective and multifaceted.*
+            *Note: This is an experimental estimation. Beauty is subjective.*
           </Typography>
         </MuiBox>
       </MuiBox>
@@ -1076,12 +1297,10 @@ const AttractivenessRatingProcess = () => {
             { merge: true }
           );
           setUpdated(true);
-          console.log('User document updated:', { ranking: dividedRating, timesRanked: 1 });
         } catch (error) {
-          console.error('Error updating user document:', error);
           toast({
             title: 'Error',
-            description: 'Failed to save your rating. Please try again.',
+            description: 'Failed to save your rating.',
             status: 'error',
             duration: 5000,
             isClosable: true,
@@ -1107,12 +1326,11 @@ const AttractivenessRatingProcess = () => {
             faceRating: userInfo.faceRating,
             testScores: userInfo.testScores,
             finalRating: cappedRating,
+            params: userInfo.params, // Save adjusted parameters
             timestamp: new Date(),
           };
           await addDoc(collection(db, 'faceRatings'), ratingData);
-          console.log('Rating saved to Firestore:', ratingData);
         } catch (error) {
-          console.error('Error saving rating to Firestore:', error);
           toast({
             title: 'Error',
             description: 'Failed to save rating to Firestore.',
@@ -1158,11 +1376,10 @@ const AttractivenessRatingProcess = () => {
   const handleStartScanning = () => {
     if (faceDetected) {
       setCurrentStep('scanning');
-      console.log('Starting scanning');
     } else {
       toast({
         title: 'Error',
-        description: 'Face not detected. Please adjust your position.',
+        description: 'Face not detected.',
         status: 'warning',
         duration: 3000,
       });
@@ -1182,67 +1399,26 @@ const AttractivenessRatingProcess = () => {
 
       const faceRating = Object.values(testAverages).reduce((sum, score) => sum + score, 0) / Object.keys(testAverages).length;
 
-      console.log('=== Face Measurements Summary ===');
-      console.log('Carnal Tilt:', {
-        leftEyeCenter: measurements?.leftEyeCenter,
-        rightEyeCenter: measurements?.rightEyeCenter,
-        angleInDegrees: measurements?.carnalTiltAngle
-      });
-      console.log('Facial Thirds:', {
-        upperThirdLength: measurements?.upperThirdLength,
-        lowerThirdLength: measurements?.lowerThirdLength,
-        actualRatio: measurements?.facialThirdsRatio,
-        idealRatio: gender === 'W' ? 1.2 : 1.0
-      });
-      console.log('Cheekbones:', {
-        leftCheekHeight: measurements?.leftCheekHeight,
-        rightCheekHeight: measurements?.rightCheekHeight,
-        heightDifference: measurements?.cheekHeightDiff
-      });
-      console.log('Interocular Distance:', {
-        eyeDistance: measurements?.eyeDistance,
-        faceWidth: measurements?.faceWidth,
-        actualRatio: measurements?.interocularRatio,
-        idealRatio: gender === 'W' ? 0.47 : 0.45
-      });
-      console.log('Jawline:', {
-        jawWidth: measurements?.jawWidth,
-        faceWidth: measurements?.faceWidth,
-        actualRatio: measurements?.jawRatio,
-        idealRatio: gender === 'W' ? 0.7 : 0.8
-      });
-      console.log('Chin:', {
-        chinLength: measurements?.chinLength,
-        faceHeight: measurements?.faceHeight,
-        actualRatio: measurements?.chinRatio,
-        idealRatio: gender === 'W' ? 0.3 : 0.33
-      });
-      console.log('Nose:', {
-        noseWidth: measurements?.noseWidth,
-        faceWidth: measurements?.faceWidth,
-        actualRatio: measurements?.noseRatio,
-        idealRatio: gender === 'W' ? 0.23 : 0.25
-      });
-      console.log('=== End Measurements Summary ===');
-
       if (scanFor === 'myself') {
         const updatedUserInfo = {
           ...userInfo,
           ...transformedTestScores,
           testScores: testAverages,
-          faceRating: faceRating
+          faceRating: faceRating,
+          measurements: measurements,
         };
         setUserInfo(updatedUserInfo);
         setCurrentStep('result');
       } else {
         setFaceScore(finalScore + 7);
         setTestScores(testAverages);
+        setUserInfo(prev => ({ ...prev, measurements: measurements }));
         setCurrentStep('form');
       }
     } else {
       toast({
         title: 'Error',
-        description: 'No face detected during scan. Please try again.',
+        description: 'No face detected during scan.',
         status: 'error',
         duration: 3000,
       });
@@ -1252,7 +1428,6 @@ const AttractivenessRatingProcess = () => {
 
   const handleFaceDetected = (detected) => {
     setFaceDetected(detected);
-    console.log('Face detected:', detected);
   };
 
   const handleFormSubmit = (info) => {
@@ -1275,10 +1450,10 @@ const AttractivenessRatingProcess = () => {
       height: info.height,
       weight: info.weight,
       gender: gender,
-      faceRating: faceRating
+      faceRating: faceRating,
+      measurements: userInfo.measurements,
     };
     setUserInfo(updatedUserInfo);
-    console.log('Form submitted, userInfo:', updatedUserInfo);
     setCurrentStep('result');
   };
 
@@ -1317,7 +1492,7 @@ const AttractivenessRatingProcess = () => {
         )}
         {currentStep === 'genderSelection' && scanFor === 'someoneElse' && (
           <VStack spacing={4} align="center">
-            <Heading size="lg">Select Gender for Someone Else</Heading>
+            <Heading size="lg">Select Gender</Heading>
             <MuiFormControl>
               <MuiFormLabel>Pick One</MuiFormLabel>
               <MuiSelect
@@ -1363,8 +1538,7 @@ const AttractivenessRatingProcess = () => {
           <VStack spacing={4} align="center">
             <Heading size="lg">Let's Scan the Face!</Heading>
             <Text fontSize="lg" textAlign="center">
-              Put the face in front of the camera. Make sure there is good lighting and keep the face straight. Results can
-              vary slightly if not. The scan starts when we see the face!
+              Position the face in front of the camera with good lighting and keep it straight.
             </Text>
             <Button
               colorScheme="teal"
@@ -1397,138 +1571,6 @@ const AttractivenessRatingProcess = () => {
       </VStack>
     </Container>
   );
-};
-
-// Scoring Helper Functions
-const runTest = (test, landmarks, boundingBox, params, gender) => {
-  switch (test) {
-    case 'Carnal Tilt':
-      return calculateTiltScore(landmarks, params['Carnal Tilt'], gender);
-    case 'Facial Thirds':
-      return calculateFacialThirdsScore(landmarks, params['Facial Thirds'], gender);
-    case 'Cheekbone Location':
-      return calculateCheekboneScore(landmarks, params['Cheekbone Location'], gender);
-    case 'Interocular Distance':
-      return calculateInterocularDistanceScore(landmarks, boundingBox, params['Interocular Distance'], gender);
-    case 'Jawline':
-      return calculateJawlineScore(landmarks, boundingBox, params['Jawline'], gender);
-    case 'Chin':
-      return calculateChinScore(landmarks, params['Chin'], gender);
-    case 'Nose':
-      return calculateNoseScore(landmarks, boundingBox, params['Nose'], gender);
-    default:
-      return 0;
-  }
-};
-
-const calculateTiltScore = (landmarks, multiplier, gender) => {
-  const leftEyeCenter = calculateEyeCenter(landmarks, [33, 133, 159, 145]);
-  const rightEyeCenter = calculateEyeCenter(landmarks, [362, 263, 386, 374]);
-  const dy = rightEyeCenter[1] - leftEyeCenter[1];
-  const dx = rightEyeCenter[0] - leftEyeCenter[0];
-  const angle = Math.abs(Math.atan2(dy, dx) * (180 / Math.PI));
-  console.log('Face Measurements - Carnal Tilt:', {
-    leftEyeCenter,
-    rightEyeCenter,
-    angleInDegrees: angle
-  });
-  const adjustedMultiplier = gender === 'W' ? multiplier * 0.8 : multiplier;
-  return Math.max(0, 100 - angle * adjustedMultiplier);
-};
-
-const calculateFacialThirdsScore = (landmarks, multiplier, gender) => {
-  const forehead = landmarks[10][1];
-  const noseBase = landmarks[1][1];
-  const chin = landmarks[152][1];
-  const third1 = noseBase - forehead;
-  const third2 = chin - noseBase;
-  const idealRatio = gender === 'M' ? 1.0 : 1.2;
-  const ratio = third1 / third2;
-  console.log('Face Measurements - Facial Thirds:', {
-    upperThirdLength: third1,
-    lowerThirdLength: third2,
-    actualRatio: ratio,
-    idealRatio
-  });
-  const deviation = Math.abs(1 - ratio / idealRatio);
-  return Math.max(0, 100 - deviation * multiplier);
-};
-
-const calculateCheekboneScore = (landmarks, multiplier, gender) => {
-  const cheekLeft = landmarks[116][1];
-  const cheekRight = landmarks[345][1];
-  const diff = Math.abs(cheekLeft - cheekRight);
-  const forehead = landmarks[10][1];
-  const chin = landmarks[152][1];
-  const faceHeight = chin - forehead;
-  const normalized_diff = faceHeight > 0 ? diff / faceHeight : 0;
-  const score = 100 * Math.exp(-multiplier * normalized_diff);
-  return score;
-};
-
-const calculateInterocularDistanceScore = (landmarks, boundingBox, multiplier, gender) => {
-  const leftEyeCenter = calculateEyeCenter(landmarks, [33, 133, 159, 145]);
-  const rightEyeCenter = calculateEyeCenter(landmarks, [362, 263, 386, 374]);
-  const distance = Math.sqrt((rightEyeCenter[0] - leftEyeCenter[0]) ** 2 + (rightEyeCenter[1] - leftEyeCenter[1]) ** 2);
-  const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
-  const ratio = distance / faceWidth;
-  const idealRatio = gender === 'M' ? 0.45 : 0.47;
-  console.log('Face Measurements - Interocular Distance:', {
-    eyeDistance: distance,
-    faceWidth,
-    actualRatio: ratio,
-    idealRatio
-  });
-  const deviation = Math.abs(ratio - idealRatio);
-  return Math.max(0, 100 - deviation * multiplier);
-};
-
-const calculateJawlineScore = (landmarks, boundingBox, multiplier, gender) => {
-  const jawWidth = Math.abs(landmarks[123][0] - landmarks[352][0]);
-  const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
-  const ratio = jawWidth / faceWidth;
-  const idealRatio = gender === 'M' ? 0.8 : 0.7;
-  console.log('Face Measurements - Jawline:', {
-    jawWidth,
-    faceWidth,
-    actualRatio: ratio,
-    idealRatio
-  });
-  const deviation = Math.abs(ratio - idealRatio);
-  return Math.max(0, 100 - deviation * multiplier);
-};
-
-const calculateChinScore = (landmarks, multiplier, gender) => {
-  const noseTip = landmarks[1][1];
-  const chin = landmarks[152][1];
-  const mouth = landmarks[17][1];
-  const chinLength = chin - mouth;
-  const faceHeight = chin - noseTip;
-  const ratio = chinLength / faceHeight;
-  const idealRatio = gender === 'M' ? 0.33 : 0.3;
-  console.log('Face Measurements - Chin:', {
-    chinLength,
-    faceHeight,
-    actualRatio: ratio,
-    idealRatio
-  });
-  const deviation = Math.abs(ratio - idealRatio);
-  return Math.max(0, 100 - deviation * multiplier);
-};
-
-const calculateNoseScore = (landmarks, boundingBox, multiplier, gender) => {
-  const noseWidth = Math.abs(landmarks[129][0] - landmarks[358][0]);
-  const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
-  const ratio = noseWidth / faceWidth;
-  const idealRatio = gender === 'M' ? 0.25 : 0.23;
-  console.log('Face Measurements - Nose:', {
-    noseWidth,
-    faceWidth,
-    actualRatio: ratio,
-    idealRatio
-  });
-  const deviation = Math.abs(ratio - idealRatio);
-  return Math.max(0, 100 - deviation * multiplier);
 };
 
 export default AttractivenessRatingProcess;
