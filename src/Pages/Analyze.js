@@ -28,16 +28,10 @@ function Analyze() {
 
   return (
     <>
-      <TopBar />
-      <Flex direction="column" minH="100vh" bg="gray.50" overflowX="hidden">
-        <Container maxW="container.xl" py={{ base: 4, md: 6 }} overflow="hidden">
-          <VStack spacing={{ base: 4, md: 6 }} align="stretch">
+      
+    
             <WebcamTiltDetector />
-            {/* Additional components can be added here if needed */}
-          </VStack>
-        </Container>
-      </Flex>
-      <Footer />
+           
     </>
   );
 }

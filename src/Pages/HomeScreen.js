@@ -25,6 +25,7 @@ import DailyRatingProgress from '../Components/Home/DailyRatingProgress'; // Imp
 import { FaVideo, FaTrophy, FaGamepad, FaEye } from 'react-icons/fa';
 import { Divider } from '@heroui/react';
 import MobileHomeScreen from './MobileHomeScreen';
+import LoadingIndicator from '../Components/LoadingIndicator';
 
 function HomeScreen() {
   const isMobile = useBreakpointValue({ base: true, md: false });
@@ -107,9 +108,10 @@ function HomeScreen() {
 
   if (loadingUser || loadingTopRated) {
     return (
-      <Box minH="100vh" display="flex" alignItems="center" justifyContent="center">
-        <Spinner size="xl" />
-      </Box>
+      <LoadingIndicator
+        message="Loading your dashboard..."
+        subMessage="Please wait while we fetch your data"
+      />
     );
   }
 

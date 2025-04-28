@@ -1,18 +1,20 @@
 import React from "react";
-import { Box, HStack, VStack, Text, Spinner } from "@chakra-ui/react";
+import { Box, HStack, VStack, Text } from "@chakra-ui/react";
 import { Avatar } from "@mui/material";
 import { useTopRatedData } from "../hooks/useTopRatedData";
 import { Link } from "react-router-dom";
 import "../App.css";
+import LoadingIndicator from './LoadingIndicator';
 
 const MobileLeaderboard = () => {
   const { data, loading, error } = useTopRatedData();
 
   if (loading) {
     return (
-      <Box p={6} textAlign="center">
-        <Spinner size="xl" />
-      </Box>
+      <LoadingIndicator
+        message="Loading leaderboard..."
+        subMessage="Fetching the latest rankings"
+      />
     );
   }
 

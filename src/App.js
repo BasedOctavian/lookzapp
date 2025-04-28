@@ -4,6 +4,8 @@ import { system } from '@chakra-ui/react/preset';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { SnackbarProvider } from 'notistack';
 import PrivateRoute from './Pages/PrivateRoute';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import LoadingIndicator from './Components/LoadingIndicator';
 
 // Lazy load components for better performance
 const VideoCall = lazy(() => import('./Pages/VideoCall'));
@@ -25,12 +27,26 @@ const GamesSelection = lazy(() => import('./Pages/GamesSelection'));
 const AnalyzeSelection = lazy(() => import('./Pages/AnalyzeSelection'));
 const AutismAnalytic = lazy(() => import('./Pages/AutismAnalytic'));
 const GeekedGuess = lazy(() => import('./Pages/GeekedGuess'));
+const LandingPage = lazy(() => import('./Pages/LandingPage'));
+
+// Create MUI theme
+const muiTheme = createTheme({
+  palette: {
+    primary: {
+      main: '#1976d2',
+    },
+    secondary: {
+      main: '#dc004e',
+    },
+  },
+});
 
 // Loading component for Suspense
 const LoadingSpinner = () => (
-  <Flex justify="center" align="center" h="100vh">
-    <Spinner size="xl" />
-  </Flex>
+  <LoadingIndicator
+    message="Loading..."
+    subMessage="Please wait while we prepare your experience"
+  />
 );
 
 function App() {
@@ -72,69 +88,71 @@ function App() {
 
   return (
     <ChakraProvider value={system}>
-      <SnackbarProvider maxSnack={3}>
-        <Router>
-          <Suspense fallback={<LoadingSpinner />}>
-            <Routes>
-              <Route path="/createaccount" element={<CreateAccount />} />
-              <Route path="/signin" element={<SignIn />} />
-              <Route path="/leaderboard" element={<PrivateRoute><TopRatedUsersTable /></PrivateRoute>} />
-              <Route path="/video-chat" element={<PrivateRoute><VideoCall /></PrivateRoute>} />
-              <Route path="/" element={<Navigate to="/home" />} />
-              <Route path="/profile/:userId" element={<PrivateRoute><Profile /></PrivateRoute>} />
-              <Route path="/influencer-profile/:influencerId" element={<PrivateRoute><InfluencerProfile /></PrivateRoute>} />
-              <Route path="/home" element={<HomeScreen />} />
-              <Route path="/updates" element={<PrivateRoute><Updates /></PrivateRoute>} />
-              <Route path="/geo-locate" element={<PrivateRoute><GeoCall /></PrivateRoute>} />
-              <Route path="/two-truths" element={<PrivateRoute><TwoTruths /></PrivateRoute>} />
-              <Route path="/analysis" element={<PrivateRoute><Analyze /></PrivateRoute>} />
-              <Route path="/looksmatch" element={<PrivateRoute><Looksmatch /></PrivateRoute>} />
-              <Route path="/get-ranked-selection" element={<GetRankedSelection />} />
-              <Route path="/ranking" element={<GetRanked />} />
-              <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
-              <Route path="/games-selection" element={<PrivateRoute><GamesSelection /></PrivateRoute>} />
-              <Route path="/analyze-selection" element={<PrivateRoute><AnalyzeSelection /></PrivateRoute>} />
-              <Route path="/autism-analytic" element={<AutismAnalytic />} />
-              <Route path="/geeked-guess" element={<GeekedGuess />} />
-              <Route path="*" element={<Navigate to="/home" />} />
-            </Routes>
-          </Suspense>
+      <ThemeProvider theme={muiTheme}>
+        <SnackbarProvider maxSnack={3}>
+          <Router>
+            <Suspense fallback={<LoadingSpinner />}>
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/createaccount" element={<CreateAccount />} />
+                <Route path="/signin" element={<SignIn />} />
+                <Route path="/leaderboard" element={<PrivateRoute><TopRatedUsersTable /></PrivateRoute>} />
+                <Route path="/video-chat" element={<PrivateRoute><VideoCall /></PrivateRoute>} />
+                <Route path="/home" element={<HomeScreen />} />
+                <Route path="/profile/:userId" element={<PrivateRoute><Profile /></PrivateRoute>} />
+                <Route path="/influencer-profile/:influencerId" element={<PrivateRoute><InfluencerProfile /></PrivateRoute>} />
+                <Route path="/updates" element={<PrivateRoute><Updates /></PrivateRoute>} />
+                <Route path="/geo-locate" element={<PrivateRoute><GeoCall /></PrivateRoute>} />
+                <Route path="/two-truths" element={<PrivateRoute><TwoTruths /></PrivateRoute>} />
+                <Route path="/analysis" element={<PrivateRoute><Analyze /></PrivateRoute>} />
+                <Route path="/looksmatch" element={<PrivateRoute><Looksmatch /></PrivateRoute>} />
+                <Route path="/get-ranked-selection" element={<GetRankedSelection />} />
+                <Route path="/ranking" element={<GetRanked />} />
+                <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
+                <Route path="/games-selection" element={<PrivateRoute><GamesSelection /></PrivateRoute>} />
+                <Route path="/analyze-selection" element={<PrivateRoute><AnalyzeSelection /></PrivateRoute>} />
+                <Route path="/autism-analytic" element={<AutismAnalytic />} />
+                <Route path="/geeked-guess" element={<GeekedGuess />} />
+                <Route path="*" element={<Navigate to="/" />} />
+              </Routes>
+            </Suspense>
 
-          {showWarning && (
-            <Flex
-              position="fixed"
-              top="0"
-              left="0"
-              width="100vw"
-              height="100vh"
-              alignItems="center"
-              justifyContent="center"
-              bg="rgba(0, 0, 0, 0.5)"
-              backdropFilter="blur(10px)"
-              zIndex="1000"
-            >
-              <Box
-                bg="white"
-                p="8"
-                borderRadius="md"
-                boxShadow="lg"
-                textAlign="center"
-                maxWidth="500px"
+            {showWarning && (
+              <Flex
+                position="fixed"
+                top="0"
+                left="0"
+                width="100vw"
+                height="100vh"
+                alignItems="center"
+                justifyContent="center"
+                bg="rgba(0, 0, 0, 0.5)"
+                backdropFilter="blur(10px)"
+                zIndex="1000"
               >
-                <Text fontSize="2xl" fontWeight="bold" mb="4">
-                  Warning
-                </Text>
-                <Text mb="6">
-                  This site facilitates video chatting but does not monitor or control user interactions. Users are fully responsible for their actions. We disclaim liability for any content shared. By using this service, you agree to comply with all laws and our terms. Report any issues immediately.
-                </Text>
-                <Button colorScheme="blue" onClick={handleAcknowledge}>
-                  I understand
-                </Button>
-              </Box>
-            </Flex>
-          )}
-        </Router>
-      </SnackbarProvider>
+                <Box
+                  bg="white"
+                  p="8"
+                  borderRadius="md"
+                  boxShadow="lg"
+                  textAlign="center"
+                  maxWidth="500px"
+                >
+                  <Text fontSize="2xl" fontWeight="bold" mb="4">
+                    Warning
+                  </Text>
+                  <Text mb="6">
+                    This site facilitates video chatting but does not monitor or control user interactions. Users are fully responsible for their actions. We disclaim liability for any content shared. By using this service, you agree to comply with all laws and our terms. Report any issues immediately.
+                  </Text>
+                  <Button colorScheme="blue" onClick={handleAcknowledge}>
+                    I understand
+                  </Button>
+                </Box>
+              </Flex>
+            )}
+          </Router>
+        </SnackbarProvider>
+      </ThemeProvider>
     </ChakraProvider>
   );
 }

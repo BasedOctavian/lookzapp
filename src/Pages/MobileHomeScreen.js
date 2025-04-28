@@ -6,7 +6,6 @@ import {
   HStack,
   Text,
   Icon,
-  Spinner,
 } from '@chakra-ui/react';
 import { FaVideo, FaTrophy, FaMapMarkedAlt, FaEye, FaGamepad } from 'react-icons/fa';
 import { Link } from 'react-router-dom'; // Added import
@@ -17,6 +16,7 @@ import StatsSection from '../Components/StatsSection';
 import { useUserData } from '../hooks/useUserData';
 import { useTopRatedData } from '../hooks/useTopRatedData';
 import '../App.css';
+import LoadingIndicator from '../Components/LoadingIndicator';
 
 function MobileHomeScreen() {
   const { userData, rating, bestFeature, loading: loadingUser } = useUserData();
@@ -78,9 +78,10 @@ function MobileHomeScreen() {
 
   if (loadingUser || loadingTopRated) {
     return (
-      <Box minH="100vh" display="flex" alignItems="center" justifyContent="center">
-        <Spinner size="xl" />
-      </Box>
+      <LoadingIndicator
+        message="Loading your dashboard..."
+        subMessage="Please wait while we fetch your data"
+      />
     );
   }
 

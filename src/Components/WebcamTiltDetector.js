@@ -11,33 +11,135 @@ import {
   Container,
   Box,
   Button,
-  Text,
-  VStack,
-  Heading,
-} from '@chakra-ui/react';
-import { useToast } from '@chakra-ui/toast';
-import {
-  Stack,
+  Typography,
+  Grid,
+  Paper,
   FormControl,
-  FormLabel,
   Select,
   MenuItem,
-  TextField,
-  Button as MuiButton,
-  Snackbar,
-  Alert,
-  CircularProgress,
-  Typography,
-  Box as MuiBox,
-  LinearProgress,
   InputAdornment,
-  Grid,
   FormHelperText,
   Input,
+  Stack,
+  FormLabel,
+  CircularProgress,
+  LinearProgress,
+  Snackbar,
+  Alert,
+  TextField,
+  styled,
+  keyframes
 } from '@mui/material';
+import { useToast } from '@chakra-ui/toast';
 import { maleConfig } from '../hooks/faceRating/maleConfig';
 import { femaleConfig } from '../hooks/faceRating/femaleConfig';
 import { generateRatingName } from '../utils/ratingNameGenerator';
+import FaceIcon from '@mui/icons-material/Face';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import LoadingIndicator from './LoadingIndicator';
+
+// Animations
+const neonGlow = keyframes`
+  0% { filter: drop-shadow(0 0 2px #09c2f7); }
+  50% { filter: drop-shadow(0 0 6px #09c2f7); }
+  100% { filter: drop-shadow(0 0 2px #09c2f7); }
+`;
+
+const gradientFlow = keyframes`
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+`;
+
+const fadeIn = keyframes`
+  from { opacity: 0; }
+  to { opacity: 1; }
+`;
+
+// Styled Components
+const GlassCard = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(4),
+  backdropFilter: 'blur(16px)',
+  backgroundColor: 'rgba(13, 17, 44, 0.7)',
+  border: '1px solid rgba(250, 14, 164, 0.2)',
+  borderRadius: '24px',
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+  '&:hover': {
+    transform: 'translateY(-8px)',
+    backgroundColor: 'rgba(13, 17, 44, 0.85)',
+    boxShadow: '0 8px 32px rgba(250, 14, 164, 0.3)'
+  },
+}));
+
+const GradientButton = styled(Button)({
+  background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
+  backgroundSize: '200% 200%',
+  color: '#fff',
+  fontWeight: 700,
+  animation: `${gradientFlow} 6s ease infinite`,
+  '&:before': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: '-100%',
+    width: '100%',
+    height: '100%',
+    background: 'linear-gradient(120deg, transparent, rgba(250, 14, 164, 0.2), transparent)',
+    transition: '0.5s'
+  },
+  '&:hover': {
+    transform: 'translateY(-2px)',
+    boxShadow: '0 0 24px rgba(9, 194, 247, 0.4)',
+    '&:before': {
+      left: '100%'
+    }
+  }
+});
+
+const StyledWebcamContainer = styled(Box)(({ theme }) => ({
+  position: 'relative',
+  width: '100%',
+  height: '100%',
+  maxWidth: '800px',
+  maxHeight: '600px',
+  margin: '0 auto',
+  borderRadius: '24px',
+  overflow: 'hidden',
+  boxShadow: '0 8px 32px rgba(11, 43, 77, 0.2)',
+  border: '1px solid rgba(250, 14, 164, 0.2)',
+  background: 'linear-gradient(45deg, rgba(13, 17, 44, 0.7), rgba(102, 4, 62, 0.7))',
+  backdropFilter: 'blur(16px)',
+}));
+
+const StyledFlashOverlay = styled(Box)(({ theme }) => ({
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  background: 'linear-gradient(45deg, rgba(9, 194, 247, 0.8), rgba(250, 14, 164, 0.8))',
+  opacity: 0,
+  transition: 'opacity 0.5s ease-out',
+  zIndex: 2,
+}));
+
+const StyledFaceDetectedOverlay = styled(Box)(({ theme }) => ({
+  position: 'absolute',
+  bottom: '20%',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  zIndex: 3,
+  textAlign: 'center',
+  background: 'rgba(13, 17, 44, 0.85)',
+  backdropFilter: 'blur(8px)',
+  padding: theme.spacing(2, 3),
+  borderRadius: '16px',
+  border: '1px solid rgba(250, 14, 164, 0.2)',
+  animation: `${fadeIn} 0.5s ease-out`,
+}));
 
 // Define tests (same for both genders)
 const tests = [
@@ -105,11 +207,9 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
       setIsLoading(true);
       setLoadingProgress(0);
       
-      // Initialize TensorFlow.js with WebGL backend
       await tf.setBackend('webgl');
       setLoadingProgress(30);
       
-      // Load FaceMesh model with optimized settings
       const loadedModel = await facemesh.load({
         maxFaces: 1,
         refineLandmarks: true,
@@ -174,7 +274,7 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
     if (!model || !videoReady) return;
 
     let lastDetectionTime = 0;
-    const DETECTION_INTERVAL = 100; // Reduced from 500ms to 100ms for smoother experience
+    const DETECTION_INTERVAL = 100;
 
     const detectFaceAndRunTest = async () => {
       const now = Date.now();
@@ -192,7 +292,6 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
       const context = canvas.getContext('2d');
       context.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Only draw face detection overlay on desktop
       if (window.innerWidth >= 768) {
         context.strokeStyle = 'white';
         context.lineWidth = 1;
@@ -210,7 +309,6 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
         const landmarks = face.scaledMesh;
         const boundingBox = face.boundingBox;
 
-        // Draw face landmarks with improved visualization
         landmarks.forEach(([x, y]) => {
           context.beginPath();
           context.arc(x, y, 1, 0, 2 * Math.PI);
@@ -218,7 +316,6 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
           context.fill();
         });
 
-        // Draw face bounding box
         context.strokeStyle = 'rgba(0, 255, 0, 0.5)';
         context.lineWidth = 2;
         context.strokeRect(
@@ -386,127 +483,120 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
   return (
     <Box 
       position="relative" 
-      w="100%" 
-      h="100%"
-      maxW={{ base: '100%', md: '800px' }}
-      maxH={{ base: '100%', md: '600px' }}
-      mx="auto"
+      width="100%" 
+      height="100%"
+      maxWidth={{ base: '100%', md: '800px' }}
+      maxHeight={{ base: '100%', md: '600px' }}
+      margin="auto"
       borderRadius="xl"
       overflow="hidden"
       boxShadow="lg"
-      bg="gray.200"
+      sx={{
+        background: `
+          radial-gradient(circle at center, #0d112c 0%, #66043e 100%),
+          linear-gradient(45deg, rgba(9, 194, 247, 0.1), rgba(250, 14, 164, 0.1))
+        `,
+        position: 'relative',
+        '&:before': {
+          content: '""',
+          position: 'absolute',
+          width: '100%',
+          height: '100%',
+          background: `
+            linear-gradient(45deg, 
+              rgba(9, 194, 247, 0.05) 0%, 
+              rgba(250, 14, 164, 0.05) 50%,
+              rgba(9, 194, 247, 0.05) 100%)
+          `,
+          animation: `${gradientFlow} 12s ease infinite`,
+          backgroundSize: '200% 200%',
+          opacity: 0.3,
+        }
+      }}
     >
       {isLoading && (
-        <Box
-          position="absolute"
-          top="50%"
-          left="50%"
-          transform="translate(-50%, -50%)"
-          zIndex={4}
-          textAlign="center"
-          w="100%"
-          h="100%"
-          display="flex"
-          flexDirection="column"
-          justifyContent="center"
-          alignItems="center"
-          bg="rgba(0,0,0,0.7)"
-        >
-          <CircularProgress
-            value={loadingProgress}
-            color="teal"
-            size={{ base: '40px', md: '60px' }}
-            thickness={4}
-            sx={{ mb: 2 }}
-          />
-          <Typography 
-            variant="h6" 
-            color="white" 
-            sx={{ 
-              textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-              fontSize: { base: '1rem', md: '1.25rem' }
-            }}
-          >
-            Loading Face Detection...
-          </Typography>
-          <Typography 
-            variant="body2" 
-            color="white" 
-            sx={{ 
-              textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-              fontSize: { base: '0.875rem', md: '1rem' }
-            }}
-          >
-            {loadingProgress < 30 ? 'Initializing...' : 
-             loadingProgress < 100 ? 'Loading Model...' : 
-             'Almost Ready...'}
-          </Typography>
-        </Box>
+        <LoadingIndicator
+          progress={loadingProgress}
+          message="Loading Face Detection..."
+          subMessage={loadingProgress < 30 ? 'Initializing...' : 
+                      loadingProgress < 100 ? 'Loading Model...' : 
+                      'Almost Ready...'}
+        />
       )}
       {!model && !webcamError && !isLoading && (
-        <Box
-          position="absolute"
-          top="50%"
-          left="50%"
-          transform="translate(-50%, -50%)"
-          zIndex={3}
-          textAlign="center"
-          w="100%"
-          h="100%"
-          display="flex"
-          flexDirection="column"
-          justifyContent="center"
-          alignItems="center"
-          bg="rgba(0,0,0,0.7)"
-        >
-          <Typography 
-            variant="h6" 
-            color="white" 
-            sx={{ 
-              textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-              fontSize: { base: '1rem', md: '1.25rem' }
-            }}
-          >
-            Preparing Camera...
-          </Typography>
-        </Box>
+        <LoadingIndicator
+          progress={0}
+          message="Preparing Camera..."
+          subMessage=""
+        />
       )}
       {webcamError && (
         <Box
-          position="absolute"
-          top="50%"
-          left="50%"
-          transform="translate(-50%, -50%)"
-          zIndex={3}
-          textAlign="center"
-          bg="rgba(0,0,0,0.7)"
-          p={{ base: 3, md: 4 }}
-          borderRadius="lg"
-          w={{ base: '90%', md: 'auto' }}
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(13, 17, 44, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 4,
+          }}
         >
+          <ErrorOutlineIcon 
+            sx={{ 
+              fontSize: 48, 
+              color: 'error.main',
+              mb: 2,
+              filter: 'drop-shadow(0 0 8px rgba(244, 67, 54, 0.3))'
+            }} 
+          />
           <Typography 
             variant="h6" 
-            color="white" 
+            color="error"
             mb={2}
-            sx={{ fontSize: { base: '1rem', md: '1.25rem' } }}
+            sx={{ 
+              fontSize: { base: '1rem', md: '1.25rem' },
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1
+            }}
           >
+            <WarningAmberIcon sx={{ fontSize: 24 }} />
             Camera Error
           </Typography>
           <Typography 
             variant="body1" 
-            color="white" 
+            color="error"
             mb={3}
-            sx={{ fontSize: { base: '0.875rem', md: '1rem' } }}
+            sx={{ 
+              fontSize: { base: '0.875rem', md: '1rem' },
+              textAlign: 'center',
+              maxWidth: '80%'
+            }}
           >
             {webcamError}
           </Typography>
           <Button
-            colorScheme="teal"
-            size={{ base: 'sm', md: 'md' }}
+            variant="contained"
+            color="primary"
             onClick={() => {
               setWebcamError(null);
               setIsLoading(true);
               loadModel().then(startVideo);
+            }}
+            sx={{
+              background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
+              backgroundSize: '200% 200%',
+              animation: `${gradientFlow} 6s ease infinite`,
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 0 24px rgba(9, 194, 247, 0.4)',
+              }
             }}
           >
             Retry
@@ -545,59 +635,57 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
           left="50%"
           transform="translate(-50%, -50%)"
           zIndex={3}
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+          gap={2}
         >
-          <Text
-            color="white"
-            fontSize={{ base: "4xl", md: "6xl" }}
-            fontWeight="bold"
-            textShadow="0 2px 4px rgba(0,0,0,0.5)"
-            animation={countdown === 0 ? "pulse 0.5s ease-out" : "none"}
-            sx={{
-              "@keyframes pulse": {
-                "0%": { transform: "scale(1)" },
-                "50%": { transform: "scale(1.2)" },
-                "100%": { transform: "scale(1)" }
-              }
+          <Typography 
+            variant="h1" 
+            sx={{ 
+              fontSize: '6rem', 
+              fontWeight: 800, 
+              background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)', 
+              WebkitBackgroundClip: 'text', 
+              WebkitTextFillColor: 'transparent', 
+              textShadow: '0 0 20px rgba(9, 194, 247, 0.5)',
+              animation: `${fadeIn} 0.5s ease-out`
             }}
           >
             {countdown}
-          </Text>
+          </Typography>
+          {countdown === 0 && (
+            <CheckCircleOutlineIcon 
+              sx={{ 
+                fontSize: 48, 
+                color: '#4CAF50',
+                filter: 'drop-shadow(0 0 8px rgba(76, 175, 80, 0.3))',
+                animation: `${fadeIn} 0.5s ease-out`
+              }} 
+            />
+          )}
         </Box>
       )}
       {showFlash && (
-        <Box
-          position="absolute"
-          top={0}
-          left={0}
-          right={0}
-          bottom={0}
-          bg="white"
-          opacity={0.8}
-          transition="opacity 0.5s ease-out"
-          zIndex={2}
-        />
+        <StyledFlashOverlay sx={{ opacity: 0.8 }} />
       )}
       {!faceDetected && !isLoading && !webcamError && (
-        <Box
-          position="absolute"
-          bottom="20%"
-          left="50%"
-          transform="translateX(-50%)"
-          zIndex={3}
-          textAlign="center"
-          bg="rgba(0,0,0,0.7)"
-          p={{ base: 2, md: 3 }}
-          borderRadius="lg"
-          w={{ base: '90%', md: 'auto' }}
-        >
+        <StyledFaceDetectedOverlay>
           <Typography 
             variant="body1" 
-            color="white"
-            sx={{ fontSize: { base: '0.875rem', md: '1rem' } }}
+            sx={{ 
+              color: '#fff',
+              fontSize: { base: '0.875rem', md: '1rem' },
+              textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1
+            }}
           >
+            <FaceIcon sx={{ fontSize: 20 }} />
             Please position your face in the frame
           </Typography>
-        </Box>
+        </StyledFaceDetectedOverlay>
       )}
     </Box>
   );
@@ -806,7 +894,6 @@ const UserInfoForm = ({ onSubmit, gender }) => {
   };
 
   useEffect(() => {
-    // Remove the localStorage loading
     setUnitSystem('imperial');
     setName('');
     setEthnicity('');
@@ -912,9 +999,9 @@ const UserInfoForm = ({ onSubmit, gender }) => {
             autoComplete: "off"
           }}
           sx={{
-            bg: 'background.paper',
-            '&:hover': { bg: 'action.hover' },
-            '&.Mui-focused': { bg: 'background.paper' }
+            bgcolor: 'background.paper',
+            '&:hover': { bgcolor: 'action.hover' },
+            '&.Mui-focused': { bgcolor: 'background.paper' }
           }}
         />
         {errors.name && <FormHelperText error sx={{ mt: 0.5 }}>{errors.name}</FormHelperText>}
@@ -928,9 +1015,9 @@ const UserInfoForm = ({ onSubmit, gender }) => {
           size="medium"
           autoComplete="off"
           sx={{
-            bg: 'background.paper',
-            '&:hover': { bg: 'action.hover' },
-            '&.Mui-focused': { bg: 'background.paper' }
+            bgcolor: 'background.paper',
+            '&:hover': { bgcolor: 'action.hover' },
+            '&.Mui-focused': { bgcolor: 'background.paper' }
           }}
         >
           <MenuItem value="imperial">Imperial (ft, in, lbs)</MenuItem>
@@ -953,9 +1040,9 @@ const UserInfoForm = ({ onSubmit, gender }) => {
                   autoComplete: "off"
                 }}
                 sx={{
-                  bg: 'background.paper',
-                  '&:hover': { bg: 'action.hover' },
-                  '&.Mui-focused': { bg: 'background.paper' }
+                  bgcolor: 'background.paper',
+                  '&:hover': { bgcolor: 'action.hover' },
+                  '&.Mui-focused': { bgcolor: 'background.paper' }
                 }}
               />
               {errors.heightFeet && <FormHelperText error sx={{ mt: 0.5 }}>{errors.heightFeet}</FormHelperText>}
@@ -974,9 +1061,9 @@ const UserInfoForm = ({ onSubmit, gender }) => {
                   autoComplete: "off"
                 }}
                 sx={{
-                  bg: 'background.paper',
-                  '&:hover': { bg: 'action.hover' },
-                  '&.Mui-focused': { bg: 'background.paper' }
+                  bgcolor: 'background.paper',
+                  '&:hover': { bgcolor: 'action.hover' },
+                  '&.Mui-focused': { bgcolor: 'background.paper' }
                 }}
               />
               {errors.heightInches && <FormHelperText error sx={{ mt: 0.5 }}>{errors.heightInches}</FormHelperText>}
@@ -996,9 +1083,9 @@ const UserInfoForm = ({ onSubmit, gender }) => {
               autoComplete: "off"
             }}
             sx={{
-              bg: 'background.paper',
-              '&:hover': { bg: 'action.hover' },
-              '&.Mui-focused': { bg: 'background.paper' }
+              bgcolor: 'background.paper',
+              '&:hover': { bgcolor: 'action.hover' },
+              '&.Mui-focused': { bgcolor: 'background.paper' }
             }}
           />
           {errors.heightCm && <FormHelperText error sx={{ mt: 0.5 }}>{errors.heightCm}</FormHelperText>}
@@ -1024,9 +1111,9 @@ const UserInfoForm = ({ onSubmit, gender }) => {
             </InputAdornment>
           }
           sx={{
-            bg: 'background.paper',
-            '&:hover': { bg: 'action.hover' },
-            '&.Mui-focused': { bg: 'background.paper' }
+            bgcolor: 'background.paper',
+            '&:hover': { bgcolor: 'action.hover' },
+            '&.Mui-focused': { bgcolor: 'background.paper' }
           }}
         />
         {errors.weight && <FormHelperText error sx={{ mt: 0.5 }}>{errors.weight}</FormHelperText>}
@@ -1040,9 +1127,9 @@ const UserInfoForm = ({ onSubmit, gender }) => {
           size="medium"
           autoComplete="off"
           sx={{
-            bg: 'background.paper',
-            '&:hover': { bg: 'action.hover' },
-            '&.Mui-focused': { bg: 'background.paper' }
+            bgcolor: 'background.paper',
+            '&:hover': { bgcolor: 'action.hover' },
+            '&.Mui-focused': { bgcolor: 'background.paper' }
           }}
         >
           {Object.keys(ethnicityMap).map((option) => (
@@ -1061,9 +1148,9 @@ const UserInfoForm = ({ onSubmit, gender }) => {
           size="medium"
           autoComplete="off"
           sx={{
-            bg: 'background.paper',
-            '&:hover': { bg: 'action.hover' },
-            '&.Mui-focused': { bg: 'background.paper' }
+            bgcolor: 'background.paper',
+            '&:hover': { bgcolor: 'action.hover' },
+            '&.Mui-focused': { bgcolor: 'background.paper' }
           }}
         >
           {Object.keys(eyeColorMap).map((option) => (
@@ -1075,7 +1162,7 @@ const UserInfoForm = ({ onSubmit, gender }) => {
       </FormControl>
 
       <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 4 }}>
-        <MuiButton
+        <Button
           variant="outlined"
           onClick={handleRevert}
           sx={{
@@ -1091,8 +1178,8 @@ const UserInfoForm = ({ onSubmit, gender }) => {
           }}
         >
           Clear Form
-        </MuiButton>
-        <MuiButton
+        </Button>
+        <Button
           variant="contained"
           onClick={handleSubmit}
           disabled={Object.keys(errors).length > 0 || !name || !ethnicity || !eyeColor || !weightValue || (unitSystem === 'imperial' ? !heightFeet || !heightInches : !heightCm)}
@@ -1108,7 +1195,7 @@ const UserInfoForm = ({ onSubmit, gender }) => {
           }}
         >
           Submit
-        </MuiButton>
+        </Button>
       </Stack>
     </Stack>
   );
@@ -1120,7 +1207,7 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
   const cappedFaceRating = faceRating ? Math.min(Math.max(faceRating, 15.69), 99) : null;
 
   return (
-    <MuiBox
+    <Box
       position="relative"
       display="inline-flex"
       flexDirection="column"
@@ -1135,8 +1222,8 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
         }
       }}
     >
-      <MuiBox display="flex" flexDirection="row" alignItems="center" gap={4}>
-        <MuiBox position="relative" display="inline-flex">
+      <Box display="flex" flexDirection="row" alignItems="center" gap={4}>
+        <Box position="relative" display="inline-flex">
           <CircularProgress
             variant="determinate"
             value={cappedRating}
@@ -1149,7 +1236,7 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
               }
             }}
           />
-          <MuiBox
+          <Box
             top={0}
             left={0}
             bottom={0}
@@ -1166,10 +1253,10 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
             <Typography variant="body2" component="div" color="textPrimary">
               Overall
             </Typography>
-          </MuiBox>
-        </MuiBox>
+          </Box>
+        </Box>
         {cappedFaceRating !== null && (
-          <MuiBox position="relative" display="inline-flex">
+          <Box position="relative" display="inline-flex">
             <CircularProgress
               variant="determinate"
               value={cappedFaceRating}
@@ -1182,7 +1269,7 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
                 }
               }}
             />
-            <MuiBox
+            <Box
               top={0}
               left={0}
               bottom={0}
@@ -1199,14 +1286,14 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
               <Typography variant="body2" component="div" color="textPrimary">
                 Face
               </Typography>
-            </MuiBox>
-          </MuiBox>
+            </Box>
+          </Box>
         )}
-      </MuiBox>
+      </Box>
       <Typography variant="h6" component="div" color="textPrimary" mt={2}>
         {tierLabel}
       </Typography>
-    </MuiBox>
+    </Box>
   );
 };
 
@@ -1216,17 +1303,14 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
   const [showDetails, setShowDetails] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  // Generate rating name using the test scores and user info
   const ratingName = useMemo(() => {
     if (!testScores || !userInfo) return null;
     
-    // Combine test scores with height and weight for the generator
     const allScores = {
       ...testScores,
       Height: userInfo.height,
       Weight: userInfo.weight
     };
-    console.log(allScores, userInfo.gender, userInfo.ethnicity, userInfo.eyeColor); 
     
     return generateRatingName(allScores, userInfo.gender, userInfo.ethnicity, userInfo.eyeColor);
   }, [testScores, userInfo]);
@@ -1282,9 +1366,8 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
     : [];
 
   return (
-    <MuiBox sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
-      {/* Initial Results View */}
-      <MuiBox
+    <Box sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
+      <Box
         sx={{
           p: 4,
           borderRadius: 2,
@@ -1304,7 +1387,7 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
           {overallRating.toFixed(1)} / 100
         </Typography>
         {ratingName && (
-          <MuiBox
+          <Box
             sx={{
               mt: 3,
               p: 2,
@@ -1316,24 +1399,23 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
             <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
               {ratingName}
             </Typography>
-          </MuiBox>
+          </Box>
         )}
         <Typography variant="body1" paragraph sx={{ mt: 3 }}>
           {tierDescription}
         </Typography>
-        <MuiButton
+        <Button
           variant="contained"
           color="primary"
           onClick={() => setShowDetails(!showDetails)}
           sx={{ mt: 2 }}
         >
           {showDetails ? 'Hide Details' : 'Show Detailed Analysis'}
-        </MuiButton>
-      </MuiBox>
+        </Button>
+      </Box>
 
-      {/* Detailed Analysis Section */}
       {showDetails && (
-        <MuiBox
+        <Box
           sx={{
             animation: 'slideIn 0.5s ease-out',
             '@keyframes slideIn': {
@@ -1349,7 +1431,7 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
             {sortedFeatures.map(({ test, score, impact }, index) => {
               const color = impact === 'Excellent' ? '#4CAF50' : impact === 'Good' ? '#8BC34A' : impact === 'Average' ? '#FFC107' : '#FF5722';
               return (
-                <MuiBox
+                <Box
                   key={test}
                   sx={{
                     animation: `slideIn 0.5s ease-out ${index * 0.1}s both`,
@@ -1363,18 +1445,18 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
                     border: `1px solid ${color}20`
                   }}
                 >
-                  <MuiBox display="flex" alignItems="center" mb={1}>
+                  <Box display="flex" alignItems="center" mb={1}>
                     <Typography variant="h4" mr={2}>
                       {featureIcons[test]}
                     </Typography>
-                    <MuiBox flex={1}>
+                    <Box flex={1}>
                       <Typography variant="body1" fontWeight="medium">
                         {test}
                       </Typography>
                       <Typography variant="body2" color="textSecondary">
                         {featureDescriptions[test]}
                       </Typography>
-                    </MuiBox>
+                    </Box>
                     <Typography
                       variant="body1"
                       color={color}
@@ -1388,8 +1470,8 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
                     >
                       {impact}
                     </Typography>
-                  </MuiBox>
-                  <MuiBox sx={{ position: 'relative', mt: 1 }}>
+                  </Box>
+                  <Box sx={{ position: 'relative', mt: 1 }}>
                     <LinearProgress
                       variant="determinate"
                       value={score}
@@ -1404,7 +1486,7 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
                         }
                       }}
                     />
-                    <MuiBox
+                    <Box
                       sx={{
                         display: 'flex',
                         justifyContent: 'space-between',
@@ -1417,22 +1499,21 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
                       <Typography variant="body2" color="textSecondary" sx={{ fontWeight: 'medium' }}>
                         High
                       </Typography>
-                    </MuiBox>
-                  </MuiBox>
-                </MuiBox>
+                    </Box>
+                  </Box>
+                </Box>
               );
             })}
           </Stack>
-        </MuiBox>
+        </Box>
       )}
 
-      {/* Share Section */}
-      <MuiBox sx={{ mt: 4, textAlign: 'center' }}>
+      <Box sx={{ mt: 4, textAlign: 'center' }}>
         <Typography variant="h6" gutterBottom>
           Share Your Results
         </Typography>
         <Stack direction="row" spacing={2} justifyContent="center" mt={2}>
-          <MuiButton
+          <Button
             variant="contained"
             color="primary"
             startIcon={<span>📱</span>}
@@ -1446,15 +1527,15 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
             }}
           >
             Copy Results
-          </MuiButton>
-          <MuiButton
+          </Button>
+          <Button
             variant="outlined"
             onClick={() => navigate('/')}
           >
             Back to Home
-          </MuiButton>
+          </Button>
         </Stack>
-      </MuiBox>
+      </Box>
 
       <Snackbar
         open={snackbar.open}
@@ -1470,7 +1551,7 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </MuiBox>
+    </Box>
   );
 };
 
@@ -1733,274 +1814,132 @@ const AttractivenessRatingProcess = () => {
     'Prefer not to say': 'M',
   };
 
-  const renderResults = () => {
-    if (!cappedRating) return null;
-
-    const getRatingColor = (score) => {
-      if (score >= 8) return 'green.500';
-      if (score >= 6) return 'teal.500';
-      if (score >= 4) return 'yellow.500';
-      if (score >= 2) return 'orange.500';
-      return 'red.500';
-    };
-
-    const getRatingEmoji = (score) => {
-      if (score >= 8) return '😍';
-      if (score >= 6) return '😊';
-      if (score >= 4) return '😐';
-      if (score >= 2) return '😕';
-      return '😢';
-    };
-
-    const getRatingText = (score) => {
-      if (score >= 8) return 'Stunning!';
-      if (score >= 6) return 'Attractive!';
-      if (score >= 4) return 'Average';
-      if (score >= 2) return 'Below Average';
-      return 'Not Great';
-    };
-
-    return (
-      <Box
-        position="absolute"
-        top="50%"
-        left="50%"
-        transform="translate(-50%, -50%)"
-        zIndex={3}
-        w={{ base: '90%', md: '600px' }}
-        bg="rgba(0,0,0,0.85)"
-        p={{ base: 4, md: 6 }}
-        borderRadius="xl"
-        boxShadow="xl"
-        textAlign="center"
-        backdropFilter="blur(10px)"
-      >
-        <Text
-          fontSize={{ base: '3xl', md: '4xl' }}
-          fontWeight="bold"
-          color="white"
-          mb={2}
-        >
-          Your Rating
-        </Text>
-        
-        <Box
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          mb={4}
-        >
-          <Text
-            fontSize={{ base: '6xl', md: '8xl' }}
-            color={getRatingColor(cappedRating)}
-            mb={2}
-            lineHeight={1}
-          >
-            {getRatingEmoji(cappedRating)}
-          </Text>
-          
-          <Text
-            fontSize={{ base: '4xl', md: '5xl' }}
-            fontWeight="bold"
-            color={getRatingColor(cappedRating)}
-            mb={1}
-          >
-            {cappedRating.toFixed(1)}
-          </Text>
-          
-          <Text
-            fontSize={{ base: 'xl', md: '2xl' }}
-            color="white"
-            mb={4}
-          >
-            {getRatingText(cappedRating)}
-          </Text>
-        </Box>
-
-        <Box
-          bg="rgba(255,255,255,0.1)"
-          p={4}
-          borderRadius="lg"
-          mb={4}
-        >
-          <Text
-            fontSize={{ base: 'md', md: 'lg' }}
-            color="white"
-            mb={2}
-          >
-            Rating Breakdown
-          </Text>
-          
-          <Box
-            display="flex"
-            flexDirection="column"
-            gap={2}
-          >
-            {Object.entries(testScores).map(([category, score]) => (
-              <Box
-                key={category}
-                display="flex"
-                justifyContent="space-between"
-                alignItems="center"
-                bg="rgba(255,255,255,0.05)"
-                p={2}
-                borderRadius="md"
-              >
-                <Text
-                  fontSize={{ base: 'sm', md: 'md' }}
-                  color="white"
-                  textTransform="capitalize"
-                >
-                  {category}
-                </Text>
-                <Text
-                  fontSize={{ base: 'sm', md: 'md' }}
-                  color={getRatingColor(score)}
-                  fontWeight="bold"
-                >
-                  {score.toFixed(1)}
-                </Text>
-              </Box>
-            ))}
-          </Box>
-        </Box>
-
-        <Button
-          colorScheme="teal"
-          size={{ base: 'md', md: 'lg' }}
-          onClick={() => {
-            setFaceDetected(false);
-            setCurrentStep('gender');
-          }}
-          w="100%"
-          _hover={{
-            transform: 'translateY(-2px)',
-            boxShadow: 'lg'
-          }}
-          transition="all 0.2s"
-        >
-          Try Again
-        </Button>
-      </Box>
-    );
-  };
-
   return (
-    <Box minH="100vh" bgGradient="linear(to-br, gray.50, blue.50)" py={0} px={5}>
-      <Container maxW="container.xl">
-        <VStack spacing={6} align="stretch">
-          {currentStep === 'scanForSelection' && (
-            <VStack spacing={8} align="center" maxW="800px" mx="auto" py={8}>
-              <Heading 
-                size="xl" 
-                textAlign="center" 
-                fontFamily={'Matt Bold'} 
-                color="gray.800"
-                mb={2}
-              >
-                Who are you scanning for?
-              </Heading>
-              <Text 
-                fontSize="lg" 
-                textAlign="center" 
-                color="gray.600"
-                maxW="600px"
-                mb={6}
-              >
-                Choose whether you want to analyze your own appearance or someone else's
-              </Text>
-              <Grid 
-                templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)' }} 
-                gap={6} 
-                w="full"
-                maxW="600px"
-              >
-                <Box
-                  onClick={() => handleScanForSelection('myself')}
-                  bg="white"
-                  p={6}
-                  borderRadius="xl"
-                  cursor="pointer"
-                  transition="all 0.3s ease"
-                  _hover={{ transform: 'scale(1.02)', boxShadow: 'xl' }}
-                  boxShadow="lg"
-                  border="1px solid"
-                  borderColor="gray.200"
-                  textAlign="center"
-                  display="flex"
-                  flexDirection="column"
-                  alignItems="center"
-                  justifyContent="center"
-                >
-                  <Text fontSize="6xl" mb={4}>👤</Text>
-                  <Heading size="md" mb={2}>For Myself</Heading>
-                  <Text color="gray.600">
-                    Analyze your own facial features and get personalized insights
-                  </Text>
-                </Box>
-                <Box
-                  onClick={() => handleScanForSelection('someoneElse')}
-                  bg="white"
-                  p={6}
-                  borderRadius="xl"
-                  cursor="pointer"
-                  transition="all 0.3s ease"
-                  _hover={{ transform: 'scale(1.02)', boxShadow: 'xl' }}
-                  boxShadow="lg"
-                  border="1px solid"
-                  borderColor="gray.200"
-                  textAlign="center"
-                  display="flex"
-                  flexDirection="column"
-                  alignItems="center"
-                  justifyContent="center"
-                >
-                  <Text fontSize="6xl" mb={4}>👥</Text>
-                  <Heading size="md" mb={2}>For Someone Else</Heading>
-                  <Text color="gray.600">
-                    Analyze another person's facial features and compare results
-                  </Text>
-                </Box>
-              </Grid>
-            </VStack>
-          )}
-          {currentStep === 'genderSelection' && scanFor === 'someoneElse' && (
-            <VStack spacing={4} align="center">
-              <Heading size="lg">Select Gender for Analysis</Heading>
-              <Text fontSize="md" textAlign="center" maxW="400px">
-                Gender is used to tailor the attractiveness analysis based on typical standards.
-              </Text>
-              <FormControl sx={{ minWidth: '300px' }}>
-                <Select
-                  value={gender}
-                  onChange={(e) => handleGenderSelection(e.target.value)}
-                  displayEmpty
-                  fullWidth
-                >
-                  <MenuItem value="" disabled>
-                    Choose gender
-                  </MenuItem>
-                  {Object.keys(genderMap).map((option) => (
-                    <MenuItem key={option} value={option}>
-                      {option}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </VStack>
-          )}
-          {(currentStep === 'instructions' || currentStep === 'scanning') && (
-            <Box
-              w={{ base: '100%', md: '640px' }}
-              h="480px"
-              mx="auto"
-              borderWidth="2px"
-              borderColor="gray.100"
-              borderRadius="xl"
-              overflow="hidden"
-              boxShadow="lg"
-              bg="white"
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: `
+          radial-gradient(circle at center, #0d112c 0%, #66043e 100%),
+          linear-gradient(45deg, rgba(9, 194, 247, 0.1), rgba(250, 14, 164, 0.1))
+        `,
+        color: '#fff',
+        py: 8,
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      <Box
+        sx={{
+          position: 'absolute',
+          width: '100%',
+          height: '100%',
+          background: `
+            linear-gradient(rgba(9, 194, 247, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(9, 194, 247, 0.05) 1px, transparent 1px)
+          `,
+          backgroundSize: '40px 40px',
+          opacity: 0.3,
+        }}
+      />
+      <Container maxWidth="xl" sx={{ position: 'relative', zIndex: 1 }}>
+        {currentStep === 'scanForSelection' && (
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <Typography
+              variant="h2"
+              sx={{
+                fontWeight: 800,
+                background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                mb: 4
+              }}
             >
+              Who are you scanning?
+            </Typography>
+            <Grid container spacing={4} justifyContent="center">
+              <Grid item xs={12} md={6}>
+                <GlassCard
+                  onClick={() => handleScanForSelection('myself')}
+                  sx={{ cursor: 'pointer', height: '100%' }}
+                >
+                  <Typography variant="h4" sx={{ mb: 2 }}>👤 For Myself</Typography>
+                  <Typography color="rgba(255,255,255,0.7)">
+                    Analyze your own facial features with AI-powered insights
+                  </Typography>
+                </GlassCard>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <GlassCard
+                  onClick={() => handleScanForSelection('someoneElse')}
+                  sx={{ cursor: 'pointer', height: '100%' }}
+                >
+                  <Typography variant="h4" sx={{ mb: 2 }}>👥 For Someone Else</Typography>
+                  <Typography color="rgba(255,255,255,0.7)">
+                    Analyze another person's features with privacy-focused technology
+                  </Typography>
+                </GlassCard>
+              </Grid>
+            </Grid>
+          </Box>
+        )}
+        {currentStep === 'genderSelection' && scanFor === 'someoneElse' && (
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <Typography
+              variant="h3"
+              sx={{
+                fontWeight: 800,
+                background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                mb: 4
+              }}
+            >
+              Select Gender for Analysis
+            </Typography>
+            <Typography color="rgba(255,255,255,0.7)" mb={4}>
+              Gender is used to tailor the attractiveness analysis based on typical standards.
+            </Typography>
+            <FormControl sx={{ minWidth: '300px' }}>
+              <Select
+                value={gender}
+                onChange={(e) => handleGenderSelection(e.target.value)}
+                displayEmpty
+                fullWidth
+                sx={{
+                  bgcolor: 'rgba(13, 17, 44, 0.7)',
+                  color: '#fff',
+                  '& .MuiSelect-icon': { color: '#fff' },
+                  '&:hover': { bgcolor: 'rgba(13, 17, 44, 0.85)' }
+                }}
+              >
+                <MenuItem value="" disabled>
+                  Choose gender
+                </MenuItem>
+                {Object.keys(genderMap).map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        )}
+        {(currentStep === 'instructions' || currentStep === 'scanning') && (
+          <Box sx={{ my: 8 }}>
+            <Typography
+              variant="h3"
+              sx={{
+                fontWeight: 800,
+                textAlign: 'center',
+                background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                mb: 4
+              }}
+            >
+              {currentStep === 'scanning' ? 'Analyzing Features...' : 'Ready to Scan'}
+            </Typography>
+            <StyledWebcamContainer>
               <WebcamTiltDetector
                 startScanning={currentStep === 'scanning'}
                 onScanningComplete={handleScanningComplete}
@@ -2008,71 +1947,53 @@ const AttractivenessRatingProcess = () => {
                 gender={userInfo?.gender || gender}
                 onReadyToScanChange={setReadyToScan}
               />
-            </Box>
-          )}
-          {currentStep === 'instructions' && (
-            <VStack spacing={4} align="center">
-              <Heading size="lg">Let's Scan the Face!</Heading>
-              <Text fontSize="lg" textAlign="center" maxW="500px">
-                Position the face in front of the camera with good lighting and keep it straight.
-              </Text>
-              <Button
-                colorScheme="teal"
-                size="lg"
-                onClick={handleStartScanning}
-                isDisabled={!faceDetected}
-              >
-                Start Scanning
-              </Button>
-            </VStack>
-          )}
-          {currentStep === 'form' && scanFor === 'someoneElse' && (
-            <VStack spacing={8} align="center" maxW="800px" mx="auto" py={8}>
-              <Heading 
-                size="xl" 
-                textAlign="center" 
-                fontFamily={'Matt Bold'} 
-                color="gray.800"
-                mb={2}
-              >
-                Tell Us About Them
-              </Heading>
-              <Text 
-                fontSize="lg" 
-                textAlign="center" 
-                color="gray.600"
-                maxW="600px"
-                mb={6}
-              >
-                Help us provide more accurate analysis by sharing some basic information
-              </Text>
-              <Box
-                bg="white"
-                p={8}
-                borderRadius="xl"
-                boxShadow="lg"
-                border="1px solid"
-                borderColor="gray.200"
-                w="full"
-                maxW="600px"
-              >
-                <UserInfoForm onSubmit={handleFormSubmit} gender={gender} />
+            </StyledWebcamContainer>
+            {currentStep === 'instructions' && (
+              <Box sx={{ textAlign: 'center', mt: 4 }}>
+                <GradientButton
+                  variant="contained"
+                  size="large"
+                  onClick={handleStartScanning}
+                  disabled={!faceDetected}
+                  sx={{ px: 6, py: 2, borderRadius: '16px' }}
+                >
+                  Begin Facial Analysis
+                </GradientButton>
               </Box>
-            </VStack>
-          )}
-          {currentStep === 'result' && cappedRating !== null && (
-            <VStack spacing={4} align="center">
-              <Heading size="lg">Here's the Score!</Heading>
-              <DetailedResultDisplay
-                overallRating={cappedRating}
-                faceRating={currentFaceRating}
-                testScores={userInfo.testScores}
-                userInfo={userInfo}
-                setUserInfo={setUserInfo}
-              />
-            </VStack>
-          )}
-        </VStack>
+            )}
+          </Box>
+        )}
+        {currentStep === 'form' && scanFor === 'someoneElse' && (
+          <Box sx={{ py: 8 }}>
+            <Typography
+              variant="h3"
+              sx={{
+                fontWeight: 800,
+                textAlign: 'center',
+                background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                mb: 4
+              }}
+            >
+              Tell Us About Them
+            </Typography>
+            <Box sx={{ maxWidth: '600px', mx: 'auto' }}>
+              <UserInfoForm onSubmit={handleFormSubmit} gender={gender} />
+            </Box>
+          </Box>
+        )}
+        {currentStep === 'result' && cappedRating !== null && (
+          <Box sx={{ py: 8 }}>
+            <DetailedResultDisplay
+              overallRating={cappedRating}
+              faceRating={currentFaceRating}
+              testScores={userInfo.testScores}
+              userInfo={userInfo}
+              setUserInfo={setUserInfo}
+            />
+          </Box>
+        )}
       </Container>
     </Box>
   );
