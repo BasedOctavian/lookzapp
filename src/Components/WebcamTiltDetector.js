@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import * as tf from '@tensorflow/tfjs';
 import * as facemesh from '@tensorflow-models/facemesh';
 import { doc, setDoc, addDoc, collection } from 'firebase/firestore';
@@ -18,9 +18,9 @@ import {
 import { useToast } from '@chakra-ui/toast';
 import {
   Stack,
-  FormControl as MuiFormControl,
-  FormLabel as MuiFormLabel,
-  Select as MuiSelect,
+  FormControl,
+  FormLabel,
+  Select,
   MenuItem,
   TextField,
   Button as MuiButton,
@@ -32,9 +32,12 @@ import {
   LinearProgress,
   InputAdornment,
   Grid,
+  FormHelperText,
+  Input,
 } from '@mui/material';
 import { maleConfig } from '../hooks/faceRating/maleConfig';
 import { femaleConfig } from '../hooks/faceRating/femaleConfig';
+import { generateRatingName } from '../utils/ratingNameGenerator';
 
 // Define tests (same for both genders)
 const tests = [
@@ -91,45 +94,73 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
   const [videoReady, setVideoReady] = useState(false);
   const [faceDetectedTime, setFaceDetectedTime] = useState(0);
   const [showFlash, setShowFlash] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const toast = useToast();
 
   const config = gender === 'M' ? maleConfig : femaleConfig;
 
+  const loadModel = async () => {
+    try {
+      setIsLoading(true);
+      setLoadingProgress(0);
+      
+      // Initialize TensorFlow.js with WebGL backend
+      await tf.setBackend('webgl');
+      setLoadingProgress(30);
+      
+      // Load FaceMesh model with optimized settings
+      const loadedModel = await facemesh.load({
+        maxFaces: 1,
+        refineLandmarks: true,
+        detectionConfidence: 0.9,
+        maxContinuousChecks: 5
+      });
+      
+      setLoadingProgress(100);
+      setModel(loadedModel);
+      setIsLoading(false);
+    } catch (err) {
+      setWebcamError('Failed to load FaceMesh model');
+      setIsLoading(false);
+    }
+  };
+
+  const startVideo = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          width: { ideal: 640 }, 
+          height: { ideal: 480 }, 
+          facingMode: 'user',
+          frameRate: { ideal: 30 }
+        },
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = () => {
+          setVideoReady(true);
+          videoRef.current.play().catch((err) => {
+            setWebcamError('Failed to play video');
+          });
+        };
+      }
+    } catch (err) {
+      setWebcamError('Webcam access denied or unavailable');
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
 
-    const loadModel = async () => {
-      try {
-        await tf.setBackend('webgl');
-        const loadedModel = await facemesh.load();
-        if (isMounted) setModel(loadedModel);
-      } catch (err) {
-        if (isMounted) setWebcamError('Failed to load FaceMesh model');
+    const initialize = async () => {
+      await loadModel();
+      if (isMounted) {
+        await startVideo();
       }
     };
 
-    const startVideo = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
-        });
-        if (videoRef.current && isMounted) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            if (isMounted) {
-              setVideoReady(true);
-              videoRef.current.play().catch((err) => {
-                if (isMounted) setWebcamError('Failed to play video');
-              });
-            }
-          };
-        }
-      } catch (err) {
-        if (isMounted) setWebcamError('Webcam access denied or unavailable');
-      }
-    };
-
-    loadModel().then(startVideo);
+    initialize();
     return () => {
       isMounted = false;
       if (videoRef.current && videoRef.current.srcObject) {
@@ -142,7 +173,14 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
   useEffect(() => {
     if (!model || !videoReady) return;
 
+    let lastDetectionTime = 0;
+    const DETECTION_INTERVAL = 100; // Reduced from 500ms to 100ms for smoother experience
+
     const detectFaceAndRunTest = async () => {
+      const now = Date.now();
+      if (now - lastDetectionTime < DETECTION_INTERVAL) return;
+      lastDetectionTime = now;
+
       if (!videoRef.current || !canvasRef.current) return;
 
       const video = videoRef.current;
@@ -154,6 +192,7 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
       const context = canvas.getContext('2d');
       context.clearRect(0, 0, canvas.width, canvas.height);
 
+      // Draw face detection overlay
       context.strokeStyle = 'white';
       context.lineWidth = 1;
       context.beginPath();
@@ -165,20 +204,31 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
       context.stroke();
 
       if (predictions.length > 0) {
-        setFaceDetected(true);
-        onFaceDetected(true);
-        setFaceDetectedTime(prev => prev + 0.5);
-
         const face = predictions[0];
         const landmarks = face.scaledMesh;
         const boundingBox = face.boundingBox;
 
+        // Draw face landmarks with improved visualization
         landmarks.forEach(([x, y]) => {
           context.beginPath();
           context.arc(x, y, 1, 0, 2 * Math.PI);
           context.fillStyle = 'rgba(0, 255, 255, 0.5)';
           context.fill();
         });
+
+        // Draw face bounding box
+        context.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+        context.lineWidth = 2;
+        context.strokeRect(
+          boundingBox.topLeft[0],
+          boundingBox.topLeft[1],
+          boundingBox.bottomRight[0] - boundingBox.topLeft[0],
+          boundingBox.bottomRight[1] - boundingBox.topLeft[1]
+        );
+
+        setFaceDetected(true);
+        onFaceDetected(true);
+        setFaceDetectedTime(prev => prev + 0.1);
 
         const leftEyeCenter = calculateEyeCenter(landmarks, [33, 133, 159, 145]);
         const rightEyeCenter = calculateEyeCenter(landmarks, [362, 263, 386, 374]);
@@ -254,7 +304,7 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
       }
     };
 
-    intervalRef.current = setInterval(detectFaceAndRunTest, 500);
+    intervalRef.current = setInterval(detectFaceAndRunTest, DETECTION_INTERVAL);
     return () => clearInterval(intervalRef.current);
   }, [model, videoReady, isCollecting, onFaceDetected, config]);
 
@@ -332,20 +382,160 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
   }
 
   return (
-    <Box position="relative" w="100%" h="100%">
-      {!model && !webcamError && (
-        <Text position="absolute" top="50%" left="50%" transform="translate(-50%, -50%)" fontSize="lg">
-          Loading model...
-        </Text>
+    <Box 
+      position="relative" 
+      w="100%" 
+      h="100%"
+      maxW={{ base: '100%', md: '800px' }}
+      maxH={{ base: '100%', md: '600px' }}
+      mx="auto"
+      borderRadius="xl"
+      overflow="hidden"
+      boxShadow="lg"
+      bg="gray.200"
+    >
+      {isLoading && (
+        <Box
+          position="absolute"
+          top="50%"
+          left="50%"
+          transform="translate(-50%, -50%)"
+          zIndex={4}
+          textAlign="center"
+          w="100%"
+          h="100%"
+          display="flex"
+          flexDirection="column"
+          justifyContent="center"
+          alignItems="center"
+          bg="rgba(0,0,0,0.7)"
+        >
+          <CircularProgress
+            value={loadingProgress}
+            color="teal"
+            size={{ base: '40px', md: '60px' }}
+            thickness={4}
+            sx={{ mb: 2 }}
+          />
+          <Typography 
+            variant="h6" 
+            color="white" 
+            sx={{ 
+              textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+              fontSize: { base: '1rem', md: '1.25rem' }
+            }}
+          >
+            Loading Face Detection...
+          </Typography>
+          <Typography 
+            variant="body2" 
+            color="white" 
+            sx={{ 
+              textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+              fontSize: { base: '0.875rem', md: '1rem' }
+            }}
+          >
+            {loadingProgress < 30 ? 'Initializing...' : 
+             loadingProgress < 100 ? 'Loading Model...' : 
+             'Almost Ready...'}
+          </Typography>
+        </Box>
+      )}
+      {!model && !webcamError && !isLoading && (
+        <Box
+          position="absolute"
+          top="50%"
+          left="50%"
+          transform="translate(-50%, -50%)"
+          zIndex={3}
+          textAlign="center"
+          w="100%"
+          h="100%"
+          display="flex"
+          flexDirection="column"
+          justifyContent="center"
+          alignItems="center"
+          bg="rgba(0,0,0,0.7)"
+        >
+          <Typography 
+            variant="h6" 
+            color="white" 
+            sx={{ 
+              textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+              fontSize: { base: '1rem', md: '1.25rem' }
+            }}
+          >
+            Preparing Camera...
+          </Typography>
+        </Box>
+      )}
+      {webcamError && (
+        <Box
+          position="absolute"
+          top="50%"
+          left="50%"
+          transform="translate(-50%, -50%)"
+          zIndex={3}
+          textAlign="center"
+          bg="rgba(0,0,0,0.7)"
+          p={{ base: 3, md: 4 }}
+          borderRadius="lg"
+          w={{ base: '90%', md: 'auto' }}
+        >
+          <Typography 
+            variant="h6" 
+            color="white" 
+            mb={2}
+            sx={{ fontSize: { base: '1rem', md: '1.25rem' } }}
+          >
+            Camera Error
+          </Typography>
+          <Typography 
+            variant="body1" 
+            color="white" 
+            mb={3}
+            sx={{ fontSize: { base: '0.875rem', md: '1rem' } }}
+          >
+            {webcamError}
+          </Typography>
+          <Button
+            colorScheme="teal"
+            size={{ base: 'sm', md: 'md' }}
+            onClick={() => {
+              setWebcamError(null);
+              setIsLoading(true);
+              loadModel().then(startVideo);
+            }}
+          >
+            Retry
+          </Button>
+        </Box>
       )}
       <video
         ref={videoRef}
         autoPlay
         muted
         playsInline
-        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        style={{ 
+          width: '100%', 
+          height: '100%', 
+          objectFit: 'cover',
+          filter: isLoading ? 'blur(4px)' : 'none',
+          transition: 'filter 0.3s ease-in-out'
+        }}
       />
-      <canvas ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
+      <canvas 
+        ref={canvasRef} 
+        style={{ 
+          position: 'absolute', 
+          top: 0, 
+          left: 0, 
+          width: '100%', 
+          height: '100%',
+          opacity: faceDetected ? 1 : 0.5,
+          transition: 'opacity 0.3s ease-in-out'
+        }} 
+      />
       {countdown !== null && (
         <Box
           position="absolute"
@@ -356,7 +546,7 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
         >
           <Text
             color="white"
-            fontSize="6xl"
+            fontSize={{ base: "4xl", md: "6xl" }}
             fontWeight="bold"
             textShadow="0 2px 4px rgba(0,0,0,0.5)"
             animation={countdown === 0 ? "pulse 0.5s ease-out" : "none"}
@@ -384,6 +574,28 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
           transition="opacity 0.5s ease-out"
           zIndex={2}
         />
+      )}
+      {!faceDetected && !isLoading && !webcamError && (
+        <Box
+          position="absolute"
+          bottom="20%"
+          left="50%"
+          transform="translateX(-50%)"
+          zIndex={3}
+          textAlign="center"
+          bg="rgba(0,0,0,0.7)"
+          p={{ base: 2, md: 3 }}
+          borderRadius="lg"
+          w={{ base: '90%', md: 'auto' }}
+        >
+          <Typography 
+            variant="body1" 
+            color="white"
+            sx={{ fontSize: { base: '0.875rem', md: '1rem' } }}
+          >
+            Please position your face in the frame
+          </Typography>
+        </Box>
       )}
     </Box>
   );
@@ -592,17 +804,16 @@ const UserInfoForm = ({ onSubmit, gender }) => {
   };
 
   useEffect(() => {
-    const savedData = JSON.parse(localStorage.getItem('userInfoForm'));
-    if (savedData) {
-      setUnitSystem(savedData.unitSystem || 'imperial');
-      setName(savedData.name || '');
-      setEthnicity(savedData.ethnicity || '');
-      setEyeColor(savedData.eyeColor || '');
-      setHeightFeet(savedData.heightFeet || '');
-      setHeightInches(savedData.heightInches || '');
-      setHeightCm(savedData.heightCm || '');
-      setWeightValue(savedData.weightValue || '');
-    }
+    // Remove the localStorage loading
+    setUnitSystem('imperial');
+    setName('');
+    setEthnicity('');
+    setEyeColor('');
+    setHeightFeet('');
+    setHeightInches('');
+    setHeightCm('');
+    setWeightValue('');
+    setErrors({});
   }, []);
 
   useEffect(() => {
@@ -657,18 +868,6 @@ const UserInfoForm = ({ onSubmit, gender }) => {
       totalWeightPounds = kg * 2.20462;
     }
 
-    const savedData = {
-      unitSystem,
-      name,
-      ethnicity,
-      eyeColor,
-      heightFeet,
-      heightInches,
-      heightCm,
-      weightValue,
-    };
-    localStorage.setItem('userInfoForm', JSON.stringify(savedData));
-
     onSubmit({
       name,
       ethnicity: ethnicityMap[ethnicity],
@@ -681,7 +880,6 @@ const UserInfoForm = ({ onSubmit, gender }) => {
   };
 
   const handleRevert = () => {
-    localStorage.removeItem('userInfoForm');
     setUnitSystem('imperial');
     setName('');
     setEthnicity('');
@@ -695,143 +893,222 @@ const UserInfoForm = ({ onSubmit, gender }) => {
   };
 
   return (
-    <>
-      <Stack spacing={4} sx={{ maxWidth: '600px', mx: 'auto' }}>
-        <MuiFormControl error={!!errors.name}>
-          <MuiFormLabel required>Name</MuiFormLabel>
-          <TextField
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Enter name"
-            autoFocus
-            helperText={errors.name}
-            fullWidth
-          />
-        </MuiFormControl>
-        <MuiFormControl>
-          <MuiFormLabel>Unit System</MuiFormLabel>
-          <MuiSelect
-            value={unitSystem}
-            onChange={(e) => setUnitSystem(e.target.value)}
-            fullWidth
-          >
-            <MenuItem value="imperial">Imperial (ft, in, lbs)</MenuItem>
-            <MenuItem value="metric">Metric (cm, kg)</MenuItem>
-          </MuiSelect>
-        </MuiFormControl>
-        {unitSystem === 'imperial' ? (
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <MuiFormControl error={!!errors.heightFeet} fullWidth>
-                <MuiFormLabel required>Height (feet)</MuiFormLabel>
-                <TextField
-                  type="number"
-                  value={heightFeet}
-                  onChange={(e) => setHeightFeet(e.target.value)}
-                  InputProps={{ endAdornment: <InputAdornment position="end">ft</InputAdornment> }}
-                  helperText={errors.heightFeet}
-                />
-              </MuiFormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <MuiFormControl error={!!errors.heightInches} fullWidth>
-                <MuiFormLabel required>Height (inches)</MuiFormLabel>
-                <TextField
-                  type="number"
-                  value={heightInches}
-                  onChange={(e) => setHeightInches(e.target.value)}
-                  InputProps={{ endAdornment: <InputAdornment position="end">in</InputAdornment> }}
-                  helperText={errors.heightInches}
-                />
-              </MuiFormControl>
-            </Grid>
+    <Stack spacing={6} sx={{ width: '100%', maxWidth: '600px', mx: 'auto' }}>
+      <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', color: 'text.primary' }}>
+        Personal Information
+      </Typography>
+      
+      <FormControl error={!!errors.name} sx={{ mb: 3 }}>
+        <FormLabel sx={{ fontWeight: 'medium', color: 'text.primary', mb: 1 }}>Name</FormLabel>
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Enter their name"
+          size="medium"
+          autoComplete="off"
+          inputProps={{
+            autoComplete: "off"
+          }}
+          sx={{
+            bg: 'background.paper',
+            '&:hover': { bg: 'action.hover' },
+            '&.Mui-focused': { bg: 'background.paper' }
+          }}
+        />
+        {errors.name && <FormHelperText error sx={{ mt: 0.5 }}>{errors.name}</FormHelperText>}
+      </FormControl>
+
+      <FormControl sx={{ mb: 3 }}>
+        <FormLabel sx={{ fontWeight: 'medium', color: 'text.primary', mb: 1 }}>Unit System</FormLabel>
+        <Select
+          value={unitSystem}
+          onChange={(e) => setUnitSystem(e.target.value)}
+          size="medium"
+          autoComplete="off"
+          sx={{
+            bg: 'background.paper',
+            '&:hover': { bg: 'action.hover' },
+            '&.Mui-focused': { bg: 'background.paper' }
+          }}
+        >
+          <MenuItem value="imperial">Imperial (ft, in, lbs)</MenuItem>
+          <MenuItem value="metric">Metric (cm, kg)</MenuItem>
+        </Select>
+      </FormControl>
+
+      {unitSystem === 'imperial' ? (
+        <Grid container spacing={3} sx={{ mb: 3 }}>
+          <Grid item xs={6}>
+            <FormControl error={!!errors.heightFeet} fullWidth>
+              <FormLabel sx={{ fontWeight: 'medium', color: 'text.primary', mb: 1 }}>Height (feet)</FormLabel>
+              <Input
+                type="number"
+                value={heightFeet}
+                onChange={(e) => setHeightFeet(e.target.value)}
+                size="medium"
+                autoComplete="off"
+                inputProps={{
+                  autoComplete: "off"
+                }}
+                sx={{
+                  bg: 'background.paper',
+                  '&:hover': { bg: 'action.hover' },
+                  '&.Mui-focused': { bg: 'background.paper' }
+                }}
+              />
+              {errors.heightFeet && <FormHelperText error sx={{ mt: 0.5 }}>{errors.heightFeet}</FormHelperText>}
+            </FormControl>
           </Grid>
-        ) : (
-          <MuiFormControl error={!!errors.heightCm}>
-            <MuiFormLabel required>Height (cm)</MuiFormLabel>
-            <TextField
-              type="number"
-              value={heightCm}
-              onChange={(e) => setHeightCm(e.target.value)}
-              InputProps={{ endAdornment: <InputAdornment position="end">cm</InputAdornment> }}
-              helperText={errors.heightCm}
-              fullWidth
-            />
-          </MuiFormControl>
-        )}
-        <MuiFormControl error={!!errors.weight}>
-          <MuiFormLabel required>Weight</MuiFormLabel>
-          <TextField
+          <Grid item xs={6}>
+            <FormControl error={!!errors.heightInches} fullWidth>
+              <FormLabel sx={{ fontWeight: 'medium', color: 'text.primary', mb: 1 }}>Height (inches)</FormLabel>
+              <Input
+                type="number"
+                value={heightInches}
+                onChange={(e) => setHeightInches(e.target.value)}
+                size="medium"
+                autoComplete="off"
+                inputProps={{
+                  autoComplete: "off"
+                }}
+                sx={{
+                  bg: 'background.paper',
+                  '&:hover': { bg: 'action.hover' },
+                  '&.Mui-focused': { bg: 'background.paper' }
+                }}
+              />
+              {errors.heightInches && <FormHelperText error sx={{ mt: 0.5 }}>{errors.heightInches}</FormHelperText>}
+            </FormControl>
+          </Grid>
+        </Grid>
+      ) : (
+        <FormControl error={!!errors.heightCm} sx={{ mb: 3 }}>
+          <FormLabel sx={{ fontWeight: 'medium', color: 'text.primary', mb: 1 }}>Height (cm)</FormLabel>
+          <Input
             type="number"
-            value={weightValue}
-            onChange={(e) => setWeightValue(e.target.value)}
-            InputProps={{
-              endAdornment: <InputAdornment position="end">{unitSystem === 'imperial' ? 'lbs' : 'kg'}</InputAdornment>,
+            value={heightCm}
+            onChange={(e) => setHeightCm(e.target.value)}
+            size="medium"
+            autoComplete="off"
+            inputProps={{
+              autoComplete: "off"
             }}
-            helperText={errors.weight}
-            fullWidth
+            sx={{
+              bg: 'background.paper',
+              '&:hover': { bg: 'action.hover' },
+              '&.Mui-focused': { bg: 'background.paper' }
+            }}
           />
-        </MuiFormControl>
-        <MuiFormControl error={!!errors.ethnicity}>
-          <MuiFormLabel required>Ethnicity</MuiFormLabel>
-          <MuiSelect
-            value={ethnicity}
-            onChange={(e) => setEthnicity(e.target.value)}
-            displayEmpty
-            fullWidth
-          >
-            <MenuItem value="" disabled>Select ethnicity</MenuItem>
-            {Object.keys(ethnicityMap).map((option) => (
-              <MenuItem key={option} value={option}>{option}</MenuItem>
-            ))}
-          </MuiSelect>
-          <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-            Used to adjust analysis based on general trends.
-          </Typography>
-          {errors.ethnicity && <Typography color="error" variant="body2">{errors.ethnicity}</Typography>}
-        </MuiFormControl>
-        <MuiFormControl error={!!errors.eyeColor}>
-          <MuiFormLabel required>Eye Color</MuiFormLabel>
-          <MuiSelect
-            value={eyeColor}
-            onChange={(e) => setEyeColor(e.target.value)}
-            displayEmpty
-            fullWidth
-          >
-            <MenuItem value="" disabled>Select eye color</MenuItem>
-            {Object.keys(eyeColorMap).map((option) => (
-              <MenuItem key={option} value={option}>{option}</MenuItem>
-            ))}
-          </MuiSelect>
-          <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-            Mapped to categories for analysis purposes.
-          </Typography>
-          {errors.eyeColor && <Typography color="error" variant="body2">{errors.eyeColor}</Typography>}
-        </MuiFormControl>
-        <Stack direction="row" spacing={2} justifyContent="center">
-          <MuiButton
-            variant="contained"
-            color="primary"
-            onClick={handleSubmit}
-            disabled={Object.keys(errors).length > 0 || !name || !ethnicity || !eyeColor || !weightValue || (unitSystem === 'imperial' ? !heightFeet || !heightInches : !heightCm)}
-          >
-            Submit
-          </MuiButton>
-          <MuiButton variant="outlined" onClick={handleRevert}>
-            Clear Form
-          </MuiButton>
-        </Stack>
+          {errors.heightCm && <FormHelperText error sx={{ mt: 0.5 }}>{errors.heightCm}</FormHelperText>}
+        </FormControl>
+      )}
+
+      <FormControl error={!!errors.weight} sx={{ mb: 3 }}>
+        <FormLabel sx={{ fontWeight: 'medium', color: 'text.primary', mb: 1 }}>Weight</FormLabel>
+        <Input
+          type="number"
+          value={weightValue}
+          onChange={(e) => setWeightValue(e.target.value)}
+          size="medium"
+          autoComplete="off"
+          inputProps={{
+            autoComplete: "off"
+          }}
+          endAdornment={
+            <InputAdornment position="end">
+              <Typography variant="body2" color="text.secondary">
+                {unitSystem === 'imperial' ? 'lbs' : 'kg'}
+              </Typography>
+            </InputAdornment>
+          }
+          sx={{
+            bg: 'background.paper',
+            '&:hover': { bg: 'action.hover' },
+            '&.Mui-focused': { bg: 'background.paper' }
+          }}
+        />
+        {errors.weight && <FormHelperText error sx={{ mt: 0.5 }}>{errors.weight}</FormHelperText>}
+      </FormControl>
+
+      <FormControl error={!!errors.ethnicity} sx={{ mb: 3 }}>
+        <FormLabel sx={{ fontWeight: 'medium', color: 'text.primary', mb: 1 }}>Ethnicity</FormLabel>
+        <Select
+          value={ethnicity}
+          onChange={(e) => setEthnicity(e.target.value)}
+          size="medium"
+          autoComplete="off"
+          sx={{
+            bg: 'background.paper',
+            '&:hover': { bg: 'action.hover' },
+            '&.Mui-focused': { bg: 'background.paper' }
+          }}
+        >
+          {Object.keys(ethnicityMap).map((option) => (
+            <MenuItem key={option} value={option}>{option}</MenuItem>
+          ))}
+        </Select>
+        <FormHelperText sx={{ mt: 0.5 }}>Used to adjust analysis based on general trends</FormHelperText>
+        {errors.ethnicity && <FormHelperText error sx={{ mt: 0.5 }}>{errors.ethnicity}</FormHelperText>}
+      </FormControl>
+
+      <FormControl error={!!errors.eyeColor} sx={{ mb: 3 }}>
+        <FormLabel sx={{ fontWeight: 'medium', color: 'text.primary', mb: 1 }}>Eye Color</FormLabel>
+        <Select
+          value={eyeColor}
+          onChange={(e) => setEyeColor(e.target.value)}
+          size="medium"
+          autoComplete="off"
+          sx={{
+            bg: 'background.paper',
+            '&:hover': { bg: 'action.hover' },
+            '&.Mui-focused': { bg: 'background.paper' }
+          }}
+        >
+          {Object.keys(eyeColorMap).map((option) => (
+            <MenuItem key={option} value={option}>{option}</MenuItem>
+          ))}
+        </Select>
+        <FormHelperText sx={{ mt: 0.5 }}>Mapped to categories for analysis purposes</FormHelperText>
+        {errors.eyeColor && <FormHelperText error sx={{ mt: 0.5 }}>{errors.eyeColor}</FormHelperText>}
+      </FormControl>
+
+      <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 4 }}>
+        <MuiButton
+          variant="outlined"
+          onClick={handleRevert}
+          sx={{
+            textTransform: 'none',
+            px: 3,
+            py: 1,
+            borderRadius: 2,
+            '&:hover': {
+              bgcolor: 'action.hover',
+              transform: 'translateY(-1px)',
+              boxShadow: 1
+            }
+          }}
+        >
+          Clear Form
+        </MuiButton>
+        <MuiButton
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={Object.keys(errors).length > 0 || !name || !ethnicity || !eyeColor || !weightValue || (unitSystem === 'imperial' ? !heightFeet || !heightInches : !heightCm)}
+          sx={{
+            textTransform: 'none',
+            px: 3,
+            py: 1,
+            borderRadius: 2,
+            '&:hover': {
+              transform: 'translateY(-1px)',
+              boxShadow: 2
+            }
+          }}
+        >
+          Submit
+        </MuiButton>
       </Stack>
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-      >
-        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </>
+    </Stack>
   );
 };
 
@@ -931,24 +1208,43 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
   );
 };
 
-// DetailedResultDisplay Component with Improved Adjustable Attributes
+// DetailedResultDisplay Component with Improved Layout
 const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo, setUserInfo }) => {
   const navigate = useNavigate();
-  const [params, setParams] = useState(userInfo.gender === 'M' ? maleConfig : femaleConfig);
+  const [showDetails, setShowDetails] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  let tierLabel, tierDescription;
+  // Generate rating name using the test scores and user info
+  const ratingName = useMemo(() => {
+    if (!testScores || !userInfo) return null;
+    
+    // Combine test scores with height and weight for the generator
+    const allScores = {
+      ...testScores,
+      Height: userInfo.height,
+      Weight: userInfo.weight
+    };
+    
+    return generateRatingName(allScores, userInfo.gender);
+  }, [testScores, userInfo]);
+
+  let tierLabel, tierDescription, tierEmoji;
   if (overallRating >= 80) {
     tierLabel = 'Very Attractive';
     tierDescription = 'Your features align closely with conventional standards of attractiveness.';
+    tierEmoji = '😍';
   } else if (overallRating >= 60) {
     tierLabel = 'Attractive';
     tierDescription = 'Your features are generally appealing and well-proportioned.';
+    tierEmoji = '😊';
   } else if (overallRating >= 40) {
     tierLabel = 'Average';
     tierDescription = 'Your features are typical and neither particularly striking nor unattractive.';
+    tierEmoji = '😐';
   } else {
     tierLabel = 'Below Average';
     tierDescription = 'Some features may benefit from enhancement or styling to improve overall attractiveness.';
+    tierEmoji = '😕';
   }
 
   const featureIcons = {
@@ -971,37 +1267,6 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
     'Nose': 'Analyzes the size and shape of the nose relative to the face.'
   };
 
-  const testToPropMap = {
-    'Carnal Tilt': 'carnalTilt',
-    'Facial Thirds': 'facialThirds',
-    'Cheekbone Location': 'cheekbone',
-    'Interocular Distance': 'interocular',
-    'Jawline': 'jawline',
-    'Chin': 'chin',
-    'Nose': 'nose',
-  };
-
-  useEffect(() => {
-    if (userInfo?.measurements) {
-      const measurements = userInfo.measurements;
-      const newTestScores = calculateTestScores(measurements, params);
-      const totalWeight = Object.values(params.weights).reduce((sum, w) => sum + w, 0);
-      const newFaceRating = totalWeight > 0
-        ? Object.entries(newTestScores).reduce(
-            (sum, [test, score]) => sum + score * params.weights[test],
-            0
-          ) / totalWeight
-        : 0;
-      setUserInfo(prev => ({
-        ...prev,
-        ...Object.fromEntries(Object.entries(newTestScores).map(([test, score]) => [testToPropMap[test], score])),
-        testScores: newTestScores,
-        faceRating: newFaceRating,
-        params: params
-      }));
-    }
-  }, [params, userInfo?.measurements, setUserInfo]);
-
   const sortedFeatures = testScores
     ? Object.entries(testScores)
         .filter(([test]) => test !== 'Overall')
@@ -1015,20 +1280,67 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
 
   return (
     <MuiBox sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
-      <Typography variant="h4" gutterBottom align="center" fontWeight="bold">
-        Your Attractiveness Rating
-      </Typography>
-      <MuiBox display="flex" justifyContent="center" mb={4}>
-        <ResultDisplay
-          rating={overallRating}
-          tierLabel={tierLabel}
-          faceRating={faceRating}
-        />
+      {/* Initial Results View */}
+      <MuiBox
+        sx={{
+          p: 4,
+          borderRadius: 2,
+          bgcolor: 'rgba(0,0,0,0.02)',
+          border: '1px solid rgba(0,0,0,0.1)',
+          mb: 4,
+          textAlign: 'center'
+        }}
+      >
+        <Typography variant="h2" component="div" gutterBottom sx={{ fontSize: '4rem' }}>
+          {tierEmoji}
+        </Typography>
+        <Typography variant="h4" gutterBottom fontWeight="bold">
+          {tierLabel}
+        </Typography>
+        <Typography variant="h6" color="textSecondary" gutterBottom>
+          {overallRating.toFixed(1)} / 100
+        </Typography>
+        {ratingName && (
+          <MuiBox
+            sx={{
+              mt: 3,
+              p: 2,
+              bgcolor: 'rgba(0,0,0,0.05)',
+              borderRadius: 2,
+              textAlign: 'left'
+            }}
+          >
+            <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
+              {ratingName}
+            </Typography>
+          </MuiBox>
+        )}
+        <Typography variant="body1" paragraph sx={{ mt: 3 }}>
+          {tierDescription}
+        </Typography>
+        <MuiButton
+          variant="contained"
+          color="primary"
+          onClick={() => setShowDetails(!showDetails)}
+          sx={{ mt: 2 }}
+        >
+          {showDetails ? 'Hide Details' : 'Show Detailed Analysis'}
+        </MuiButton>
       </MuiBox>
-      {testScores && (
-        <MuiBox sx={{ mt: 4, mb: 6 }}>
-          <Typography variant="h5" gutterBottom fontWeight="bold" align="center">
-            Key Features Analysis
+
+      {/* Detailed Analysis Section */}
+      {showDetails && (
+        <MuiBox
+          sx={{
+            animation: 'slideIn 0.5s ease-out',
+            '@keyframes slideIn': {
+              '0%': { transform: 'translateY(20px)', opacity: 0 },
+              '100%': { transform: 'translateY(0)', opacity: 1 }
+            }
+          }}
+        >
+          <Typography variant="h5" gutterBottom fontWeight="bold" align="center" mb={4}>
+            Detailed Feature Analysis
           </Typography>
           <Stack spacing={3}>
             {sortedFeatures.map(({ test, score, impact }, index) => {
@@ -1110,119 +1422,51 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
           </Stack>
         </MuiBox>
       )}
-      <MuiBox sx={{ mt: 4, mb: 6 }}>
-        <Typography variant="h5" gutterBottom fontWeight="bold" align="center">
-          Adjust Attributes
+
+      {/* Share Section */}
+      <MuiBox sx={{ mt: 4, textAlign: 'center' }}>
+        <Typography variant="h6" gutterBottom>
+          Share Your Results
         </Typography>
-        <Typography variant="body2" color="textSecondary" mb={2} textAlign="center">
-          Modify these attributes to see how they affect your overall attractiveness rating.
-        </Typography>
-        <Stack spacing={3} sx={{ maxWidth: '400px', mx: 'auto' }}>
-          <MuiFormControl>
-            <MuiFormLabel>Height (inches)</MuiFormLabel>
-            <TextField
-              type="number"
-              value={userInfo.height || ''}
-              onChange={(e) => setUserInfo(prev => ({ ...prev, height: parseFloat(e.target.value) || 0 }))}
-              InputProps={{ endAdornment: <InputAdornment position="end">in</InputAdornment> }}
-              inputProps={{ min: 48, max: 84 }}
-              fullWidth
-            />
-          </MuiFormControl>
-          <MuiFormControl>
-            <MuiFormLabel>Weight (pounds)</MuiFormLabel>
-            <TextField
-              type="number"
-              value={userInfo.weight || ''}
-              onChange={(e) => setUserInfo(prev => ({ ...prev, weight: parseFloat(e.target.value) || 0 }))}
-              InputProps={{ endAdornment: <InputAdornment position="end">lbs</InputAdornment> }}
-              inputProps={{ min: 80, max: 400 }}
-              fullWidth
-            />
-          </MuiFormControl>
-          <MuiFormControl>
-            <MuiFormLabel>Eye Color</MuiFormLabel>
-            <MuiSelect
-              value={userInfo.eyeColor || ''}
-              onChange={(e) => setUserInfo(prev => ({ ...prev, eyeColor: e.target.value }))}
-              fullWidth
-            >
-              <MenuItem value="" disabled>Select eye color</MenuItem>
-              {eyeColorOptions.map(option => (
-                <MenuItem key={option.label} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </MuiSelect>
-          </MuiFormControl>
-          <MuiFormControl>
-            <MuiFormLabel>Gender</MuiFormLabel>
-            <MuiSelect
-              value={userInfo.gender || ''}
-              onChange={(e) => {
-                const newGender = e.target.value;
-                setParams(newGender === 'M' ? maleConfig : femaleConfig);
-                setUserInfo(prev => ({ ...prev, gender: newGender }));
-              }}
-              fullWidth
-            >
-              <MenuItem value="" disabled>Select gender</MenuItem>
-              {genderOptions.map(option => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </MuiSelect>
-          </MuiFormControl>
+        <Stack direction="row" spacing={2} justifyContent="center" mt={2}>
+          <MuiButton
+            variant="contained"
+            color="primary"
+            startIcon={<span>📱</span>}
+            onClick={() => {
+              navigator.clipboard.writeText(`I scored ${overallRating.toFixed(1)}/100 on the LookzApp attractiveness test! ${tierEmoji} Try it yourself!`);
+              setSnackbar({
+                open: true,
+                message: 'Results copied to clipboard! Share with your friends!',
+                severity: 'success'
+              });
+            }}
+          >
+            Copy Results
+          </MuiButton>
+          <MuiButton
+            variant="outlined"
+            onClick={() => navigate('/')}
+          >
+            Back to Home
+          </MuiButton>
         </Stack>
-        <Typography variant="body2" color="textSecondary" mt={2} textAlign="center">
-          *Note: Changing gender affects the overall rating but not facial feature scores.*
-        </Typography>
       </MuiBox>
-      <MuiBox sx={{ mt: 4, mb: 6 }}>
-        <Typography variant="h5" gutterBottom fontWeight="bold" align="center">
-          What This Means
-        </Typography>
-        <MuiBox
-          sx={{
-            p: 3,
-            borderRadius: 2,
-            bgcolor: 'rgba(0,0,0,0.02)',
-            border: '1px solid rgba(0,0,0,0.1)'
-          }}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
         >
-          <Typography variant="body1" paragraph>
-            {tierDescription}
-          </Typography>
-          <Typography variant="body1" paragraph>
-            This analysis evaluates facial features against adjustable standards. The overall rating is a weighted average of feature scores.
-          </Typography>
-          <Typography variant="body1" color="textSecondary" mt={2}>
-            *Note: This is an experimental estimation. Beauty is subjective.*
-          </Typography>
-        </MuiBox>
-      </MuiBox>
-      <MuiBox mt={4} display="flex" justifyContent="center">
-        <MuiButton
-          variant="contained"
-          color="primary"
-          onClick={() => navigate('/')}
-          sx={{
-            animation: 'pulse 2s infinite',
-            '@keyframes pulse': {
-              '0%': { transform: 'scale(1)' },
-              '50%': { transform: 'scale(1.05)' },
-              '100%': { transform: 'scale(1)' }
-            },
-            px: 4,
-            py: 1.5,
-            borderRadius: 2,
-            fontSize: '1.1rem'
-          }}
-        >
-          Back to Home
-        </MuiButton>
-      </MuiBox>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </MuiBox>
   );
 };
@@ -1385,7 +1629,7 @@ const AttractivenessRatingProcess = () => {
   };
 
   const handleGenderSelection = (selectedGender) => {
-    setGender(genderMap[selectedGender]);
+    setGender(selectedGender);
     setCurrentStep('instructions');
   };
 
@@ -1486,108 +1730,348 @@ const AttractivenessRatingProcess = () => {
     'Prefer not to say': 'M',
   };
 
-  return (
-    <Container maxW="container.xl" py={{ base: 4, md: 6 }} bg="gray.50">
-      <VStack spacing={6} align="stretch">
-        {currentStep === 'scanForSelection' && (
-          <VStack spacing={4} align="center">
-            <Heading size="lg">Who are you scanning for?</Heading>
-            <Button
-              style={{ backgroundColor: 'black', color: 'white', width: '30%' }}
-              onClick={() => handleScanForSelection('myself')}
-            >
-              For Myself
-            </Button>
-            <Button
-              style={{ backgroundColor: 'black', color: 'white', width: '30%' }}
-              onClick={() => handleScanForSelection('someoneElse')}
-            >
-              For Someone Else
-            </Button>
-          </VStack>
-        )}
-        {currentStep === 'genderSelection' && scanFor === 'someoneElse' && (
-          <VStack spacing={4} align="center">
-            <Heading size="lg">Select Gender for Analysis</Heading>
-            <Text fontSize="md" textAlign="center" maxW="400px">
-              Gender is used to tailor the attractiveness analysis based on typical standards.
-            </Text>
-            <MuiFormControl sx={{ minWidth: '300px' }}>
-              <MuiSelect
-                value={gender}
-                onChange={(e) => handleGenderSelection(e.target.value)}
-                displayEmpty
-                fullWidth
-              >
-                <MenuItem value="" disabled>
-                  Choose gender
-                </MenuItem>
-                {Object.keys(genderMap).map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {option}
-                  </MenuItem>
-                ))}
-              </MuiSelect>
-            </MuiFormControl>
-          </VStack>
-        )}
-        {(currentStep === 'instructions' || currentStep === 'scanning') && (
-          <Box
-            w={{ base: '100%', md: '640px' }}
-            h="480px"
-            mx="auto"
-            borderWidth="2px"
-            borderColor="gray.100"
-            borderRadius="xl"
-            overflow="hidden"
-            boxShadow="lg"
-            bg="gray.200"
+  const renderResults = () => {
+    if (!cappedRating) return null;
+
+    const getRatingColor = (score) => {
+      if (score >= 8) return 'green.500';
+      if (score >= 6) return 'teal.500';
+      if (score >= 4) return 'yellow.500';
+      if (score >= 2) return 'orange.500';
+      return 'red.500';
+    };
+
+    const getRatingEmoji = (score) => {
+      if (score >= 8) return '😍';
+      if (score >= 6) return '😊';
+      if (score >= 4) return '😐';
+      if (score >= 2) return '😕';
+      return '😢';
+    };
+
+    const getRatingText = (score) => {
+      if (score >= 8) return 'Stunning!';
+      if (score >= 6) return 'Attractive!';
+      if (score >= 4) return 'Average';
+      if (score >= 2) return 'Below Average';
+      return 'Not Great';
+    };
+
+    return (
+      <Box
+        position="absolute"
+        top="50%"
+        left="50%"
+        transform="translate(-50%, -50%)"
+        zIndex={3}
+        w={{ base: '90%', md: '600px' }}
+        bg="rgba(0,0,0,0.85)"
+        p={{ base: 4, md: 6 }}
+        borderRadius="xl"
+        boxShadow="xl"
+        textAlign="center"
+        backdropFilter="blur(10px)"
+      >
+        <Text
+          fontSize={{ base: '3xl', md: '4xl' }}
+          fontWeight="bold"
+          color="white"
+          mb={2}
+        >
+          Your Rating
+        </Text>
+        
+        <Box
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+          mb={4}
+        >
+          <Text
+            fontSize={{ base: '6xl', md: '8xl' }}
+            color={getRatingColor(cappedRating)}
+            mb={2}
+            lineHeight={1}
           >
-            <WebcamTiltDetector
-              startScanning={currentStep === 'scanning'}
-              onScanningComplete={handleScanningComplete}
-              onFaceDetected={handleFaceDetected}
-              gender={userInfo?.gender || gender}
-              onReadyToScanChange={setReadyToScan}
-            />
+            {getRatingEmoji(cappedRating)}
+          </Text>
+          
+          <Text
+            fontSize={{ base: '4xl', md: '5xl' }}
+            fontWeight="bold"
+            color={getRatingColor(cappedRating)}
+            mb={1}
+          >
+            {cappedRating.toFixed(1)}
+          </Text>
+          
+          <Text
+            fontSize={{ base: 'xl', md: '2xl' }}
+            color="white"
+            mb={4}
+          >
+            {getRatingText(cappedRating)}
+          </Text>
+        </Box>
+
+        <Box
+          bg="rgba(255,255,255,0.1)"
+          p={4}
+          borderRadius="lg"
+          mb={4}
+        >
+          <Text
+            fontSize={{ base: 'md', md: 'lg' }}
+            color="white"
+            mb={2}
+          >
+            Rating Breakdown
+          </Text>
+          
+          <Box
+            display="flex"
+            flexDirection="column"
+            gap={2}
+          >
+            {Object.entries(testScores).map(([category, score]) => (
+              <Box
+                key={category}
+                display="flex"
+                justifyContent="space-between"
+                alignItems="center"
+                bg="rgba(255,255,255,0.05)"
+                p={2}
+                borderRadius="md"
+              >
+                <Text
+                  fontSize={{ base: 'sm', md: 'md' }}
+                  color="white"
+                  textTransform="capitalize"
+                >
+                  {category}
+                </Text>
+                <Text
+                  fontSize={{ base: 'sm', md: 'md' }}
+                  color={getRatingColor(score)}
+                  fontWeight="bold"
+                >
+                  {score.toFixed(1)}
+                </Text>
+              </Box>
+            ))}
           </Box>
-        )}
-        {currentStep === 'instructions' && (
-          <VStack spacing={4} align="center">
-            <Heading size="lg">Let's Scan the Face!</Heading>
-            <Text fontSize="lg" textAlign="center" maxW="500px">
-              Position the face in front of the camera with good lighting and keep it straight.
-            </Text>
-            <Button
-              colorScheme="teal"
-              size="lg"
-              onClick={handleStartScanning}
-              isDisabled={!faceDetected}
+        </Box>
+
+        <Button
+          colorScheme="teal"
+          size={{ base: 'md', md: 'lg' }}
+          onClick={() => {
+            setFaceDetected(false);
+            setCurrentStep('gender');
+          }}
+          w="100%"
+          _hover={{
+            transform: 'translateY(-2px)',
+            boxShadow: 'lg'
+          }}
+          transition="all 0.2s"
+        >
+          Try Again
+        </Button>
+      </Box>
+    );
+  };
+
+  return (
+    <Box minH="100vh" bgGradient="linear(to-br, gray.50, blue.50)" py={0} px={5}>
+      <Container maxW="container.xl">
+        <VStack spacing={6} align="stretch">
+          {currentStep === 'scanForSelection' && (
+            <VStack spacing={8} align="center" maxW="800px" mx="auto" py={8}>
+              <Heading 
+                size="xl" 
+                textAlign="center" 
+                fontFamily={'Matt Bold'} 
+                color="gray.800"
+                mb={2}
+              >
+                Who are you scanning for?
+              </Heading>
+              <Text 
+                fontSize="lg" 
+                textAlign="center" 
+                color="gray.600"
+                maxW="600px"
+                mb={6}
+              >
+                Choose whether you want to analyze your own appearance or someone else's
+              </Text>
+              <Grid 
+                templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)' }} 
+                gap={6} 
+                w="full"
+                maxW="600px"
+              >
+                <Box
+                  onClick={() => handleScanForSelection('myself')}
+                  bg="white"
+                  p={6}
+                  borderRadius="xl"
+                  cursor="pointer"
+                  transition="all 0.3s ease"
+                  _hover={{ transform: 'scale(1.02)', boxShadow: 'xl' }}
+                  boxShadow="lg"
+                  border="1px solid"
+                  borderColor="gray.200"
+                  textAlign="center"
+                  display="flex"
+                  flexDirection="column"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <Text fontSize="6xl" mb={4}>👤</Text>
+                  <Heading size="md" mb={2}>For Myself</Heading>
+                  <Text color="gray.600">
+                    Analyze your own facial features and get personalized insights
+                  </Text>
+                </Box>
+                <Box
+                  onClick={() => handleScanForSelection('someoneElse')}
+                  bg="white"
+                  p={6}
+                  borderRadius="xl"
+                  cursor="pointer"
+                  transition="all 0.3s ease"
+                  _hover={{ transform: 'scale(1.02)', boxShadow: 'xl' }}
+                  boxShadow="lg"
+                  border="1px solid"
+                  borderColor="gray.200"
+                  textAlign="center"
+                  display="flex"
+                  flexDirection="column"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <Text fontSize="6xl" mb={4}>👥</Text>
+                  <Heading size="md" mb={2}>For Someone Else</Heading>
+                  <Text color="gray.600">
+                    Analyze another person's facial features and compare results
+                  </Text>
+                </Box>
+              </Grid>
+            </VStack>
+          )}
+          {currentStep === 'genderSelection' && scanFor === 'someoneElse' && (
+            <VStack spacing={4} align="center">
+              <Heading size="lg">Select Gender for Analysis</Heading>
+              <Text fontSize="md" textAlign="center" maxW="400px">
+                Gender is used to tailor the attractiveness analysis based on typical standards.
+              </Text>
+              <FormControl sx={{ minWidth: '300px' }}>
+                <Select
+                  value={gender}
+                  onChange={(e) => handleGenderSelection(e.target.value)}
+                  displayEmpty
+                  fullWidth
+                >
+                  <MenuItem value="" disabled>
+                    Choose gender
+                  </MenuItem>
+                  {Object.keys(genderMap).map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </VStack>
+          )}
+          {(currentStep === 'instructions' || currentStep === 'scanning') && (
+            <Box
+              w={{ base: '100%', md: '640px' }}
+              h="480px"
+              mx="auto"
+              borderWidth="2px"
+              borderColor="gray.100"
+              borderRadius="xl"
+              overflow="hidden"
+              boxShadow="lg"
+              bg="white"
             >
-              Start Scanning
-            </Button>
-          </VStack>
-        )}
-        {currentStep === 'form' && scanFor === 'someoneElse' && (
-          <VStack spacing={6} align="stretch">
-            <Heading size="lg" textAlign="center">Tell Us About Them</Heading>
-            <UserInfoForm onSubmit={handleFormSubmit} gender={gender} />
-          </VStack>
-        )}
-        {currentStep === 'result' && cappedRating !== null && (
-          <VStack spacing={4} align="center">
-            <Heading size="lg">Here's the Score!</Heading>
-            <DetailedResultDisplay
-              overallRating={cappedRating}
-              faceRating={currentFaceRating}
-              testScores={userInfo.testScores}
-              userInfo={userInfo}
-              setUserInfo={setUserInfo}
-            />
-          </VStack>
-        )}
-      </VStack>
-    </Container>
+              <WebcamTiltDetector
+                startScanning={currentStep === 'scanning'}
+                onScanningComplete={handleScanningComplete}
+                onFaceDetected={handleFaceDetected}
+                gender={userInfo?.gender || gender}
+                onReadyToScanChange={setReadyToScan}
+              />
+            </Box>
+          )}
+          {currentStep === 'instructions' && (
+            <VStack spacing={4} align="center">
+              <Heading size="lg">Let's Scan the Face!</Heading>
+              <Text fontSize="lg" textAlign="center" maxW="500px">
+                Position the face in front of the camera with good lighting and keep it straight.
+              </Text>
+              <Button
+                colorScheme="teal"
+                size="lg"
+                onClick={handleStartScanning}
+                isDisabled={!faceDetected}
+              >
+                Start Scanning
+              </Button>
+            </VStack>
+          )}
+          {currentStep === 'form' && scanFor === 'someoneElse' && (
+            <VStack spacing={8} align="center" maxW="800px" mx="auto" py={8}>
+              <Heading 
+                size="xl" 
+                textAlign="center" 
+                fontFamily={'Matt Bold'} 
+                color="gray.800"
+                mb={2}
+              >
+                Tell Us About Them
+              </Heading>
+              <Text 
+                fontSize="lg" 
+                textAlign="center" 
+                color="gray.600"
+                maxW="600px"
+                mb={6}
+              >
+                Help us provide more accurate analysis by sharing some basic information
+              </Text>
+              <Box
+                bg="white"
+                p={8}
+                borderRadius="xl"
+                boxShadow="lg"
+                border="1px solid"
+                borderColor="gray.200"
+                w="full"
+                maxW="600px"
+              >
+                <UserInfoForm onSubmit={handleFormSubmit} gender={gender} />
+              </Box>
+            </VStack>
+          )}
+          {currentStep === 'result' && cappedRating !== null && (
+            <VStack spacing={4} align="center">
+              <Heading size="lg">Here's the Score!</Heading>
+              <DetailedResultDisplay
+                overallRating={cappedRating}
+                faceRating={currentFaceRating}
+                testScores={userInfo.testScores}
+                userInfo={userInfo}
+                setUserInfo={setUserInfo}
+              />
+            </VStack>
+          )}
+        </VStack>
+      </Container>
+    </Box>
   );
 };
 
