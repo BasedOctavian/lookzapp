@@ -192,16 +192,18 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
       const context = canvas.getContext('2d');
       context.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw face detection overlay
-      context.strokeStyle = 'white';
-      context.lineWidth = 1;
-      context.beginPath();
-      context.moveTo(canvas.width / 2, 0);
-      context.lineTo(canvas.width / 2, canvas.height);
-      context.moveTo(0, canvas.height / 2);
-      context.lineTo(canvas.width, canvas.height / 2);
-      context.ellipse(canvas.width / 2, canvas.height / 2, canvas.width / 6, canvas.height / 4, 0, 0, 2 * Math.PI);
-      context.stroke();
+      // Only draw face detection overlay on desktop
+      if (window.innerWidth >= 768) {
+        context.strokeStyle = 'white';
+        context.lineWidth = 1;
+        context.beginPath();
+        context.moveTo(canvas.width / 2, 0);
+        context.lineTo(canvas.width / 2, canvas.height);
+        context.moveTo(0, canvas.height / 2);
+        context.lineTo(canvas.width, canvas.height / 2);
+        context.ellipse(canvas.width / 2, canvas.height / 2, canvas.width / 6, canvas.height / 4, 0, 0, 2 * Math.PI);
+        context.stroke();
+      }
 
       if (predictions.length > 0) {
         const face = predictions[0];
@@ -1224,8 +1226,9 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
       Height: userInfo.height,
       Weight: userInfo.weight
     };
+    console.log(allScores, userInfo.gender, userInfo.ethnicity, userInfo.eyeColor); 
     
-    return generateRatingName(allScores, userInfo.gender);
+    return generateRatingName(allScores, userInfo.gender, userInfo.ethnicity, userInfo.eyeColor);
   }, [testScores, userInfo]);
 
   let tierLabel, tierDescription, tierEmoji;
