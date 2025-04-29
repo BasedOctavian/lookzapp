@@ -1,39 +1,181 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as tf from '@tensorflow/tfjs';
 import * as facemesh from '@tensorflow-models/facemesh';
-import { doc, setDoc, addDoc, collection } from 'firebase/firestore';
-import { db } from '../firebase';
-import { useUserData } from '../hooks/useUserData';
-import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import TopBar from '../Components/TopBar';
 import {
-  Container,
   Box,
   Button,
-  Text,
-  VStack,
-  Heading,
-} from '@chakra-ui/react';
-import { useToast } from '@chakra-ui/toast';
-import {
-  Stack,
-  FormControl as MuiFormControl,
-  FormLabel as MuiFormLabel,
-  Select as MuiSelect,
+  Typography,
+  Grid,
+  FormControl,
+  Select,
   MenuItem,
-  TextField,
-  Button as MuiButton,
+  InputAdornment,
+  FormHelperText,
+  Input,
+  Stack,
+  FormLabel,
+  CircularProgress,
+  LinearProgress,
   Snackbar,
   Alert,
-  CircularProgress,
-  Typography,
-  Box as MuiBox,
-  LinearProgress,
+  TextField,
+  styled,
+  keyframes,
+  InputLabel,
 } from '@mui/material';
-import useVideoStream from '../hooks/useVideoStream';
-import TopBar from '../Components/TopBar';
-import Footer from '../Components/Footer';
+import { useToast } from '@chakra-ui/toast';
 import { generateAutismRatingName } from '../utils/autsimRatingNameGenerator';
+import {
+  Face,
+  Group,
+  Visibility,
+  Straighten,
+  RemoveRedEye,
+  Person,
+  Psychology,
+  Favorite,
+  SentimentSatisfied,
+  SentimentNeutral,
+  SentimentDissatisfied,
+  Share,
+  FaceRetouchingNatural,
+  Face3,
+} from '@mui/icons-material';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import LoadingIndicator from '../Components/LoadingIndicator';
+
+const fadeIn = keyframes`
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
+
+const pulse = keyframes`
+  0% { opacity: 0; }
+  50% { opacity: 1; }
+  100% { opacity: 0; }
+`;
+
+const neonGlow = keyframes`
+  0% { filter: drop-shadow(0 0 2px #09c2f7); }
+  50% { filter: drop-shadow(0 0 6px #09c2f7); }
+  100% { filter: drop-shadow(0 0 2px #09c2f7); }
+`;
+
+const gradientFlow = keyframes`
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+`;
+
+const LoadingAnimation = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: '50vh',
+  animation: `${fadeIn} 0.5s ease-out`,
+}));
+
+const AnalyzingText = styled(Typography)(({ theme }) => ({
+  color: '#fff',
+  fontSize: '1.5rem',
+  fontWeight: 600,
+  textAlign: 'center',
+  marginBottom: theme.spacing(2),
+  '&::after': {
+    content: '"..."',
+    display: 'inline-block',
+    width: '1.2em',
+    textAlign: 'left',
+    animation: `${pulse} 1.5s infinite`,
+  },
+}));
+
+const GradientButton = styled(Button)({
+  background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
+  backgroundSize: '200% 200%',
+  color: '#fff',
+  fontWeight: 700,
+  animation: `${gradientFlow} 6s ease infinite`,
+  '&:hover': {
+    transform: 'translateY(-2px)',
+    boxShadow: '0 0 24px rgba(9, 194, 247, 0.4)',
+  },
+});
+
+const StyledWebcamContainer = styled(Box)(({ theme }) => ({
+  position: 'relative',
+  width: '100%',
+  height: '100%',
+  maxWidth: '800px',
+  maxHeight: '600px',
+  margin: '0 auto',
+  borderRadius: '24px',
+  overflow: 'hidden',
+  boxShadow: '0 8px 32px rgba(11, 43, 77, 0.2)',
+  border: '1px solid rgba(250, 14, 164, 0.2)',
+  background: 'linear-gradient(45deg, rgba(13, 17, 44, 0.7), rgba(102, 4, 62, 0.7))',
+  backdropFilter: 'blur(16px)',
+}));
+
+const StyledFlashOverlay = styled(Box)(({ theme }) => ({
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  background: 'linear-gradient(45deg, rgba(9, 194, 247, 0.8), rgba(250, 14, 164, 0.8))',
+  opacity: 0,
+  transition: 'opacity 0.5s ease-out',
+  zIndex: 2,
+}));
+
+const StyledFaceDetectedOverlay = styled(Box)(({ theme }) => ({
+  position: 'absolute',
+  bottom: '20%',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  zIndex: 3,
+  textAlign: 'center',
+  background: 'rgba(13, 17, 44, 0.85)',
+  backdropFilter: 'blur(8px)',
+  padding: theme.spacing(2, 3),
+  borderRadius: '16px',
+  border: '1px solid rgba(250, 14, 164, 0.2)',
+  animation: `${fadeIn} 0.5s ease-out`,
+}));
+
+const StyledCountdownContainer = styled(Box)(({ theme }) => ({
+  position: 'absolute',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  zIndex: 3,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: theme.spacing(2),
+}));
+
+const StyledInstructionText = styled(Typography)(({ theme }) => ({
+  position: 'absolute',
+  top: '20px',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  zIndex: 3,
+  textAlign: 'center',
+  background: 'rgba(13, 17, 44, 0.85)',
+  backdropFilter: 'blur(8px)',
+  padding: theme.spacing(2, 3),
+  borderRadius: '16px',
+  border: '1px solid rgba(250, 14, 164, 0.2)',
+  animation: `${fadeIn} 0.5s ease-out`,
+}));
 
 // Define tests and weights for autism likelihood estimation
 const tests = [
@@ -62,77 +204,189 @@ const calculateEyeCenter = (landmarks, indices) => {
   return [sumX / count, sumY / count, sumZ / count];
 };
 
+// StatsDisplay Component
+const StatsDisplay = ({ testScores }) => {
+  if (!testScores) return null;
+
+  const stats = [
+    { label: 'Face Width', value: testScores['Face Width Ratio'] || 0, icon: <Straighten /> },
+    { label: 'Eye Spacing', value: testScores['Eye Spacing'] || 0, icon: <RemoveRedEye /> },
+    { label: 'Nasal Bridge', value: testScores['Nasal Bridge'] || 0, icon: <Psychology /> },
+    { label: 'Forehead', value: testScores['Forehead Ratio'] || 0, icon: <Person /> },
+  ];
+
+  return (
+    <Box
+      sx={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        p: 1,
+        background: 'rgba(13, 17, 44, 0.85)',
+        backdropFilter: 'blur(8px)',
+        borderTop: '1px solid rgba(250, 14, 164, 0.2)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 0.5,
+        zIndex: 3,
+        animation: `${fadeIn} 0.5s ease-out`,
+        maxHeight: '120px',
+        overflow: 'hidden',
+      }}
+    >
+      <Grid container spacing={0.5}>
+        {stats.map((stat, index) => (
+          <Grid item xs={6} key={index}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                p: 0.5,
+                borderRadius: 0.5,
+                background: 'rgba(255, 255, 255, 0.05)',
+              }}
+            >
+              <Box
+                sx={{
+                  color: '#09c2f7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 16,
+                  height: 16,
+                  '& .MuiSvgIcon-root': { fontSize: 14 },
+                }}
+              >
+                {stat.icon}
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    display: 'block',
+                    mb: 0.25,
+                    fontSize: '0.65rem',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {stat.label}
+                </Typography>
+                <Box
+                  sx={{
+                    height: 3,
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    borderRadius: 1.5,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      height: '100%',
+                      width: `${stat.value}%`,
+                      background: 'linear-gradient(90deg, #09c2f7, #fa0ea4)',
+                      transition: 'width 0.3s ease-out',
+                    }}
+                  />
+                </Box>
+              </Box>
+            </Box>
+          </Grid>
+        ))}
+      </Grid>
+    </Box>
+  );
+};
+
 // FaceScanner Component
-const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender }) => {
+const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const intervalRef = useRef(null);
   const scoresRef = useRef([]);
   const [isCollecting, setIsCollecting] = useState(false);
   const [countdown, setCountdown] = useState(null);
-  const [score, setScore] = useState(0);
   const [faceDetected, setFaceDetected] = useState(false);
   const [webcamError, setWebcamError] = useState(null);
   const [model, setModel] = useState(null);
   const [videoReady, setVideoReady] = useState(false);
   const [faceDetectedTime, setFaceDetectedTime] = useState(0);
   const [showFlash, setShowFlash] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [currentTestScores, setCurrentTestScores] = useState({});
-  const [isMobile, setIsMobile] = useState(false);
   const toast = useToast();
 
-  // Use the video stream hook
-  const stream = useVideoStream();
+  const loadModel = async () => {
+    try {
+      setIsLoading(true);
+      setLoadingProgress(0);
+      await tf.setBackend('webgl');
+      setLoadingProgress(30);
+      const loadedModel = await facemesh.load({
+        maxFaces: 1,
+        refineLandmarks: true,
+        detectionConfidence: 0.9,
+        maxContinuousChecks: 5,
+      });
+      setLoadingProgress(100);
+      setModel(loadedModel);
+      setIsLoading(false);
+    } catch (err) {
+      setWebcamError('Failed to load FaceMesh model');
+      setIsLoading(false);
+    }
+  };
 
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  const startVideo = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: 'user',
+          frameRate: { ideal: 30 },
+        },
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = () => {
+          setVideoReady(true);
+          videoRef.current.play().catch((err) => {
+            setWebcamError('Failed to play video');
+          });
+        };
+      }
+    } catch (err) {
+      setWebcamError('Webcam access denied or unavailable');
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
-
-    const loadModel = async () => {
-      try {
-        await tf.setBackend('webgl');
-        const loadedModel = await facemesh.load();
-        if (isMounted) setModel(loadedModel);
-      } catch (err) {
-        if (isMounted) setWebcamError('Failed to load FaceMesh model');
-      }
+    const initialize = async () => {
+      await loadModel();
+      if (isMounted) await startVideo();
     };
-
-    loadModel();
+    initialize();
     return () => {
       isMounted = false;
       if (intervalRef.current) clearInterval(intervalRef.current);
+      if (videoRef.current && videoRef.current.srcObject) {
+        videoRef.current.srcObject.getTracks().forEach((track) => track.stop());
+      }
     };
   }, []);
-
-  // Set up video stream when it's available
-  useEffect(() => {
-    if (stream && videoRef.current) {
-      videoRef.current.srcObject = stream;
-      videoRef.current.onloadedmetadata = () => {
-        setVideoReady(true);
-        videoRef.current.play().catch((err) => {
-          console.error('Error playing video:', err);
-          setWebcamError('Failed to play video');
-        });
-      };
-    }
-  }, [stream]);
 
   useEffect(() => {
     if (!model || !videoReady) return;
 
     const detectFaceAndRunTest = async () => {
       if (!videoRef.current || !canvasRef.current) return;
-
       const video = videoRef.current;
       const canvas = canvasRef.current;
       canvas.width = video.videoWidth;
@@ -142,46 +396,26 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender
       const context = canvas.getContext('2d');
       context.clearRect(0, 0, canvas.width, canvas.height);
 
-      context.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-      context.lineWidth = 1;
-      context.beginPath();
-      context.moveTo(canvas.width / 2, 0);
-      context.lineTo(canvas.width / 2, canvas.height);
-      context.moveTo(0, canvas.height / 2);
-      context.lineTo(canvas.width, canvas.height / 2);
-      if (!isMobile) {
+      if (window.innerWidth >= 768) {
+        context.strokeStyle = 'white';
+        context.lineWidth = 1;
+        context.beginPath();
+        context.moveTo(canvas.width / 2, 0);
+        context.lineTo(canvas.width / 2, canvas.height);
+        context.moveTo(0, canvas.height / 2);
+        context.lineTo(canvas.width, canvas.height / 2);
         context.ellipse(canvas.width / 2, canvas.height / 2, canvas.width / 6, canvas.height / 4, 0, 0, 2 * Math.PI);
+        context.stroke();
       }
-      context.stroke();
 
       if (predictions.length > 0) {
         setFaceDetected(true);
         onFaceDetected(true);
-        setFaceDetectedTime(prev => prev + 0.5);
-        
+        setFaceDetectedTime((prev) => prev + 0.1);
+
         const face = predictions[0];
         const landmarks = face.scaledMesh;
         const boundingBox = face.boundingBox;
-
-        const testScores = {};
-        tests.forEach((test) => {
-          testScores[test] = runTest(test, landmarks, boundingBox);
-        });
-        setCurrentTestScores(testScores);
-        
-        const totalWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
-        const currentScore =
-          totalWeight > 0
-            ? Object.entries(testScores).reduce(
-                (sum, [test, score]) => sum + score * weights[test],
-                0
-              ) / totalWeight
-            : 0;
-        setScore(currentScore);
-        if (isCollecting) {
-          scoresRef.current.push(testScores);
-          console.log('Test scores collected:', testScores);
-        }
 
         landmarks.forEach(([x, y]) => {
           context.beginPath();
@@ -189,566 +423,393 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, gender
           context.fillStyle = 'rgba(0, 255, 255, 0.5)';
           context.fill();
         });
+
+        const testScores = {};
+        tests.forEach((test) => {
+          testScores[test] = runTest(test, landmarks, boundingBox);
+        });
+        setCurrentTestScores(testScores);
+
+        if (isCollecting) {
+          scoresRef.current.push(testScores);
+        }
       } else {
         setFaceDetected(false);
         onFaceDetected(false);
-        setScore(0);
         setFaceDetectedTime(0);
+        setCurrentTestScores({});
       }
     };
 
-    intervalRef.current = setInterval(detectFaceAndRunTest, 500);
+    intervalRef.current = setInterval(detectFaceAndRunTest, 100);
     return () => clearInterval(intervalRef.current);
-  }, [model, videoReady, isCollecting, onFaceDetected, gender, isMobile]);
+  }, [model, videoReady, isCollecting, onFaceDetected]);
 
   useEffect(() => {
-    if (faceDetectedTime >= 3 && !isCollecting && !startScanning) {
-      handleStartScanning();
-    }
-  }, [faceDetectedTime]);
-
-  useEffect(() => {
-    if (countdown === 0) {
-      setShowFlash(true);
-      setTimeout(() => setShowFlash(false), 500);
-    }
-  }, [countdown]);
-
-  const handleStartScanning = () => {
-    if (faceDetected) {
+    if (startScanning && !isCollecting) {
       setIsCollecting(true);
-      setCountdown(5);
-      scoresRef.current = [];
-      console.log('Countdown started');
-
-      const interval = setInterval(() => {
-        setCountdown((prev) => {
-          const next = prev - 1;
-          if (next <= 0) {
-            clearInterval(interval);
-            return 0;
-          }
-          return next;
-        });
-      }, 1000);
-
-      const timer = setTimeout(() => {
-        setIsCollecting(false);
-        setCountdown(null);
-        const collectedScores = scoresRef.current;
-        if (collectedScores.length > 0) {
-          const testAverages = {};
-          tests.forEach((test) => {
-            const testScores = collectedScores.map((scores) => scores[test]);
-            const sortedTestScores = [...testScores].sort((a, b) => a - b);
-            const n = sortedTestScores.length;
-            const k = Math.ceil(n / 4);
-            const lowerQuartile = sortedTestScores.slice(0, k);
-            const average = lowerQuartile.reduce((sum, val) => sum + val, 0) / k;
-            testAverages[test] = average;
-          });
-          const totalWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
-          const finalScore =
-            totalWeight > 0
-              ? Object.entries(testAverages).reduce(
-                  (sum, [test, score]) => sum + score * weights[test],
-                  0
-                ) / totalWeight
-              : 0;
-          onScanningComplete({ finalScore, testAverages });
-        } else {
-          onScanningComplete(null);
-        }
+      
+      // Add 5 second delay before countdown starts
+      setTimeout(() => {
+        setCountdown(5);
         scoresRef.current = [];
-      }, 5000);
 
-      return () => {
-        clearInterval(interval);
-        clearTimeout(timer);
-      };
+        const interval = setInterval(() => {
+          setCountdown((prev) => {
+            const next = prev - 1;
+            if (next <= 0) {
+              clearInterval(interval);
+              return 0;
+            }
+            return next;
+          });
+        }, 1000);
+
+        const timer = setTimeout(() => {
+          setIsCollecting(false);
+          setCountdown(null);
+          const collectedScores = scoresRef.current;
+          if (collectedScores.length > 0) {
+            const testAverages = {};
+            tests.forEach((test) => {
+              const testScores = collectedScores.map((scores) => scores[test]);
+              const sortedTestScores = [...testScores].sort((a, b) => a - b);
+              const n = sortedTestScores.length;
+              const k = Math.ceil(n / 4);
+              const lowerQuartile = sortedTestScores.slice(0, k);
+              const average = lowerQuartile.reduce((sum, val) => sum + val, 0) / k;
+              testAverages[test] = average;
+            });
+            const totalWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
+            const finalScore =
+              totalWeight > 0
+                ? Object.entries(testAverages).reduce(
+                    (sum, [test, score]) => sum + score * weights[test],
+                    0
+                  ) / totalWeight
+                : 0;
+            onScanningComplete({ finalScore, testAverages });
+          } else {
+            onScanningComplete(null);
+          }
+          scoresRef.current = [];
+        }, 5000);
+
+        return () => {
+          clearInterval(interval);
+          clearTimeout(timer);
+        };
+      }, 5000);
     }
-  };
+  }, [startScanning, onScanningComplete]);
 
   if (webcamError) {
     toast({ title: 'Error', description: webcamError, status: 'error', duration: 5000, isClosable: true });
   }
 
   return (
-    <Box position="relative" w="100%" h="100%">
-      {!model && !webcamError && (
-        <Text position="absolute" top="50%" left="50%" transform="translate(-50%, -50%)" fontSize="lg">
-          Loading model...
-        </Text>
+    <StyledWebcamContainer>
+      {isLoading && (
+        <LoadingIndicator
+          progress={loadingProgress}
+          message="Loading Face Detection..."
+          subMessage={
+            loadingProgress < 30 ? 'Initializing...' : loadingProgress < 100 ? 'Loading Model...' : 'Almost Ready...'
+          }
+        />
+      )}
+      {!model && !webcamError && !isLoading && (
+        <LoadingIndicator progress={0} message="Preparing Camera..." subMessage="" />
+      )}
+      {webcamError && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(13, 17, 44, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 4,
+          }}
+        >
+          <ErrorOutlineIcon
+            sx={{ fontSize: 48, color: 'error.main', mb: 2, filter: 'drop-shadow(0 0 8px rgba(244, 67, 54, 0.3))' }}
+          />
+          <Typography variant="h6" color="error" mb={2} sx={{ fontSize: { base: '1rem', md: '1.25rem' } }}>
+            <WarningAmberIcon sx={{ fontSize: 24, mr: 1 }} /> Camera Error
+          </Typography>
+          <Typography variant="body1" color="error" mb={3} sx={{ fontSize: { base: '0.875rem', md: '1rem' } }}>
+            {webcamError}
+          </Typography>
+          <GradientButton onClick={() => { setWebcamError(null); setIsLoading(true); loadModel().then(startVideo); }}>
+            Retry
+          </GradientButton>
+        </Box>
       )}
       <video
         ref={videoRef}
         autoPlay
         muted
         playsInline
-        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isLoading ? 'blur(4px)' : 'none' }}
       />
-      <canvas ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
-      {showFlash && (
-        <Box
-          position="absolute"
-          top={0}
-          left={0}
-          right={0}
-          bottom={0}
-          bg="white"
-          opacity={0.8}
-          transition="opacity 0.5s ease-out"
-          zIndex={2}
-        />
-      )}
-      {faceDetected && !isCollecting && (
-        <MuiBox
-          sx={{
-            position: 'absolute',
-            top: '20px',
-            right: '20px',
-            bgcolor: 'rgba(0, 0, 0, 0.7)',
-            p: 2,
-            borderRadius: '8px',
-            color: 'white',
-            maxWidth: '300px',
-            backdropFilter: 'blur(8px)',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-          }}
-        >
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Typography variant="h6">Real-time Analysis</Typography>
-            {Object.entries(currentTestScores).map(([test, score]) => (
-              <Box key={test}>
-                <Typography variant="body2">{test}</Typography>
-                <Box sx={{ position: 'relative', height: '4px', bgcolor: 'rgba(255, 255, 255, 0.2)', borderRadius: '4px', mt: 1 }}>
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      left: 0,
-                      top: 0,
-                      height: '100%',
-                      width: `${score}%`,
-                      bgcolor: '#00BCD4',
-                      borderRadius: '4px',
-                      transition: 'width 0.3s ease-out'
-                    }}
-                  />
-                </Box>
-                <Typography variant="caption" sx={{ mt: 1 }}>{score.toFixed(1)}%</Typography>
-              </Box>
-            ))}
-          </Box>
-        </MuiBox>
-      )}
+      <canvas
+        ref={canvasRef}
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: faceDetected ? 1 : 0.5 }}
+      />
       {countdown !== null && (
-        <MuiBox
-          sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            zIndex: 3
-          }}
-        >
+        <StyledCountdownContainer>
           <Typography
+            variant="h1"
             sx={{
-              color: 'white',
               fontSize: '6rem',
-              fontWeight: 'bold',
-              textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-              animation: countdown === 0 ? 'pulse 0.5s ease-out' : 'none',
-              '@keyframes pulse': {
-                '0%': { transform: 'scale(1)' },
-                '50%': { transform: 'scale(1.2)' },
-                '100%': { transform: 'scale(1)' }
-              }
+              fontWeight: 800,
+              background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              textShadow: '0 0 20px rgba(9, 194, 247, 0.5)',
             }}
           >
             {countdown}
           </Typography>
-        </MuiBox>
+          {countdown === 0 && (
+            <CheckCircleOutlineIcon
+              sx={{ fontSize: 48, color: '#4CAF50', filter: 'drop-shadow(0 0 8px rgba(76, 175, 80, 0.3))' }}
+            />
+          )}
+        </StyledCountdownContainer>
       )}
-      {!isCollecting && faceDetected && (
-        <MuiBox
+      {showFlash && <StyledFlashOverlay sx={{ opacity: 0.8 }} />}
+      {!faceDetected && !isLoading && !webcamError && (
+        <StyledFaceDetectedOverlay>
+          <Typography variant="body1" sx={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Face /> Please position your face in the frame
+          </Typography>
+        </StyledFaceDetectedOverlay>
+      )}
+      <StyledInstructionText>
+        <Typography variant="h6" sx={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 1 }}>
+          {isCollecting ? 'Hold still for a moment...' : 'Look at the camera'}
+        </Typography>
+      </StyledInstructionText>
+      {faceDetected && <StatsDisplay testScores={currentTestScores} />}
+    </StyledWebcamContainer>
+  );
+};
+
+// ResultDisplay Component
+const ResultDisplay = ({ percentage, tierLabel }) => {
+  return (
+    <Box position="relative" display="inline-flex" flexDirection="column" alignItems="center">
+      <CircularProgress
+        variant="determinate"
+        value={percentage}
+        size={120}
+        thickness={4}
+        sx={{ color: '#09c2f7', '& .MuiCircularProgress-circle': { transition: 'stroke-dashoffset 1s ease-in-out' } }}
+      />
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          bottom: 0,
+          right: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Typography
+          variant="h4"
           sx={{
-            position: 'absolute',
-            bottom: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 3,
-            width: '90%',
-            maxWidth: '400px'
+            fontWeight: 'bold',
+            background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
           }}
         >
-          <Button
-            variant="contained"
-            color="primary"
-            size="large"
-            fullWidth
-            onClick={handleStartScanning}
-            disabled={faceDetectedTime >= 3}
-            sx={{
-              opacity: faceDetectedTime >= 3 ? 0.5 : 1,
-              '&:hover': {
-                transform: 'translateY(-2px)'
-              },
-              transition: 'all 0.2s'
-            }}
-          >
-            {faceDetectedTime >= 3 ? "Starting..." : "Start Scanning"}
-          </Button>
-        </MuiBox>
-      )}
+          {percentage.toFixed(0)}%
+        </Typography>
+        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+          Likelihood
+        </Typography>
+      </Box>
+      <Typography
+        variant="h6"
+        sx={{
+          mt: 2,
+          background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          fontWeight: 'bold',
+        }}
+      >
+        {tierLabel}
+      </Typography>
     </Box>
   );
 };
 
-// ResultDisplay Component with Tier Label
-const ResultDisplay = ({ percentage, tierLabel }) => {
-  return (
-    <MuiBox 
-      position="relative" 
-      display="inline-flex" 
-      flexDirection="column" 
-      alignItems="center"
-      sx={{
-        animation: 'bounceIn 1s ease-out',
-        '@keyframes bounceIn': {
-          '0%': { transform: 'scale(0.3)', opacity: 0 },
-          '50%': { transform: 'scale(1.05)', opacity: 0.8 },
-          '70%': { transform: 'scale(0.9)', opacity: 0.9 },
-          '100%': { transform: 'scale(1)', opacity: 1 }
-        }
-      }}
-    >
-      <CircularProgress 
-        variant="determinate" 
-        value={percentage} 
-        size={120} 
-        thickness={4}
-        sx={{
-          color: percentage >= 90 ? '#FF6B6B' : percentage >= 60 ? '#FFD93D' : '#6BCB77',
-          '& .MuiCircularProgress-circle': {
-            transition: 'stroke-dashoffset 1s ease-in-out'
-          }
-        }}
-      />
-      <MuiBox
-        top={0}
-        left={0}
-        bottom={0}
-        right={0}
-        position="absolute"
-        display="flex"
-        flexDirection="column"
-        alignItems="center"
-        justifyContent="center"
-      >
-        <Typography variant="h4" component="div" color="textSecondary" fontWeight="bold">
-          {percentage.toFixed(0)}%
-        </Typography>
-        <Typography variant="h6" component="div" color="textPrimary" mt={1}>
-          {tierLabel}
-        </Typography>
-      </MuiBox>
-    </MuiBox>
-  );
-};
-
-// DetailedResultDisplay Component with Progress Bars and Humorous Description
+// DetailedResultDisplay Component
 const DetailedResultDisplay = ({ overallPercentage, testScores }) => {
   const navigate = useNavigate();
 
-  let tierLabel, tierDescription;
+  let tierLabel, tierDescription, tierEmoji;
   if (overallPercentage >= 90) {
-    tierLabel = 'Tier 1: High Likelihood';
-    tierDescription = 'Several facial features align with common autism spectrum characteristics. This suggests a higher likelihood of autism-related traits.';
+    tierLabel = 'High Likelihood';
+    tierDescription = 'Several facial features align with autism spectrum traits.';
+    tierEmoji = <SentimentDissatisfied />;
   } else if (overallPercentage >= 60) {
-    tierLabel = 'Tier 2: Moderate Likelihood';
-    tierDescription = 'Some facial features show potential autism spectrum characteristics. This indicates a moderate likelihood of autism-related traits.';
+    tierLabel = 'Moderate Likelihood';
+    tierDescription = 'Some facial features suggest potential autism traits.';
+    tierEmoji = <SentimentNeutral />;
   } else {
-    tierLabel = 'Tier 3: Low Likelihood';
-    tierDescription = 'Few facial features align with autism spectrum characteristics. This suggests a lower likelihood of autism-related traits.';
+    tierLabel = 'Low Likelihood';
+    tierDescription = 'Few facial features align with autism traits.';
+    tierEmoji = <SentimentSatisfied />;
   }
 
   const featureIcons = {
-    'Face Width Ratio': '👤',
-    'Eye Spacing': '👀',
-    'Nasal Bridge': '👃',
-    'Forehead Ratio': '🧠'
+    'Face Width Ratio': <Straighten />,
+    'Eye Spacing': <RemoveRedEye />,
+    'Nasal Bridge': <Psychology />,
+    'Forehead Ratio': <Person />,
   };
 
   const featureDescriptions = {
-    'Face Width Ratio': 'Measures the proportion of facial width to height',
-    'Eye Spacing': 'Analyzes the distance between the eyes',
-    'Nasal Bridge': 'Evaluates the structure of the nose bridge',
-    'Forehead Ratio': 'Assesses the proportion of forehead to total face height'
+    'Face Width Ratio': 'Measures the proportion of facial width to height.',
+    'Eye Spacing': 'Analyzes the distance between the eyes.',
+    'Nasal Bridge': 'Evaluates the structure of the nasal bridge.',
+    'Forehead Ratio': 'Assesses the forehead proportion to face height.',
   };
 
-  // Generate humorous description if testScores are available
   const funnyDescription = testScores ? generateAutismRatingName(overallPercentage, testScores) : '';
-
-  if (!testScores) {
-    return (
-      <MuiBox sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
-        <Typography variant="h4" gutterBottom align="center" fontWeight="bold">
-          Estimated Autism Likelihood
-        </Typography>
-        <MuiBox display="flex" justifyContent="center" mb={4}>
-          <ResultDisplay percentage={overallPercentage} tierLabel={tierLabel} />
-        </MuiBox>
-        <Typography variant="body1" color="textSecondary" align="center">
-          *Note: This is an experimental estimation based on facial features and not a medical diagnosis. Consult a professional for accurate assessment.*
-        </Typography>
-      </MuiBox>
-    );
-  }
-
-  // Sort features by score to show most significant ones first
   const sortedFeatures = Object.entries(testScores)
     .sort(([, a], [, b]) => b - a)
     .map(([test, score]) => ({
       test,
       score,
-      impact: score >= 75 ? 'high' : score >= 50 ? 'moderate' : 'low'
+      impact: score >= 75 ? 'High' : score >= 50 ? 'Moderate' : 'Low',
     }));
 
   return (
-    <MuiBox sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
-      {/* Vibe Section - Now more prominent */}
-      {funnyDescription && (
-        <MuiBox 
-          sx={{ 
-            mb: 4,
-            p: 3,
-            borderRadius: 3,
-            background: 'linear-gradient(135deg, #6B46C1 0%, #4299E1 100%)',
-            color: 'white',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-            animation: 'fadeIn 0.5s ease-out',
-            '@keyframes fadeIn': {
-              '0%': { opacity: 0, transform: 'translateY(-20px)' },
-              '100%': { opacity: 1, transform: 'translateY(0)' }
-            }
-          }}
-        >
-          <Typography variant="h5" gutterBottom align="center" fontWeight="bold">
-            Your Autism Vibe
-          </Typography>
-          <Typography 
-            variant="h6" 
-            align="center"
-            sx={{ 
-              fontStyle: 'italic',
-              textShadow: '0 2px 4px rgba(0,0,0,0.2)',
-              mb: 2
-            }}
-          >
-            {funnyDescription}
-          </Typography>
-          
-        </MuiBox>
-      )}
-
-      {/* Main Score Display */}
-      <MuiBox 
-        sx={{ 
+    <Box sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
+      <Box
+        sx={{
+          p: 4,
+          borderRadius: 2,
+          bgcolor: 'rgba(13, 17, 44, 0.7)',
+          border: '1px solid rgba(250, 14, 164, 0.2)',
           mb: 4,
-          p: 3,
-          borderRadius: 3,
-          bgcolor: 'background.paper',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-          animation: 'slideUp 0.5s ease-out',
-          '@keyframes slideUp': {
-            '0%': { opacity: 0, transform: 'translateY(20px)' },
-            '100%': { opacity: 1, transform: 'translateY(0)' }
-          }
+          textAlign: 'center',
         }}
       >
-        <Typography variant="h4" gutterBottom align="center" fontWeight="bold">
-          Estimated Autism Likelihood
+        <Typography variant="h2" sx={{ fontSize: '4rem' }}>
+          {tierEmoji}
         </Typography>
-        <MuiBox display="flex" justifyContent="center" mb={2}>
-          <ResultDisplay percentage={overallPercentage} tierLabel={tierLabel} />
-        </MuiBox>
-        <Typography variant="body1" color="textSecondary" align="center">
+        <Typography variant="h4" gutterBottom fontWeight="bold">
+          {tierLabel}
+        </Typography>
+        <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+          {overallPercentage.toFixed(1)}%
+        </Typography>
+        {funnyDescription && (
+          <Box sx={{ mt: 3, p: 2, bgcolor: 'rgba(0,0,0,0.05)', borderRadius: 2, textAlign: 'left' }}>
+            <Typography variant="body1">{funnyDescription}</Typography>
+          </Box>
+        )}
+        <Typography variant="body1" paragraph sx={{ mt: 3 }}>
           {tierDescription}
         </Typography>
-      </MuiBox>
+        <GradientButton onClick={() => navigate('/')}>Back to Home</GradientButton>
+      </Box>
 
-      {/* Features Analysis */}
-      <MuiBox 
-        sx={{ 
-          mb: 4,
-          p: 3,
-          borderRadius: 3,
-          bgcolor: 'background.paper',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-          animation: 'slideUp 0.5s ease-out 0.2s both',
-          '@keyframes slideUp': {
-            '0%': { opacity: 0, transform: 'translateY(20px)' },
-            '100%': { opacity: 1, transform: 'translateY(0)' }
-          }
+      <Typography
+        variant="h5"
+        gutterBottom
+        fontWeight="bold"
+        align="center"
+        mb={4}
+        sx={{
+          background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
         }}
       >
-        <Typography variant="h5" gutterBottom fontWeight="bold" align="center">
-          Key Features Analysis
-        </Typography>
-        <Stack spacing={3}>
-          {sortedFeatures.map(({ test, score, impact }, index) => {
-            const color = impact === 'high' ? '#FF6B6B' : impact === 'moderate' ? '#FFD93D' : '#6BCB77';
-            const impactText = impact === 'high' ? 'Strong Indicator' : impact === 'moderate' ? 'Moderate Indicator' : 'Neutral';
-
-            return (
-              <MuiBox
-                key={test}
+        Detailed Feature Analysis
+      </Typography>
+      <Stack spacing={3}>
+        {sortedFeatures.map(({ test, score, impact }, index) => {
+          const color = impact === 'High' ? '#ff6b6b' : impact === 'Moderate' ? '#ffd93d' : '#6bcb77';
+          return (
+            <Box
+              key={test}
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                bgcolor: 'rgba(13, 17, 44, 0.7)',
+                border: `1px solid ${color}20`,
+                backdropFilter: 'blur(16px)',
+              }}
+            >
+              <Box display="flex" alignItems="center" mb={1}>
+                <Typography variant="h4" mr={2} sx={{ color }}>
+                  {featureIcons[test]}
+                </Typography>
+                <Box flex={1}>
+                  <Typography variant="body1" fontWeight="medium" sx={{ color: '#fff' }}>
+                    {test}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                    {featureDescriptions[test]}
+                  </Typography>
+                </Box>
+                <Typography variant="body1" sx={{ bgcolor: `${color}20`, px: 1.5, py: 0.5, borderRadius: 1, color: '#fff' }}>
+                  {impact}
+                </Typography>
+              </Box>
+              <LinearProgress
+                variant="determinate"
+                value={score}
                 sx={{
-                  animation: `slideIn 0.5s ease-out ${index * 0.1}s both`,
-                  '@keyframes slideIn': {
-                    '0%': { transform: 'translateX(-20px)', opacity: 0 },
-                    '100%': { transform: 'translateX(0)', opacity: 1 }
-                  },
-                  p: 2,
-                  borderRadius: 2,
-                  bgcolor: 'rgba(0,0,0,0.02)',
-                  border: `1px solid ${color}20`,
-                  transition: 'transform 0.2s ease-in-out',
-                  '&:hover': {
-                    transform: 'translateX(5px)',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                  }
+                  height: 8,
+                  borderRadius: 3,
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                  '& .MuiLinearProgress-bar': { backgroundColor: color, borderRadius: 3 },
                 }}
-              >
-                <MuiBox display="flex" alignItems="center" mb={1}>
-                  <Typography variant="h4" mr={2}>
-                    {featureIcons[test]}
-                  </Typography>
-                  <MuiBox flex={1}>
-                    <Typography variant="body1" fontWeight="medium">
-                      {test}
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      {featureDescriptions[test]}
-                    </Typography>
-                  </MuiBox>
-                  <Typography
-                    variant="body1"
-                    color={color}
-                    fontWeight="bold"
-                    sx={{
-                      bgcolor: `${color}20`,
-                      px: 1.5,
-                      py: 0.5,
-                      borderRadius: 1
-                    }}
-                  >
-                    {impactText}
-                  </Typography>
-                </MuiBox>
-                <MuiBox sx={{ position: 'relative', mt: 1 }}>
-                  <LinearProgress
-                    variant="determinate"
-                    value={score}
-                    sx={{
-                      height: 8,
-                      borderRadius: 3,
-                      backgroundColor: 'rgba(0,0,0,0.1)',
-                      '& .MuiLinearProgress-bar': {
-                        backgroundColor: color,
-                        borderRadius: 3,
-                        transition: 'width 1s ease-in-out'
-                      }
-                    }}
-                  />
-                  <MuiBox
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      mt: 0.5
-                    }}
-                  >
-                    <Typography
-                      variant="body2"
-                      color="textSecondary"
-                      sx={{ fontWeight: 'medium' }}
-                    >
-                      Non-Autistic
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      color="textSecondary"
-                      sx={{ fontWeight: 'medium' }}
-                    >
-                      Autistic
-                    </Typography>
-                  </MuiBox>
-                </MuiBox>
-              </MuiBox>
-            );
-          })}
-        </Stack>
-      </MuiBox>
+              />
+            </Box>
+          );
+        })}
+      </Stack>
 
-      {/* Disclaimer Section */}
-      <MuiBox 
-        sx={{ 
-          p: 3,
-          borderRadius: 3,
-          bgcolor: 'background.paper',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-          animation: 'slideUp 0.5s ease-out 0.4s both',
-          '@keyframes slideUp': {
-            '0%': { opacity: 0, transform: 'translateY(20px)' },
-            '100%': { opacity: 1, transform: 'translateY(0)' }
-          }
-        }}
-      >
-        <Typography variant="h5" gutterBottom fontWeight="bold" align="center">
-          Important Note
+      <Box sx={{ mt: 4, textAlign: 'center' }}>
+        <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+          *This is an experimental estimation based on facial features, not a medical diagnosis. Consult a professional for
+          accurate assessment.*
         </Typography>
-        <Typography variant="body1" color="textSecondary" align="center">
-          This analysis is based on facial features and is for entertainment purposes only. It is not a medical diagnosis and should not be used as such. If you have concerns about autism spectrum traits, please consult with a qualified healthcare professional.
-        </Typography>
-      </MuiBox>
-
-      {/* Navigation Button */}
-      <MuiBox mt={4} display="flex" justifyContent="center">
-        <MuiButton
-          variant="contained"
-          color="primary"
-          onClick={() => navigate('/')}
-          sx={{
-            animation: 'pulse 2s infinite',
-            '@keyframes pulse': {
-              '0%': { transform: 'scale(1)' },
-              '50%': { transform: 'scale(1.05)' },
-              '100%': { transform: 'scale(1)' }
-            },
-            px: 4,
-            py: 1.5,
-            borderRadius: 2,
-            fontSize: '1.1rem'
-          }}
-        >
-          Back to Home
-        </MuiButton>
-      </MuiBox>
-    </MuiBox>
+      </Box>
+    </Box>
   );
 };
 
 // Main Component
 const AutismAnalytic = () => {
-  const { userData, loading: loadingUser } = useUserData();
-  const { user } = useAuth();
-  const [currentStep, setCurrentStep] = useState(null);
-  const [scanFor, setScanFor] = useState(null);
-  const [gender, setGender] = useState('');
+  const navigate = useNavigate();
+  const [currentStep, setCurrentStep] = useState('instructions');
   const [likelihoodScore, setLikelihoodScore] = useState(null);
   const [testScores, setTestScores] = useState(null);
-  const [userInfo, setUserInfo] = useState(null);
   const [faceDetected, setFaceDetected] = useState(false);
+  const [isLoadingResults, setIsLoadingResults] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const toast = useToast();
 
   const testToPropMap = {
@@ -758,262 +819,160 @@ const AutismAnalytic = () => {
     'Forehead Ratio': 'foreheadRatio',
   };
 
-  useEffect(() => {
-    if (!loadingUser && userData) {
-      if (userData.timesRanked === 0) {
-        setScanFor('myself');
-        setUserInfo({
-          name: userData.name || 'Self',
-          ethnicity: userData.ethnicity,
-          eyeColor: mapEyeColor(userData.eyeColor),
-          height: userData.height,
-          weight: userData.weight,
-          gender: getGenderCode(userData.gender),
-        });
-        setCurrentStep('instructions');
-      } else {
-        setCurrentStep('scanForSelection');
-      }
-    }
-  }, [loadingUser, userData]);
-
-  useEffect(() => {
-    if (currentStep === 'result' && userInfo && likelihoodScore !== null) {
-      const saveLikelihoodToFirestore = async () => {
-        try {
-          const likelihoodData = {
-            name: userInfo.name,
-            uid: user.uid,
-            ethnicity: userInfo.ethnicity,
-            eyeColor: userInfo.eyeColor,
-            height: userInfo.height,
-            weight: userInfo.weight,
-            gender: userInfo.gender,
-            testScores: userInfo.testScores,
-            likelihoodPercentage: likelihoodScore,
-            timestamp: new Date(),
-          };
-          await addDoc(collection(db, 'autismLikelihoods'), likelihoodData);
-          console.log('Likelihood saved to Firestore:', likelihoodData);
-        } catch (error) {
-          console.error('Error saving likelihood to Firestore:', error);
-          toast({
-            title: 'Error',
-            description: 'Failed to save likelihood to Firestore.',
-            status: 'error',
-            duration: 5000,
-            isClosable: true,
-          });
-        }
-      };
-      saveLikelihoodToFirestore();
-    }
-  }, [currentStep, userInfo, likelihoodScore, user, toast]);
-
-  const handleScanForSelection = (choice) => {
-    if (choice === 'myself') {
-      setScanFor('myself');
-      setUserInfo({
-        name: userData.name || 'Self',
-        ethnicity: userData.ethnicity,
-        eyeColor: mapEyeColor(userData.eyeColor),
-        height: userData.height,
-        weight: userData.weight,
-        gender: getGenderCode(userData.gender),
-      });
-      setCurrentStep('instructions');
-    } else {
-      setScanFor('someoneElse');
-      setCurrentStep('genderSelection');
-    }
-  };
-
-  const handleGenderSelection = (selectedGender) => {
-    setGender(genderMap[selectedGender]);
-    setCurrentStep('instructions');
-  };
-
-  const handleStartScanning = () => {
-    if (faceDetected) {
-      setCurrentStep('scanning');
-      console.log('Starting scanning');
-    } else {
-      toast({
-        title: 'Error',
-        description: 'Face not detected. Please adjust your position.',
-        status: 'warning',
-        duration: 3000,
-      });
-    }
-  };
-
   const handleScanningComplete = (result) => {
-    if (result !== null) {
-      const { finalScore, testAverages } = result;
-      const transformedTestScores = {};
-      for (const [test, score] of Object.entries(testAverages)) {
-        const propName = testToPropMap[test];
-        if (propName) {
-          transformedTestScores[propName] = score;
-        }
-      }
-      if (scanFor === 'myself') {
-        setUserInfo((prev) => ({
-          ...prev,
-          ...transformedTestScores,
-          testScores: testAverages,
-          likelihoodScore: finalScore,
-        }));
-        setLikelihoodScore(finalScore);
-        setTestScores(testAverages);
-        setCurrentStep('result');
-      } else {
-        setLikelihoodScore(finalScore);
-        setTestScores(testAverages);
-        setCurrentStep('form');
-      }
+    if (result) {
+      setIsLoadingResults(true);
+      setLoadingProgress(0);
+      
+      // Simulate loading progress
+      const interval = setInterval(() => {
+        setLoadingProgress((prev) => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            const { finalScore, testAverages } = result;
+            setLikelihoodScore(finalScore);
+            setTestScores(testAverages);
+            setCurrentStep('result');
+            setIsLoadingResults(false);
+            return 100;
+          }
+          return prev + 1;
+        });
+      }, 20);
     } else {
-      toast({
-        title: 'Error',
-        description: 'No face detected during scan. Please try again.',
-        status: 'error',
-        duration: 3000,
-      });
+      toast({ title: 'Error', description: 'No face detected during scan', status: 'error', duration: 3000 });
       setCurrentStep('instructions');
     }
   };
 
   const handleFaceDetected = (detected) => {
     setFaceDetected(detected);
-    console.log('Face detected:', detected);
-  };
-
-  const handleFormSubmit = (info) => {
-    const transformedTestScores = {};
-    for (const [test, score] of Object.entries(testScores)) {
-      const propName = testToPropMap[test];
-      if (propName) {
-        transformedTestScores[propName] = score;
-      }
+    if (detected && currentStep === 'instructions') {
+      setCurrentStep('scanning');
     }
-    const updatedUserInfo = {
-      name: info.name,
-      ...transformedTestScores,
-      testScores: testScores,
-      ethnicity: info.ethnicity,
-      eyeColor: info.eyeColor,
-      height: info.height,
-      weight: info.weight,
-      gender: gender,
-      likelihoodScore: likelihoodScore,
-    };
-    setUserInfo(updatedUserInfo);
-    console.log('Form submitted, userInfo:', updatedUserInfo);
-    setCurrentStep('result');
-  };
-
-  const genderMap = {
-    'Male': 'M',
-    'Female': 'W',
-    'Non-binary': 'M',
-    'Other': 'W',
-    'Prefer not to say': 'M',
   };
 
   return (
-    <>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: `
+          radial-gradient(circle at center, #0d112c 0%, #66043e 100%),
+          linear-gradient(45deg, rgba(9, 194, 247, 0.1), rgba(250, 14, 164, 0.1))
+        `,
+        color: '#fff',
+        py: 8,
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
       <TopBar />
-      <Container maxW="container.xl" py={{ base: 4, md: 6 }} bg="gray.50">
-        <VStack spacing={6} align="stretch">
-          {currentStep === 'scanForSelection' && (
-            <VStack spacing={4} align="center">
-              <Heading size="lg">Who are you scanning for?</Heading>
-              <Button
-                style={{ backgroundColor: 'black', color: 'white', width: '30%' }}
-                onClick={() => handleScanForSelection('myself')}
-              >
-                For Myself
-              </Button>
-              <Button
-                style={{ backgroundColor: 'black', color: 'white', width: '30%' }}
-                onClick={() => handleScanForSelection('someoneElse')}
-              >
-                For Someone Else
-              </Button>
-            </VStack>
-          )}
-          {currentStep === 'genderSelection' && scanFor === 'someoneElse' && (
-            <VStack spacing={4} align="center">
-              <Heading size="lg">Select Gender for Someone Else</Heading>
-              <MuiFormControl>
-                <MuiFormLabel>Pick One</MuiFormLabel>
-                <MuiSelect
-                  value={gender}
-                  onChange={(e) => handleGenderSelection(e.target.value)}
-                  displayEmpty
-                  fullWidth
-                >
-                  <MenuItem value="" disabled>
-                    Choose here
-                  </MenuItem>
-                  {Object.keys(genderMap).map((option) => (
-                    <MenuItem key={option} value={option}>
-                      {option}
-                    </MenuItem>
-                  ))}
-                </MuiSelect>
-              </MuiFormControl>
-            </VStack>
-          )}
-          {(currentStep === 'instructions' || currentStep === 'scanning') && (
+      <Box
+        sx={{
+          position: 'absolute',
+          width: '100%',
+          height: '100%',
+          background: `
+            linear-gradient(rgba(9, 194, 247, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(9, 194, 247, 0.05) 1px, transparent 1px)
+          `,
+          backgroundSize: '40px 40px',
+          opacity: 0.3,
+        }}
+      />
+      <Box sx={{ position: 'relative', zIndex: 1, maxWidth: 'xl', mx: 'auto' }}>
+        {isLoadingResults ? (
+          <LoadingAnimation>
             <Box
-              w={{ base: '100%', md: '640px' }}
-              h="480px"
-              mx="auto"
-              borderWidth="2px"
-              borderColor="gray.100"
-              borderRadius="xl"
-              overflow="hidden"
-              boxShadow="lg"
-              bg="gray.200"
+              sx={{
+                width: '100%',
+                maxWidth: '400px',
+                height: '4px',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: '2px',
+                overflow: 'hidden',
+                position: 'relative'
+              }}
             >
-              <FaceScanner
-                startScanning={currentStep === 'scanning'}
-                onScanningComplete={handleScanningComplete}
-                onFaceDetected={handleFaceDetected}
-                gender={userInfo?.gender || gender}
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  height: '100%',
+                  width: `${loadingProgress}%`,
+                  background: 'linear-gradient(90deg, #09c2f7, #fa0ea4)',
+                  transition: 'width 0.1s ease-out',
+                  '&:after': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent)',
+                    animation: 'shimmer 2s infinite',
+                    '@keyframes shimmer': {
+                      '0%': { transform: 'translateX(-100%)' },
+                      '100%': { transform: 'translateX(100%)' }
+                    }
+                  }
+                }}
               />
             </Box>
-          )}
-          {currentStep === 'instructions' && (
-            <VStack spacing={4} align="center">
-              <Heading size="lg">Let's Scan the Face!</Heading>
-              <Text fontSize="lg" textAlign="center">
-                Position the face in front of the camera with good lighting and keep it straight. Results may vary if not aligned properly. The scan starts when a face is detected!
-              </Text>
-              <Button
-                colorScheme="teal"
-                size="lg"
-                onClick={handleStartScanning}
-                isDisabled={!faceDetected}
-              >
-                Start Scanning
-              </Button>
-            </VStack>
-          )}
-          {currentStep === 'result' && likelihoodScore !== null && (
-            <VStack spacing={4} align="center">
-              <Heading size="lg">Estimated Autism Likelihood</Heading>
-              <DetailedResultDisplay
-                overallPercentage={likelihoodScore}
-                testScores={testScores}
-              />
-            </VStack>
-          )}
-        </VStack>
-      </Container>
-      <Footer />
-    </>
+            <AnalyzingText>
+              Analyzing Results
+            </AnalyzingText>
+            <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+              {loadingProgress}%
+            </Typography>
+          </LoadingAnimation>
+        ) : (
+          <>
+            {(currentStep === 'instructions' || currentStep === 'scanning') && (
+              <Box sx={{ my: 8 }}>
+                <Typography
+                  variant="h3"
+                  sx={{
+                    fontWeight: 800,
+                    textAlign: 'center',
+                    background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    mb: 4,
+                  }}
+                >
+                  Face Scan
+                </Typography>
+                <StyledWebcamContainer>
+                  <FaceScanner
+                    startScanning={currentStep === 'scanning'}
+                    onScanningComplete={handleScanningComplete}
+                    onFaceDetected={handleFaceDetected}
+                  />
+                </StyledWebcamContainer>
+                {currentStep === 'instructions' && (
+                  <Box sx={{ textAlign: 'center', mt: 4 }}>
+                    <Typography variant="h5" sx={{ color: '#fff' }}>
+                      Position your face in the frame
+                    </Typography>
+                    <Typography sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                      Ensure good lighting and keep your face straight
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            )}
+
+            {currentStep === 'result' && likelihoodScore !== null && (
+              <Box sx={{ py: 8 }}>
+                <DetailedResultDisplay overallPercentage={likelihoodScore} testScores={testScores} />
+              </Box>
+            )}
+          </>
+        )}
+      </Box>
+    </Box>
   );
 };
 
@@ -1055,12 +1014,6 @@ const calculateFaceWidthScore = (landmarks, boundingBox) => {
   const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
   const faceHeight = boundingBox.bottomRight[1] - boundingBox.topLeft[1];
   const ratio = faceWidth / faceHeight;
-  
-  console.log('Face Measurements:');
-  console.log('Width:', faceWidth);
-  console.log('Height:', faceHeight);
-  console.log('Width/Height Ratio:', ratio);
-  
   if (ratio < 0.75) return 100;
   return 0;
 };
@@ -1071,14 +1024,6 @@ const calculateEyeSpacingScore = (landmarks, boundingBox) => {
   const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
   const eyeDistance = Math.abs(rightEyeCenter[0] - leftEyeCenter[0]);
   const ratio = eyeDistance / faceWidth;
-  
-  console.log('Eye Measurements:');
-  console.log('Left Eye Center:', leftEyeCenter);
-  console.log('Right Eye Center:', rightEyeCenter);
-  console.log('Eye Distance:', eyeDistance);
-  console.log('Face Width:', faceWidth);
-  console.log('Eye Distance/Face Width Ratio:', ratio);
-  
   if ((ratio > 0.295 && ratio < 0.3) || ratio > 0.32) return 100;
   return 0;
 };
@@ -1091,12 +1036,6 @@ const calculateNasalBridgeScore = (landmarks) => {
   const noseHeight = Math.abs(noseBottom - noseTop);
   const noseWidth = Math.abs(noseRight - noseLeft);
   const ratio = noseHeight / noseWidth;
-  
-  console.log('Nose Measurements:');
-  console.log('Nose Height:', noseHeight);
-  console.log('Nose Width:', noseWidth);
-  console.log('Nose Height/Width Ratio:', ratio);
-  
   if (ratio > 0.16) return 100;
   return 50;
 };
@@ -1108,12 +1047,6 @@ const calculateForeheadRatioScore = (landmarks) => {
   const foreheadHeight = Math.abs(noseBase - foreheadTop);
   const faceHeight = Math.abs(chin - foreheadTop);
   const ratio = foreheadHeight / faceHeight;
-  
-  console.log('Forehead Measurements:');
-  console.log('Forehead Height:', foreheadHeight);
-  console.log('Face Height:', faceHeight);
-  console.log('Forehead/Face Height Ratio:', ratio);
-  
   if (ratio > 0.56) return 100;
   return 50;
 };

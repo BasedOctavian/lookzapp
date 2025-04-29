@@ -7,6 +7,7 @@ import { useUserData } from '../hooks/useUserData';
 import { useAuth } from '../hooks/useAuth';
 import { useAttractivenessRating } from '../hooks/faceRating/useAttractivenessRating';
 import { useNavigate } from 'react-router-dom';
+import TopBar from './TopBar';
 import {
   Container,
   Box,
@@ -28,13 +29,37 @@ import {
   Alert,
   TextField,
   styled,
-  keyframes
+  keyframes,
+  InputLabel, 
+  Button as MuiButton,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardActions,
+
 } from '@mui/material';
 import { useToast } from '@chakra-ui/toast';
 import { maleConfig } from '../hooks/faceRating/maleConfig';
 import { femaleConfig } from '../hooks/faceRating/femaleConfig';
 import { generateRatingName } from '../utils/ratingNameGenerator';
-import FaceIcon from '@mui/icons-material/Face';
+import {
+  Face,
+  Group,
+  Visibility,
+  Straighten,
+  RemoveRedEye,
+  Person,
+  Psychology,
+  Favorite,
+  SentimentSatisfied,
+  SentimentNeutral,
+  SentimentDissatisfied,
+  Share,
+  FaceRetouchingNatural,
+  Face3
+} from '@mui/icons-material';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -72,6 +97,26 @@ const GlassCard = styled(Paper)(({ theme }) => ({
     backgroundColor: 'rgba(13, 17, 44, 0.85)',
     boxShadow: '0 8px 32px rgba(250, 14, 164, 0.3)'
   },
+  position: 'relative',
+  overflow: 'hidden',
+  aspectRatio: '1',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  textAlign: 'center',
+  '&:before': {
+    content: '""',
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    background: `
+      linear-gradient(rgba(9, 194, 247, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(9, 194, 247, 0.05) 1px, transparent 1px)
+    `,
+    backgroundSize: '40px 40px',
+    opacity: 0.3,
+  }
 }));
 
 const GradientButton = styled(Button)({
@@ -80,6 +125,7 @@ const GradientButton = styled(Button)({
   color: '#fff',
   fontWeight: 700,
   animation: `${gradientFlow} 6s ease infinite`,
+  backdropFilter: 'none',
   '&:before': {
     content: '""',
     position: 'absolute',
@@ -141,6 +187,33 @@ const StyledFaceDetectedOverlay = styled(Box)(({ theme }) => ({
   animation: `${fadeIn} 0.5s ease-out`,
 }));
 
+const StyledCountdownContainer = styled(Box)(({ theme }) => ({
+  position: 'absolute',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  zIndex: 3,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: theme.spacing(2),
+}));
+
+const StyledInstructionText = styled(Typography)(({ theme }) => ({
+  position: 'absolute',
+  top: '20px',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  zIndex: 3,
+  textAlign: 'center',
+  background: 'rgba(13, 17, 44, 0.85)',
+  backdropFilter: 'blur(8px)',
+  padding: theme.spacing(2, 3),
+  borderRadius: '16px',
+  border: '1px solid rgba(250, 14, 164, 0.2)',
+  animation: `${fadeIn} 0.5s ease-out`,
+}));
+
 // Define tests (same for both genders)
 const tests = [
   'Carnal Tilt',
@@ -166,8 +239,11 @@ const eyeColorOptions = [
 ];
 
 const genderOptions = [
-  { label: 'Male', value: 'M' },
-  { label: 'Female', value: 'W' },
+  { label: 'Male', value: 'M', icon: <Face /> },
+  { label: 'Female', value: 'W', icon: <Face3 /> },
+  { label: 'Non-binary', value: 'M', icon: <Psychology /> },
+  { label: 'Other', value: 'W', icon: <Group /> },
+  { label: 'Prefer not to say', value: 'M', icon: <Visibility /> }
 ];
 
 // Helper function to calculate eye center
@@ -182,8 +258,110 @@ const calculateEyeCenter = (landmarks, indices) => {
   return [sumX / count, sumY / count, sumZ / count];
 };
 
+// Add this new component before the WebcamTiltDetector component
+const StatsDisplay = ({ measurements, testScores }) => {
+  if (!measurements || !testScores) return null;
+
+  const stats = [
+    { label: 'Face Alignment', value: testScores['Carnal Tilt'] || 0, icon: <Straighten /> },
+    { label: 'Facial Balance', value: testScores['Facial Thirds'] || 0, icon: <FaceRetouchingNatural /> },
+    { label: 'Eye Symmetry', value: testScores['Interocular Distance'] || 0, icon: <RemoveRedEye /> },
+    { label: 'Jaw Definition', value: testScores['Jawline'] || 0, icon: <Face3 /> },
+    { label: 'Chin Proportion', value: testScores['Chin'] || 0, icon: <Person /> },
+    { label: 'Nose Harmony', value: testScores['Nose'] || 0, icon: <Psychology /> },
+  ];
+
+  return (
+    <Box
+      sx={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        p: 1,
+        background: 'rgba(13, 17, 44, 0.85)',
+        backdropFilter: 'blur(8px)',
+        borderTop: '1px solid rgba(250, 14, 164, 0.2)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 0.5,
+        zIndex: 3,
+        animation: `${fadeIn} 0.5s ease-out`,
+        maxHeight: '120px',
+        overflow: 'hidden',
+      }}
+    >
+      <Grid container spacing={0.5}>
+        {stats.map((stat, index) => (
+          <Grid item xs={6} key={index}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                p: 0.5,
+                borderRadius: 0.5,
+                background: 'rgba(255, 255, 255, 0.05)',
+              }}
+            >
+              <Box
+                sx={{
+                  color: '#09c2f7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 16,
+                  height: 16,
+                  '& .MuiSvgIcon-root': {
+                    fontSize: 14,
+                  }
+                }}
+              >
+                {stat.icon}
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    display: 'block',
+                    mb: 0.25,
+                    fontSize: '0.65rem',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {stat.label}
+                </Typography>
+                <Box
+                  sx={{
+                    height: 3,
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    borderRadius: 1.5,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      height: '100%',
+                      width: `${stat.value}%`,
+                      background: 'linear-gradient(90deg, #09c2f7, #fa0ea4)',
+                      transition: 'width 0.3s ease-out',
+                    }}
+                  />
+                </Box>
+              </Box>
+            </Box>
+          </Grid>
+        ))}
+      </Grid>
+    </Box>
+  );
+};
+
 // WebcamTiltDetector Component with Face Scanning Logic
-const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected, gender, onReadyToScanChange }) => {
+const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected, gender, onReadyToScanChange, currentStep }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const intervalRef = useRef(null);
@@ -198,6 +376,8 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
   const [showFlash, setShowFlash] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [measurements, setMeasurements] = useState(null);
+  const [testScores, setTestScores] = useState(null);
   const toast = useToast();
 
   const config = gender === 'M' ? maleConfig : femaleConfig;
@@ -392,6 +572,9 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
             testScores[test] = runTest(test, landmarks, boundingBox, config);
           }
         });
+
+        setMeasurements(measurements);
+        setTestScores(testScores);
 
         if (isCollecting) {
           scoresRef.current.push({ ...testScores, measurements });
@@ -629,17 +812,7 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
         }} 
       />
       {countdown !== null && (
-        <Box
-          position="absolute"
-          top="50%"
-          left="50%"
-          transform="translate(-50%, -50%)"
-          zIndex={3}
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          gap={2}
-        >
+        <StyledCountdownContainer>
           <Typography 
             variant="h1" 
             sx={{ 
@@ -664,7 +837,7 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
               }} 
             />
           )}
-        </Box>
+        </StyledCountdownContainer>
       )}
       {showFlash && (
         <StyledFlashOverlay sx={{ opacity: 0.8 }} />
@@ -682,10 +855,28 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
               gap: 1
             }}
           >
-            <FaceIcon sx={{ fontSize: 20 }} />
+            <Face />
             Please position your face in the frame
           </Typography>
         </StyledFaceDetectedOverlay>
+      )}
+      <StyledInstructionText>
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            color: '#fff',
+            fontSize: { base: '1rem', md: '1.25rem' },
+            textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1
+          }}
+        >
+          {currentStep === 'scanning' ? 'Hold still for a moment...' : 'Look at the camera'}
+        </Typography>
+      </StyledInstructionText>
+      {faceDetected && measurements && testScores && (
+        <StatsDisplay measurements={measurements} testScores={testScores} />
       )}
     </Box>
   );
@@ -981,223 +1172,247 @@ const UserInfoForm = ({ onSubmit, gender }) => {
     setSnackbar({ open: true, message: 'Form cleared', severity: 'info' });
   };
 
+  const isFormValid = () => {
+    return name && 
+           ethnicity && 
+           eyeColor && 
+           weightValue && 
+           (unitSystem === 'imperial' ? (heightFeet && heightInches) : heightCm) &&
+           Object.keys(errors).length === 0;
+  };
+
   return (
-    <Stack spacing={6} sx={{ width: '100%', maxWidth: '600px', mx: 'auto' }}>
-      <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', color: 'text.primary' }}>
-        Personal Information
-      </Typography>
-      
-      <FormControl error={!!errors.name} sx={{ mb: 3 }}>
-        <FormLabel sx={{ fontWeight: 'medium', color: 'text.primary', mb: 1 }}>Name</FormLabel>
-        <Input
+    <Box sx={{ 
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      minHeight: '100vh',
+      color: '#fff',
+      '& .MuiInputBase-root': {
+        color: '#fff',
+        '& fieldset': {
+          borderColor: 'rgba(255, 255, 255, 0.23)',
+        },
+        '&:hover fieldset': {
+          borderColor: 'rgba(255, 255, 255, 0.5)',
+        },
+        '&.Mui-focused fieldset': {
+          borderColor: '#09c2f7',
+        },
+      },
+      '& .MuiInputLabel-root': {
+        color: 'rgba(255, 255, 255, 0.7)',
+        '&.Mui-focused': {
+          color: '#09c2f7',
+        },
+      },
+      '& .MuiFormHelperText-root': {
+        color: 'rgba(255, 255, 255, 0.7)',
+      },
+      '& .MuiSelect-icon': {
+        color: 'rgba(255, 255, 255, 0.7)',
+      },
+      '& .MuiMenuItem-root': {
+        color: '#fff',
+      },
+    }}>
+      <Stack spacing={4} sx={{ width: '100%', maxWidth: '600px', mx: 'auto', flex: 1 }}>
+        <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', color: '#fff' }}>
+          Personal Information
+        </Typography>
+
+        <TextField
+          label="Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Enter their name"
-          size="medium"
+          variant="outlined"
+          fullWidth
+          error={!!errors.name}
+          helperText={errors.name}
           autoComplete="off"
-          inputProps={{
-            autoComplete: "off"
-          }}
-          sx={{
-            bgcolor: 'background.paper',
-            '&:hover': { bgcolor: 'action.hover' },
-            '&.Mui-focused': { bgcolor: 'background.paper' }
-          }}
         />
-        {errors.name && <FormHelperText error sx={{ mt: 0.5 }}>{errors.name}</FormHelperText>}
-      </FormControl>
 
-      <FormControl sx={{ mb: 3 }}>
-        <FormLabel sx={{ fontWeight: 'medium', color: 'text.primary', mb: 1 }}>Unit System</FormLabel>
-        <Select
+        <TextField
+          select
+          label="Unit System"
           value={unitSystem}
           onChange={(e) => setUnitSystem(e.target.value)}
-          size="medium"
+          variant="outlined"
+          fullWidth
           autoComplete="off"
-          sx={{
-            bgcolor: 'background.paper',
-            '&:hover': { bgcolor: 'action.hover' },
-            '&.Mui-focused': { bgcolor: 'background.paper' }
-          }}
         >
           <MenuItem value="imperial">Imperial (ft, in, lbs)</MenuItem>
           <MenuItem value="metric">Metric (cm, kg)</MenuItem>
-        </Select>
-      </FormControl>
+        </TextField>
 
-      {unitSystem === 'imperial' ? (
-        <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={6}>
-            <FormControl error={!!errors.heightFeet} fullWidth>
-              <FormLabel sx={{ fontWeight: 'medium', color: 'text.primary', mb: 1 }}>Height (feet)</FormLabel>
-              <Input
+        {unitSystem === 'imperial' ? (
+          <Grid container spacing={2}>
+            <Grid item xs={6}>
+              <TextField
+                label="Height (feet)"
                 type="number"
                 value={heightFeet}
                 onChange={(e) => setHeightFeet(e.target.value)}
-                size="medium"
+                variant="outlined"
+                fullWidth
+                error={!!errors.heightFeet}
+                helperText={errors.heightFeet}
                 autoComplete="off"
-                inputProps={{
-                  autoComplete: "off"
-                }}
-                sx={{
-                  bgcolor: 'background.paper',
-                  '&:hover': { bgcolor: 'action.hover' },
-                  '&.Mui-focused': { bgcolor: 'background.paper' }
-                }}
               />
-              {errors.heightFeet && <FormHelperText error sx={{ mt: 0.5 }}>{errors.heightFeet}</FormHelperText>}
-            </FormControl>
-          </Grid>
-          <Grid item xs={6}>
-            <FormControl error={!!errors.heightInches} fullWidth>
-              <FormLabel sx={{ fontWeight: 'medium', color: 'text.primary', mb: 1 }}>Height (inches)</FormLabel>
-              <Input
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                label="Height (inches)"
                 type="number"
                 value={heightInches}
                 onChange={(e) => setHeightInches(e.target.value)}
-                size="medium"
+                variant="outlined"
+                fullWidth
+                error={!!errors.heightInches}
+                helperText={errors.heightInches}
                 autoComplete="off"
-                inputProps={{
-                  autoComplete: "off"
-                }}
-                sx={{
-                  bgcolor: 'background.paper',
-                  '&:hover': { bgcolor: 'action.hover' },
-                  '&.Mui-focused': { bgcolor: 'background.paper' }
-                }}
               />
-              {errors.heightInches && <FormHelperText error sx={{ mt: 0.5 }}>{errors.heightInches}</FormHelperText>}
-            </FormControl>
+            </Grid>
           </Grid>
-        </Grid>
-      ) : (
-        <FormControl error={!!errors.heightCm} sx={{ mb: 3 }}>
-          <FormLabel sx={{ fontWeight: 'medium', color: 'text.primary', mb: 1 }}>Height (cm)</FormLabel>
-          <Input
+        ) : (
+          <TextField
+            label="Height (cm)"
             type="number"
             value={heightCm}
             onChange={(e) => setHeightCm(e.target.value)}
-            size="medium"
+            variant="outlined"
+            fullWidth
+            error={!!errors.heightCm}
+            helperText={errors.heightCm}
             autoComplete="off"
-            inputProps={{
-              autoComplete: "off"
-            }}
-            sx={{
-              bgcolor: 'background.paper',
-              '&:hover': { bgcolor: 'action.hover' },
-              '&.Mui-focused': { bgcolor: 'background.paper' }
-            }}
           />
-          {errors.heightCm && <FormHelperText error sx={{ mt: 0.5 }}>{errors.heightCm}</FormHelperText>}
-        </FormControl>
-      )}
+        )}
 
-      <FormControl error={!!errors.weight} sx={{ mb: 3 }}>
-        <FormLabel sx={{ fontWeight: 'medium', color: 'text.primary', mb: 1 }}>Weight</FormLabel>
-        <Input
+        <TextField
+          label="Weight"
           type="number"
           value={weightValue}
           onChange={(e) => setWeightValue(e.target.value)}
-          size="medium"
-          autoComplete="off"
-          inputProps={{
-            autoComplete: "off"
-          }}
-          endAdornment={
-            <InputAdornment position="end">
-              <Typography variant="body2" color="text.secondary">
+          variant="outlined"
+          fullWidth
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
                 {unitSystem === 'imperial' ? 'lbs' : 'kg'}
-              </Typography>
-            </InputAdornment>
-          }
-          sx={{
-            bgcolor: 'background.paper',
-            '&:hover': { bgcolor: 'action.hover' },
-            '&.Mui-focused': { bgcolor: 'background.paper' }
+              </InputAdornment>
+            ),
           }}
+          error={!!errors.weight}
+          helperText={errors.weight}
+          autoComplete="off"
         />
-        {errors.weight && <FormHelperText error sx={{ mt: 0.5 }}>{errors.weight}</FormHelperText>}
-      </FormControl>
 
-      <FormControl error={!!errors.ethnicity} sx={{ mb: 3 }}>
-        <FormLabel sx={{ fontWeight: 'medium', color: 'text.primary', mb: 1 }}>Ethnicity</FormLabel>
-        <Select
+        <TextField
+          select
+          label="Ethnicity"
           value={ethnicity}
           onChange={(e) => setEthnicity(e.target.value)}
-          size="medium"
+          variant="outlined"
+          fullWidth
+          error={!!errors.ethnicity}
+          helperText={errors.ethnicity || 'Used to adjust analysis based on general trends'}
           autoComplete="off"
-          sx={{
-            bgcolor: 'background.paper',
-            '&:hover': { bgcolor: 'action.hover' },
-            '&.Mui-focused': { bgcolor: 'background.paper' }
-          }}
         >
           {Object.keys(ethnicityMap).map((option) => (
             <MenuItem key={option} value={option}>{option}</MenuItem>
           ))}
-        </Select>
-        <FormHelperText sx={{ mt: 0.5 }}>Used to adjust analysis based on general trends</FormHelperText>
-        {errors.ethnicity && <FormHelperText error sx={{ mt: 0.5 }}>{errors.ethnicity}</FormHelperText>}
-      </FormControl>
+        </TextField>
 
-      <FormControl error={!!errors.eyeColor} sx={{ mb: 3 }}>
-        <FormLabel sx={{ fontWeight: 'medium', color: 'text.primary', mb: 1 }}>Eye Color</FormLabel>
-        <Select
+        <TextField
+          select
+          label="Eye Color"
           value={eyeColor}
           onChange={(e) => setEyeColor(e.target.value)}
-          size="medium"
+          variant="outlined"
+          fullWidth
+          error={!!errors.eyeColor}
+          helperText={errors.eyeColor || 'Mapped to categories for analysis purposes'}
           autoComplete="off"
-          sx={{
-            bgcolor: 'background.paper',
-            '&:hover': { bgcolor: 'action.hover' },
-            '&.Mui-focused': { bgcolor: 'background.paper' }
-          }}
         >
           {Object.keys(eyeColorMap).map((option) => (
             <MenuItem key={option} value={option}>{option}</MenuItem>
           ))}
-        </Select>
-        <FormHelperText sx={{ mt: 0.5 }}>Mapped to categories for analysis purposes</FormHelperText>
-        {errors.eyeColor && <FormHelperText error sx={{ mt: 0.5 }}>{errors.eyeColor}</FormHelperText>}
-      </FormControl>
-
-      <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 4 }}>
-        <Button
-          variant="outlined"
-          onClick={handleRevert}
-          sx={{
-            textTransform: 'none',
-            px: 3,
-            py: 1,
-            borderRadius: 2,
-            '&:hover': {
-              bgcolor: 'action.hover',
-              transform: 'translateY(-1px)',
-              boxShadow: 1
-            }
-          }}
-        >
-          Clear Form
-        </Button>
-        <Button
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={Object.keys(errors).length > 0 || !name || !ethnicity || !eyeColor || !weightValue || (unitSystem === 'imperial' ? !heightFeet || !heightInches : !heightCm)}
-          sx={{
-            textTransform: 'none',
-            px: 3,
-            py: 1,
-            borderRadius: 2,
-            '&:hover': {
-              transform: 'translateY(-1px)',
-              boxShadow: 2
-            }
-          }}
-        >
-          Submit
-        </Button>
+        </TextField>
       </Stack>
-    </Stack>
+
+      <Box sx={{ 
+        width: '100%', 
+        maxWidth: '600px', 
+        mx: 'auto',
+        mt: 4,
+        mb: 4,
+        position: 'sticky',
+        bottom: 0,
+        backgroundColor: 'rgba(13, 17, 44, 0.9)',
+        padding: 2,
+        borderRadius: 2,
+        backdropFilter: 'blur(10px)',
+      }}>
+        <Stack direction="row" spacing={2} justifyContent="flex-end">
+          <MuiButton
+            variant="outlined"
+            onClick={handleRevert}
+            sx={{
+              textTransform: 'none',
+              px: 3,
+              py: 1,
+              borderRadius: 2,
+              color: '#fff',
+              borderColor: 'rgba(255, 255, 255, 0.23)',
+              '&:hover': {
+                bgcolor: 'rgba(255, 255, 255, 0.1)',
+                transform: 'translateY(-1px)',
+                boxShadow: 1,
+                borderColor: '#09c2f7',
+              },
+            }}
+          >
+            Clear Form
+          </MuiButton>
+          <MuiButton
+            variant="contained"
+            onClick={handleSubmit}
+            disabled={!isFormValid()}
+            sx={{
+              textTransform: 'none',
+              px: 3,
+              py: 1,
+              borderRadius: 2,
+              background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
+              '&:hover': {
+                transform: 'translateY(-1px)',
+                boxShadow: 2,
+                background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
+              },
+              '&:disabled': {
+                background: 'rgba(255, 255, 255, 0.12)',
+                color: 'rgba(255, 255, 255, 0.3)',
+              },
+            }}
+          >
+            Submit
+          </MuiButton>
+        </Stack>
+      </Box>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert severity={snackbar.severity}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 };
 
@@ -1230,7 +1445,7 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
             size={120}
             thickness={4}
             sx={{
-              color: '#4CAF50',
+              color: '#09c2f7',
               '& .MuiCircularProgress-circle': {
                 transition: 'stroke-dashoffset 1s ease-in-out'
               }
@@ -1247,10 +1462,27 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
             alignItems="center"
             justifyContent="center"
           >
-            <Typography variant="h4" component="div" color="textSecondary" fontWeight="bold">
+            <Typography 
+              variant="h4" 
+              component="div" 
+              sx={{
+                fontWeight: 'bold',
+                background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                textShadow: '0 0 10px rgba(9, 194, 247, 0.3)'
+              }}
+            >
               {cappedRating.toFixed(2)}
             </Typography>
-            <Typography variant="body2" component="div" color="textPrimary">
+            <Typography 
+              variant="body2" 
+              component="div" 
+              sx={{
+                color: 'rgba(255,255,255,0.7)',
+                textShadow: '0 0 5px rgba(9, 194, 247, 0.2)'
+              }}
+            >
               Overall
             </Typography>
           </Box>
@@ -1263,7 +1495,7 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
               size={120}
               thickness={4}
               sx={{
-                color: '#2196F3',
+                color: '#fa0ea4',
                 '& .MuiCircularProgress-circle': {
                   transition: 'stroke-dashoffset 1s ease-in-out'
                 }
@@ -1280,17 +1512,45 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
               alignItems="center"
               justifyContent="center"
             >
-              <Typography variant="h4" component="div" color="textSecondary" fontWeight="bold">
+              <Typography 
+                variant="h4" 
+                component="div" 
+                sx={{
+                  fontWeight: 'bold',
+                  background: 'linear-gradient(45deg, #fff 30%, #fa0ea4 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  textShadow: '0 0 10px rgba(250, 14, 164, 0.3)'
+                }}
+              >
                 {cappedFaceRating.toFixed(2)}
               </Typography>
-              <Typography variant="body2" component="div" color="textPrimary">
+              <Typography 
+                variant="body2" 
+                component="div" 
+                sx={{
+                  color: 'rgba(255,255,255,0.7)',
+                  textShadow: '0 0 5px rgba(250, 14, 164, 0.2)'
+                }}
+              >
                 Face
               </Typography>
             </Box>
           </Box>
         )}
       </Box>
-      <Typography variant="h6" component="div" color="textPrimary" mt={2}>
+      <Typography 
+        variant="h6" 
+        component="div" 
+        sx={{
+          mt: 2,
+          background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          textShadow: '0 0 10px rgba(9, 194, 247, 0.3)',
+          fontWeight: 'bold'
+        }}
+      >
         {tierLabel}
       </Typography>
     </Box>
@@ -1302,6 +1562,25 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
   const navigate = useNavigate();
   const [showDetails, setShowDetails] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (isLoading) {
+      const interval = setInterval(() => {
+        setLoadingProgress((prev) => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            setIsLoading(false);
+            return 100;
+          }
+          return prev + 1;
+        });
+      }, 20); // Adjust timing for smoother animation
+
+      return () => clearInterval(interval);
+    }
+  }, [isLoading]);
 
   const ratingName = useMemo(() => {
     if (!testScores || !userInfo) return null;
@@ -1319,29 +1598,29 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
   if (overallRating >= 80) {
     tierLabel = 'Very Attractive';
     tierDescription = 'Your features align closely with conventional standards of attractiveness.';
-    tierEmoji = '😍';
+    tierEmoji = <Favorite />;
   } else if (overallRating >= 60) {
     tierLabel = 'Attractive';
     tierDescription = 'Your features are generally appealing and well-proportioned.';
-    tierEmoji = '😊';
+    tierEmoji = <SentimentSatisfied />;
   } else if (overallRating >= 40) {
     tierLabel = 'Average';
     tierDescription = 'Your features are typical and neither particularly striking nor unattractive.';
-    tierEmoji = '😐';
+    tierEmoji = <SentimentNeutral />;
   } else {
     tierLabel = 'Below Average';
     tierDescription = 'Some features may benefit from enhancement or styling to improve overall attractiveness.';
-    tierEmoji = '😕';
+    tierEmoji = <SentimentDissatisfied />;
   }
 
   const featureIcons = {
-    'Carnal Tilt': '👁️',
-    'Facial Thirds': '📏',
-    'Cheekbone Location': '🦴',
-    'Interocular Distance': '👀',
-    'Jawline': '🦷',
-    'Chin': '🧔',
-    'Nose': '👃'
+    'Carnal Tilt': <Visibility />,
+    'Facial Thirds': <Straighten />,
+    'Cheekbone Location': <FaceRetouchingNatural />,
+    'Interocular Distance': <RemoveRedEye />,
+    'Jawline': <Face3 />,
+    'Chin': <Person />,
+    'Nose': <Psychology />
   };
 
   const featureDescriptions = {
@@ -1366,191 +1645,322 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
     : [];
 
   return (
-    <Box sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
-      <Box
-        sx={{
-          p: 4,
-          borderRadius: 2,
-          bgcolor: 'rgba(0,0,0,0.02)',
-          border: '1px solid rgba(0,0,0,0.1)',
-          mb: 4,
-          textAlign: 'center'
-        }}
-      >
-        <Typography variant="h2" component="div" gutterBottom sx={{ fontSize: '4rem' }}>
-          {tierEmoji}
-        </Typography>
-        <Typography variant="h4" gutterBottom fontWeight="bold">
-          {tierLabel}
-        </Typography>
-        <Typography variant="h6" color="textSecondary" gutterBottom>
-          {overallRating.toFixed(1)} / 100
-        </Typography>
-        {ratingName && (
-          <Box
-            sx={{
-              mt: 3,
-              p: 2,
-              bgcolor: 'rgba(0,0,0,0.05)',
-              borderRadius: 2,
-              textAlign: 'left'
-            }}
-          >
-            <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
-              {ratingName}
-            </Typography>
-          </Box>
-        )}
-        <Typography variant="body1" paragraph sx={{ mt: 3 }}>
-          {tierDescription}
-        </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => setShowDetails(!showDetails)}
-          sx={{ mt: 2 }}
-        >
-          {showDetails ? 'Hide Details' : 'Show Detailed Analysis'}
-        </Button>
-      </Box>
-
-      {showDetails && (
+    <Box sx={{ p: 3, maxWidth: '800px', mx: 'auto', 
+   }}>
+      {isLoading ? (
         <Box
           sx={{
-            animation: 'slideIn 0.5s ease-out',
-            '@keyframes slideIn': {
-              '0%': { transform: 'translateY(20px)', opacity: 0 },
-              '100%': { transform: 'translateY(0)', opacity: 1 }
-            }
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '400px',
+            gap: 2
           }}
         >
-          <Typography variant="h5" gutterBottom fontWeight="bold" align="center" mb={4}>
-            Detailed Feature Analysis
-          </Typography>
-          <Stack spacing={3}>
-            {sortedFeatures.map(({ test, score, impact }, index) => {
-              const color = impact === 'Excellent' ? '#4CAF50' : impact === 'Good' ? '#8BC34A' : impact === 'Average' ? '#FFC107' : '#FF5722';
-              return (
-                <Box
-                  key={test}
-                  sx={{
-                    animation: `slideIn 0.5s ease-out ${index * 0.1}s both`,
-                    '@keyframes slideIn': {
-                      '0%': { transform: 'translateX(-20px)', opacity: 0 },
-                      '100%': { transform: 'translateX(0)', opacity: 1 }
-                    },
-                    p: 2,
-                    borderRadius: 2,
-                    bgcolor: 'rgba(0,0,0,0.02)',
-                    border: `1px solid ${color}20`
-                  }}
-                >
-                  <Box display="flex" alignItems="center" mb={1}>
-                    <Typography variant="h4" mr={2}>
-                      {featureIcons[test]}
-                    </Typography>
-                    <Box flex={1}>
-                      <Typography variant="body1" fontWeight="medium">
-                        {test}
-                      </Typography>
-                      <Typography variant="body2" color="textSecondary">
-                        {featureDescriptions[test]}
-                      </Typography>
-                    </Box>
-                    <Typography
-                      variant="body1"
-                      color={color}
-                      fontWeight="bold"
-                      sx={{
-                        bgcolor: `${color}20`,
-                        px: 1.5,
-                        py: 0.5,
-                        borderRadius: 1
-                      }}
-                    >
-                      {impact}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ position: 'relative', mt: 1 }}>
-                    <LinearProgress
-                      variant="determinate"
-                      value={score}
-                      sx={{
-                        height: 8,
-                        borderRadius: 3,
-                        backgroundColor: 'rgba(0,0,0,0.1)',
-                        '& .MuiLinearProgress-bar': {
-                          backgroundColor: color,
-                          borderRadius: 3,
-                          transition: 'width 1s ease-in-out'
-                        }
-                      }}
-                    />
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        mt: 0.5
-                      }}
-                    >
-                      <Typography variant="body2" color="textSecondary" sx={{ fontWeight: 'medium' }}>
-                        Low
-                      </Typography>
-                      <Typography variant="body2" color="textSecondary" sx={{ fontWeight: 'medium' }}>
-                        High
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-              );
-            })}
-          </Stack>
-        </Box>
-      )}
-
-      <Box sx={{ mt: 4, textAlign: 'center' }}>
-        <Typography variant="h6" gutterBottom>
-          Share Your Results
-        </Typography>
-        <Stack direction="row" spacing={2} justifyContent="center" mt={2}>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<span>📱</span>}
-            onClick={() => {
-              navigator.clipboard.writeText(`I scored ${overallRating.toFixed(1)}/100 on the LookzApp attractiveness test! ${tierEmoji} Try it yourself!`);
-              setSnackbar({
-                open: true,
-                message: 'Results copied to clipboard! Share with your friends!',
-                severity: 'success'
-              });
+          <Typography
+            variant="h6"
+            sx={{
+              color: '#fff',
+              textShadow: '0 0 10px rgba(9, 194, 247, 0.3)',
+              mb: 2
             }}
           >
-            Copy Results
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={() => navigate('/')}
+            Analyzing Results...
+          </Typography>
+          <Box
+            sx={{
+              width: '100%',
+              maxWidth: '400px',
+              height: '4px',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              borderRadius: '2px',
+              overflow: 'hidden',
+              position: 'relative'
+            }}
           >
-            Back to Home
-          </Button>
-        </Stack>
-      </Box>
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                height: '100%',
+                width: `${loadingProgress}%`,
+                background: 'linear-gradient(90deg, #09c2f7, #fa0ea4)',
+                transition: 'width 0.1s ease-out',
+                '&:after': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent)',
+                  animation: 'shimmer 2s infinite',
+                  '@keyframes shimmer': {
+                    '0%': { transform: 'translateX(-100%)' },
+                    '100%': { transform: 'translateX(100%)' }
+                  }
+                }
+              }}
+            />
+          </Box>
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'rgba(255, 255, 255, 0.7)',
+              mt: 1
+            }}
+          >
+            {loadingProgress}%
+          </Typography>
+        </Box>
+      ) : (
+        <>
+          <Box
+            sx={{
+              p: 4,
+              borderRadius: 2,
+              bgcolor: 'rgba(13, 17, 44, 0.7)',
+              border: '1px solid rgba(250, 14, 164, 0.2)',
+              mb: 4,
+              textAlign: 'center',
+              animation: 'fadeIn 0.5s ease-out',
+              '@keyframes fadeIn': {
+                '0%': { opacity: 0, transform: 'translateY(20px)' },
+                '100%': { opacity: 1, transform: 'translateY(0)' }
+              }
+            }}
+          >
+            <Typography variant="h2" component="div" gutterBottom sx={{ fontSize: '4rem' }}>
+              {tierEmoji}
+            </Typography>
+            <Typography variant="h4" gutterBottom fontWeight="bold">
+              {tierLabel}
+            </Typography>
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                color: 'rgba(255,255,255,0.7)',
+                textShadow: '0 0 5px rgba(9, 194, 247, 0.2)'
+              }} 
+            >
+              {overallRating.toFixed(1)} / 100
+            </Typography>
+            {ratingName && (
+              <Box
+                sx={{
+                  mt: 3,
+                  p: 2,
+                  bgcolor: 'rgba(0,0,0,0.05)',
+                  borderRadius: 2,
+                  textAlign: 'left'
+                }}
+              >
+                <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
+                  {ratingName}
+                </Typography>
+              </Box>
+            )}
+            <Typography variant="body1" paragraph sx={{ mt: 3 }}>
+              {tierDescription}
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => setShowDetails(!showDetails)}
+              sx={{ mt: 2 }}
+            >
+              {showDetails ? 'Hide Details' : 'Show Detailed Analysis'}
+            </Button>
+          </Box>
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert 
-          onClose={() => setSnackbar({ ...snackbar, open: false })} 
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+          {showDetails && (
+            <Box
+              sx={{
+                animation: 'slideIn 0.5s ease-out',
+                '@keyframes slideIn': {
+                  '0%': { transform: 'translateY(20px)', opacity: 0 },
+                  '100%': { transform: 'translateY(0)', opacity: 1 }
+                }
+              }}
+            >
+              <Typography 
+                variant="h5" 
+                gutterBottom 
+                fontWeight="bold" 
+                align="center" 
+                mb={4}
+                sx={{
+                  background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  textShadow: '0 0 10px rgba(9, 194, 247, 0.3)'
+                }}
+              >
+                Detailed Feature Analysis
+              </Typography>
+              <Stack spacing={3}>
+                {sortedFeatures.map(({ test, score, impact }, index) => {
+                  const color = impact === 'Excellent' ? '#09c2f7' : impact === 'Good' ? '#6ce9ff' : impact === 'Average' ? '#fa0ea4' : '#ff6b6b';
+                  return (
+                    <Box
+                      key={test}
+                      sx={{
+                        animation: `slideIn 0.5s ease-out ${index * 0.1}s both`,
+                        '@keyframes slideIn': {
+                          '0%': { transform: 'translateX(-20px)', opacity: 0 },
+                          '100%': { transform: 'translateX(0)', opacity: 1 }
+                        },
+                        p: 2,
+                        borderRadius: 2,
+                        bgcolor: 'rgba(13, 17, 44, 0.7)',
+                        border: `1px solid ${color}20`,
+                        backdropFilter: 'blur(16px)'
+                      }}
+                    >
+                      <Box display="flex" alignItems="center" mb={1}>
+                        <Typography variant="h4" mr={2} sx={{ color: color }}>
+                          {featureIcons[test]}
+                        </Typography>
+                        <Box flex={1}>
+                          <Typography 
+                            variant="body1" 
+                            fontWeight="medium"
+                            sx={{
+                              color: '#fff',
+                              textShadow: '0 0 5px rgba(9, 194, 247, 0.2)'
+                            }}
+                          >
+                            {test}
+                          </Typography>
+                          <Typography 
+                            variant="body2" 
+                            sx={{
+                              color: 'rgba(255,255,255,0.7)',
+                              textShadow: '0 0 5px rgba(9, 194, 247, 0.2)'
+                            }}
+                          >
+                            {featureDescriptions[test]}
+                          </Typography>
+                        </Box>
+                        <Typography
+                          variant="body1"
+                          sx={{
+                            bgcolor: `${color}20`,
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: 1,
+                            color: '#fff',
+                            textShadow: '0 0 5px rgba(9, 194, 247, 0.2)'
+                          }}
+                        >
+                          {impact}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ position: 'relative', mt: 1 }}>
+                        <LinearProgress
+                          variant="determinate"
+                          value={score}
+                          sx={{
+                            height: 8,
+                            borderRadius: 3,
+                            backgroundColor: 'rgba(255,255,255,0.1)',
+                            '& .MuiLinearProgress-bar': {
+                              backgroundColor: color,
+                              borderRadius: 3,
+                              transition: 'width 1s ease-in-out'
+                            }
+                          }}
+                        />
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            mt: 0.5
+                          }}
+                        >
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              color: 'rgba(255,255,255,0.7)',
+                              textShadow: '0 0 5px rgba(9, 194, 247, 0.2)',
+                              fontWeight: 'medium'
+                            }}
+                          >
+                            Low
+                          </Typography>
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              color: 'rgba(255,255,255,0.7)',
+                              textShadow: '0 0 5px rgba(9, 194, 247, 0.2)',
+                              fontWeight: 'medium'
+                            }}
+                          >
+                            High
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Stack>
+            </Box>
+          )}
+
+          <Box sx={{ mt: 4, textAlign: 'center' }}>
+            <Typography variant="h6" gutterBottom>
+              Share Your Results
+            </Typography>
+            <Stack direction="row" spacing={2} justifyContent="center" mt={2}>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<Share />}
+                onClick={() => {
+                  navigator.clipboard.writeText(`I scored ${overallRating.toFixed(1)}/100 on the LookzApp attractiveness test! Try it yourself!`);
+                  setSnackbar({
+                    open: true,
+                    message: 'Results copied to clipboard! Share with your friends!',
+                    severity: 'success'
+                  });
+                }}
+              >
+                Copy Results
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => navigate('/')}
+              >
+                Back to Home
+              </Button>
+            </Stack>
+          </Box>
+
+          <Snackbar
+            open={snackbar.open}
+            autoHideDuration={3000}
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          >
+            <Alert 
+              onClose={() => setSnackbar({ ...snackbar, open: false })} 
+              severity={snackbar.severity}
+              sx={{ 
+                width: '100%',
+                backgroundColor: 'rgba(13, 17, 44, 0.9)',
+                color: '#fff',
+                '& .MuiAlert-icon': {
+                  color: '#fff'
+                }
+              }}
+            >
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
+        </>
+      )}
     </Box>
   );
 };
@@ -1577,8 +1987,8 @@ const getGenderCode = (gender) => {
 const AttractivenessRatingProcess = () => {
   const { userData, rating: userRating, bestFeature, loading: loadingUser } = useUserData();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(null);
-  const [scanFor, setScanFor] = useState(null);
   const [gender, setGender] = useState('');
   const [faceScore, setFaceScore] = useState(null);
   const [testScores, setTestScores] = useState(null);
@@ -1589,6 +1999,12 @@ const AttractivenessRatingProcess = () => {
   const { rating: rawRating } = useAttractivenessRating(userInfo);
   const cappedRating = rawRating !== null ? Math.min(Math.max(rawRating, 15.69), 99) : null;
   const toast = useToast();
+
+  // Add scan counter state
+  const [scanCount, setScanCount] = useState(() => {
+    const savedCount = localStorage.getItem('scanCount');
+    return savedCount ? parseInt(savedCount) : 0;
+  });
 
   const testToPropMap = {
     'Carnal Tilt': 'carnalTilt',
@@ -1601,59 +2017,27 @@ const AttractivenessRatingProcess = () => {
   };
 
   useEffect(() => {
-    if (!loadingUser && userData) {
-      if (userData.timesRanked === 0) {
-        setScanFor('myself');
-        setUserInfo({
-          name: userData.name || 'Self',
-          ethnicity: userData.ethnicity,
-          eyeColor: mapEyeColor(userData.eyeColor),
-          height: userData.height,
-          weight: userData.weight,
-          gender: getGenderCode(userData.gender),
-        });
-        setCurrentStep('instructions');
+    if (!loadingUser) {
+      if (user && userData) {
+        if (userData.timesRanked === 0) {
+          setUserInfo({
+            name: userData.name || 'Self',
+            ethnicity: userData.ethnicity,
+            eyeColor: mapEyeColor(userData.eyeColor),
+            height: userData.height,
+            weight: userData.weight,
+            gender: getGenderCode(userData.gender),
+          });
+          setCurrentStep('instructions');
+        } else {
+          setCurrentStep('genderSelection');
+        }
       } else {
-        setCurrentStep('scanForSelection');
+        // For unauthenticated users, start with gender selection
+        setCurrentStep('genderSelection');
       }
     }
-  }, [loadingUser, userData]);
-
-  useEffect(() => {
-    if (
-      scanFor === 'myself' &&
-      !loadingUser &&
-      userData &&
-      cappedRating !== null &&
-      !updated &&
-      userData.timesRanked === 0
-    ) {
-      const updateUserRating = async () => {
-        const userDocRef = doc(db, 'users', userData.id);
-        const dividedRating = cappedRating / 10;
-        try {
-          await setDoc(
-            userDocRef,
-            {
-              ranking: dividedRating,
-              timesRanked: 1,
-            },
-            { merge: true }
-          );
-          setUpdated(true);
-        } catch (error) {
-          toast({
-            title: 'Error',
-            description: 'Failed to save your rating.',
-            status: 'error',
-            duration: 5000,
-            isClosable: true,
-          });
-        }
-      };
-      updateUserRating();
-    }
-  }, [loadingUser, userData, cappedRating, updated, toast, scanFor]);
+  }, [loadingUser, userData, user]);
 
   useEffect(() => {
     if (currentStep === 'result' && userInfo && cappedRating !== null) {
@@ -1661,7 +2045,7 @@ const AttractivenessRatingProcess = () => {
         try {
           const ratingData = {
             name: userInfo.name,
-            uid: user.uid,
+            uid: user?.uid || 'anonymous',
             ethnicity: userInfo.ethnicity,
             eyeColor: userInfo.eyeColor,
             height: userInfo.height,
@@ -1694,24 +2078,6 @@ const AttractivenessRatingProcess = () => {
     }
   }, [readyToScan]);
 
-  const handleScanForSelection = (choice) => {
-    if (choice === 'myself') {
-      setScanFor('myself');
-      setUserInfo({
-        name: userData.name || 'Self',
-        ethnicity: userData.ethnicity,
-        eyeColor: mapEyeColor(userData.eyeColor),
-        height: userData.height,
-        weight: userData.weight,
-        gender: getGenderCode(userData.gender),
-      });
-      setCurrentStep('instructions');
-    } else {
-      setScanFor('someoneElse');
-      setCurrentStep('genderSelection');
-    }
-  };
-
   const handleGenderSelection = (selectedGender) => {
     setGender(selectedGender);
     setCurrentStep('instructions');
@@ -1732,6 +2098,26 @@ const AttractivenessRatingProcess = () => {
 
   const handleScanningComplete = (result) => {
     if (result !== null) {
+      // Increment scan count for non-logged in users
+      if (!user) {
+        const newScanCount = scanCount + 1;
+        setScanCount(newScanCount);
+        localStorage.setItem('scanCount', newScanCount.toString());
+
+        // Redirect to scan limit page if more than 2 scans
+        if (newScanCount > 2) {
+          toast({
+            title: 'Scan Limit Reached',
+            description: 'Please create a free account to continue scanning.',
+            status: 'warning',
+            duration: 5000,
+            isClosable: true,
+          });
+          navigate('/scan-limit');
+          return;
+        }
+      }
+
       const { finalScore, testAverages, measurements } = result;
       const transformedTestScores = {};
       for (const [test, score] of Object.entries(testAverages)) {
@@ -1743,7 +2129,7 @@ const AttractivenessRatingProcess = () => {
 
       const faceRating = Object.values(testAverages).reduce((sum, score) => sum + score, 0) / Object.keys(testAverages).length;
 
-      if (scanFor === 'myself') {
+      if (user) {
         const updatedUserInfo = {
           ...userInfo,
           ...transformedTestScores,
@@ -1828,6 +2214,8 @@ const AttractivenessRatingProcess = () => {
         overflow: 'hidden',
       }}
     >
+      <TopBar />
+      {/* Animated grid background */}
       <Box
         sx={{
           position: 'absolute',
@@ -1841,9 +2229,43 @@ const AttractivenessRatingProcess = () => {
           opacity: 0.3,
         }}
       />
+
       <Container maxWidth="xl" sx={{ position: 'relative', zIndex: 1 }}>
         {currentStep === 'scanForSelection' && (
           <Box sx={{ textAlign: 'center', py: 8 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                mb: 4,
+                cursor: 'pointer',
+              }}
+              onClick={() => navigate('/')}
+            >
+              <Box
+                sx={{
+                  width: 120,
+                  height: 120,
+                  background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
+                  borderRadius: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  animation: `${neonGlow} 2s infinite`,
+                  boxShadow: '0 0 32px rgba(9, 194, 247, 0.2)',
+                  transition: 'transform 0.3s ease',
+                  '&:hover': {
+                    transform: 'scale(1.05)'
+                  }
+                }}
+              >
+                <img
+                  src="/lookzapp trans 2.png"
+                  alt="LookzApp"
+                  style={{ width: '80%', filter: 'brightness(0) invert(1)' }}
+                />
+              </Box>
+            </Box>
             <Typography
               variant="h2"
               sx={{
@@ -1851,30 +2273,104 @@ const AttractivenessRatingProcess = () => {
                 background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
-                mb: 4
+                mb: 4,
+                fontSize: { xs: '2.5rem', md: '3.5rem' }
               }}
             >
               Who are you scanning?
             </Typography>
+            
             <Grid container spacing={4} justifyContent="center">
               <Grid item xs={12} md={6}>
                 <GlassCard
-                  onClick={() => handleScanForSelection('myself')}
-                  sx={{ cursor: 'pointer', height: '100%' }}
+                  onClick={() => handleGenderSelection('M')}
+                  sx={{ 
+                    cursor: 'pointer', 
+                    height: '100%',
+                    p: 4,
+                    '&:hover .optionTitle': {
+                      background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                    }
+                  }}
                 >
-                  <Typography variant="h4" sx={{ mb: 2 }}>👤 For Myself</Typography>
-                  <Typography color="rgba(255,255,255,0.7)">
+                  <Typography 
+                    variant="h4" 
+                    className="optionTitle"
+                    sx={{ 
+                      mb: 2,
+                      fontSize: '1.8rem',
+                      transition: 'all 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      textShadow: '0 0 10px rgba(9, 194, 247, 0.3)',
+                      justifyContent: 'center',
+                      width: '100%'
+                    }}
+                  >
+                    <Face /> For Myself
+                  </Typography>
+                  <Typography 
+                    color="rgba(255,255,255,0.7)" 
+                    sx={{ 
+                      fontSize: '1.1rem', 
+                      textShadow: '0 0 5px rgba(9, 194, 247, 0.2)',
+                      textAlign: 'center',
+                      maxWidth: '80%'
+                    }}
+                  >
                     Analyze your own facial features with AI-powered insights
                   </Typography>
                 </GlassCard>
               </Grid>
               <Grid item xs={12} md={6}>
                 <GlassCard
-                  onClick={() => handleScanForSelection('someoneElse')}
-                  sx={{ cursor: 'pointer', height: '100%' }}
+                  onClick={() => handleGenderSelection('W')}
+                  sx={{ 
+                    cursor: 'pointer', 
+                    height: '100%',
+                    p: 4,
+                    '&:hover .optionTitle': {
+                      background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                    }
+                  }}
                 >
-                  <Typography variant="h4" sx={{ mb: 2 }}>👥 For Someone Else</Typography>
-                  <Typography color="rgba(255,255,255,0.7)">
+                  <Typography 
+                    variant="h4" 
+                    className="optionTitle"
+                    sx={{ 
+                      mb: 2,
+                      fontSize: '1.8rem',
+                      transition: 'all 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      textShadow: '0 0 10px rgba(9, 194, 247, 0.3)',
+                      justifyContent: 'center',
+                      width: '100%'
+                    }}
+                  >
+                    <Group /> For Someone Else
+                  </Typography>
+                  <Typography 
+                    color="rgba(255,255,255,0.7)" 
+                    sx={{ 
+                      fontSize: '1.1rem', 
+                      textShadow: '0 0 5px rgba(9, 194, 247, 0.2)',
+                      textAlign: 'center',
+                      maxWidth: '80%'
+                    }}
+                  >
                     Analyze another person's features with privacy-focused technology
                   </Typography>
                 </GlassCard>
@@ -1882,7 +2378,8 @@ const AttractivenessRatingProcess = () => {
             </Grid>
           </Box>
         )}
-        {currentStep === 'genderSelection' && scanFor === 'someoneElse' && (
+
+        {currentStep === 'genderSelection' && (
           <Box sx={{ textAlign: 'center', py: 8 }}>
             <Typography
               variant="h3"
@@ -1891,39 +2388,87 @@ const AttractivenessRatingProcess = () => {
                 background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
-                mb: 4
+                mb: 4,
+                fontSize: { xs: '2rem', md: '2.5rem' }
               }}
             >
-              Select Gender for Analysis
+              Select Analysis Profile
             </Typography>
-            <Typography color="rgba(255,255,255,0.7)" mb={4}>
-              Gender is used to tailor the attractiveness analysis based on typical standards.
-            </Typography>
-            <FormControl sx={{ minWidth: '300px' }}>
-              <Select
-                value={gender}
-                onChange={(e) => handleGenderSelection(e.target.value)}
-                displayEmpty
-                fullWidth
-                sx={{
-                  bgcolor: 'rgba(13, 17, 44, 0.7)',
-                  color: '#fff',
-                  '& .MuiSelect-icon': { color: '#fff' },
-                  '&:hover': { bgcolor: 'rgba(13, 17, 44, 0.85)' }
-                }}
-              >
-                <MenuItem value="" disabled>
-                  Choose gender
-                </MenuItem>
-                {Object.keys(genderMap).map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {option}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            
+            <Grid container spacing={3} justifyContent="center" sx={{ maxWidth: '800px', mx: 'auto' }}>
+              {genderOptions.map((option) => (
+                <Grid item xs={12} sm={6} md={4} key={option.value}>
+                  <GlassCard
+                    onClick={() => handleGenderSelection(option.value)}
+                  sx={{
+                      cursor: 'pointer',
+                      p: 3,
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      border: gender === option.value ? '2px solid #09c2f7' : '1px solid rgba(250, 14, 164, 0.2)',
+                      boxShadow: gender === option.value ? '0 0 20px rgba(9, 194, 247, 0.3)' : 'none',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-8px)',
+                        boxShadow: '0 8px 32px rgba(250, 14, 164, 0.3)',
+                        border: '2px solid #09c2f7'
+                      }
+                    }}
+                  >
+                    <Box
+                      sx={{ 
+                        width: 64,
+                        height: 64,
+                        borderRadius: '50%',
+                        background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        mb: 2,
+                        animation: `${neonGlow} 2s infinite`,
+                        '& .MuiSvgIcon-root': {
+                          fontSize: 32,
+                          color: '#fff'
+                        }
+                      }}
+                    >
+                      {option.icon}
+                    </Box>
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        color: '#fff',
+                        fontWeight: 600,
+                        textAlign: 'center',
+                        mb: 1
+                      }}
+                    >
+                      {option.label}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: 'rgba(255,255,255,0.7)',
+                        textAlign: 'center',
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      {option.label === 'Male' ? 'Masculine facial analysis' :
+                       option.label === 'Female' ? 'Feminine facial analysis' :
+                       option.label === 'Non-binary' ? 'Neutral facial analysis' :
+                       option.label === 'Other' ? 'Custom facial analysis' :
+                       'Anonymous facial analysis'}
+                    </Typography>
+            </GlassCard>
+                </Grid>
+              ))}
+            </Grid>
           </Box>
         )}
+
         {(currentStep === 'instructions' || currentStep === 'scanning') && (
           <Box sx={{ my: 8 }}>
             <Typography
@@ -1934,11 +2479,13 @@ const AttractivenessRatingProcess = () => {
                 background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
-                mb: 4
+                mb: 4,
+                fontSize: { xs: '2.5rem', md: '3.5rem' }
               }}
             >
-              {currentStep === 'scanning' ? 'Analyzing Features...' : 'Ready to Scan'}
+              
             </Typography>
+
             <StyledWebcamContainer>
               <WebcamTiltDetector
                 startScanning={currentStep === 'scanning'}
@@ -1946,25 +2493,23 @@ const AttractivenessRatingProcess = () => {
                 onFaceDetected={handleFaceDetected}
                 gender={userInfo?.gender || gender}
                 onReadyToScanChange={setReadyToScan}
+                currentStep={currentStep}
               />
             </StyledWebcamContainer>
-            {currentStep === 'instructions' && (
-              <Box sx={{ textAlign: 'center', mt: 4 }}>
-                <GradientButton
-                  variant="contained"
-                  size="large"
-                  onClick={handleStartScanning}
-                  disabled={!faceDetected}
-                  sx={{ px: 6, py: 2, borderRadius: '16px' }}
-                >
-                  Begin Facial Analysis
-                </GradientButton>
-              </Box>
-            )}
+
+            
           </Box>
         )}
-        {currentStep === 'form' && scanFor === 'someoneElse' && (
-          <Box sx={{ py: 8 }}>
+
+        {currentStep === 'form' && !user && (
+          <Box sx={{ 
+            py: 8,
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
             <Typography
               variant="h3"
               sx={{
@@ -1973,18 +2518,64 @@ const AttractivenessRatingProcess = () => {
                 background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
-                mb: 4
+                mb: 4,
+                fontSize: { xs: '2.5rem', md: '3.5rem' }
               }}
             >
-              Tell Us About Them
+              Subject Profile Setup
             </Typography>
-            <Box sx={{ maxWidth: '600px', mx: 'auto' }}>
+            
+            <Box sx={{ 
+              width: '100%',
+              maxWidth: '800px',
+              mx: 'auto',
+              p: 4,
+              borderRadius: 2,
+              background: 'rgba(13, 17, 44, 0.7)',
+              backdropFilter: 'blur(16px)',
+              border: '1px solid rgba(250, 14, 164, 0.2)',
+              boxShadow: '0 8px 32px rgba(11, 43, 77, 0.2)',
+            }}>
               <UserInfoForm onSubmit={handleFormSubmit} gender={gender} />
             </Box>
           </Box>
         )}
+
         {currentStep === 'result' && cappedRating !== null && (
           <Box sx={{ py: 8 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                mb: 4,
+                cursor: 'pointer',
+              }}
+              onClick={() => navigate('/')}
+            >
+              <Box
+                sx={{
+                  width: 120,
+                  height: 120,
+                  background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
+                  borderRadius: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  animation: `${neonGlow} 2s infinite`,
+                  boxShadow: '0 0 32px rgba(9, 194, 247, 0.2)',
+                  transition: 'transform 0.3s ease',
+                  '&:hover': {
+                    transform: 'scale(1.05)'
+                  }
+                }}
+              >
+                <img
+                  src="/lookzapp trans 2.png"
+                  alt="LookzApp"
+                  style={{ width: '80%', filter: 'brightness(0) invert(1)' }}
+                />
+              </Box>
+            </Box>
             <DetailedResultDisplay
               overallRating={cappedRating}
               faceRating={currentFaceRating}
@@ -1992,11 +2583,31 @@ const AttractivenessRatingProcess = () => {
               userInfo={userInfo}
               setUserInfo={setUserInfo}
             />
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                py: 3,
+                textAlign: 'center',
+                color: 'rgba(255,255,255,0.6)',
+                fontSize: '0.9rem',
+                animation: `${fadeIn} 1s ease-out`,
+                opacity: 0,
+                animationFillMode: 'forwards',
+              }}
+            >
+              <Typography variant="body2">
+                © 2025 Octavian Ideas. All rights reserved.
+              </Typography>
+            </Box>
           </Box>
         )}
       </Container>
     </Box>
   );
+
 };
 
 export default AttractivenessRatingProcess;

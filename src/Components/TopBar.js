@@ -1,336 +1,303 @@
 import React, { useState } from 'react';
-import {
-  Box,
-  Flex,
-  HStack,
-  Text,
-  Button,
-  useBreakpointValue,
-  VStack,
-  Icon,
-} from '@chakra-ui/react';
-import {
-  FaTrophy,
-  FaUser,
-  FaEnvelope,
-  FaCog,
-  FaGamepad,
-  FaVideo,
-  FaStar,
-  FaBars,
-  FaEye,
-} from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
-import Drawer from '@mui/material/Drawer';
-import MuiBox from '@mui/material/Box';
-import MuiIconButton from '@mui/material/IconButton';
-import Typography from '@mui/material/Typography';
-import MuiButton from '@mui/material/Button';
-import CloseIcon from '@mui/icons-material/Close';
+import { 
+  AppBar,
+  Toolbar,
+  Box,
+  Typography,
+  IconButton,
+  useTheme,
+  Avatar,
+  Paper,
+  List,
+  ListItem,
+  ListItemText,
+  Collapse,
+  Divider,
+  SwipeableDrawer
+} from '@mui/material';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import SearchIcon from '@mui/icons-material/Search';
+import { keyframes } from '@emotion/react';
+import { styled } from '@mui/material/styles';
 import { useAuth } from '../hooks/useAuth';
-import '../App.css';
-import { Popover, PopoverTrigger, PopoverContent, PopoverBody, PopoverArrow } from '@chakra-ui/popover';
+import FaceIcon from '@mui/icons-material/Face';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import MenuIcon from '@mui/icons-material/Menu';
+import LogoutIcon from '@mui/icons-material/Logout';
 
-const TopBar = () => {
+const neonGlow = keyframes`
+  0% { filter: drop-shadow(0 0 2px #09c2f7); }
+  50% { filter: drop-shadow(0 0 6px #09c2f7); }
+  100% { filter: drop-shadow(0 0 2px #09c2f7); }
+`;
+
+const gradientFlow = keyframes`
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+`;
+
+const NavText = styled(Typography)(({ theme }) => ({
+  cursor: 'pointer',
+  fontSize: '0.9rem',
+  fontWeight: 500,
+  letterSpacing: '0.5px',
+  transition: 'all 0.3s ease',
+  position: 'relative',
+  '&:after': {
+    content: '""',
+    position: 'absolute',
+    bottom: -4,
+    left: 0,
+    width: 0,
+    height: '2px',
+    background: 'linear-gradient(90deg, #09c2f7, #fa0ea4)',
+    transition: 'width 0.3s ease'
+  },
+  '&:hover': {
+    '&:after': {
+      width: '100%'
+    }
+  }
+}));
+
+const MenuItem = styled(ListItem)(({ theme }) => ({
+  cursor: 'pointer',
+  padding: theme.spacing(2),
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    background: 'linear-gradient(90deg, rgba(9, 194, 247, 0.1), rgba(250, 14, 164, 0.1))',
+    '& .MuiListItemText-primary': {
+      color: '#09c2f7',
+      textShadow: '0 0 8px rgba(9, 194, 247, 0.5)'
+    },
+    '& .MuiSvgIcon-root': {
+      color: '#fa0ea4'
+    }
+  },
+  '&:active': {
+    transform: 'scale(0.98)'
+  }
+}));
+
+const MenuIconWrapper = styled(Box)(({ theme }) => ({
+  width: 32,
+  height: 32,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginRight: theme.spacing(2),
+  color: 'rgba(255,255,255,0.7)'
+}));
+
+const Topbar = () => {
   const navigate = useNavigate();
+  const theme = useTheme();
   const { user, signOut } = useAuth();
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Define navigation items with dropdowns
-  const navItems = [
-    { title: 'Leaderboard', icon: FaTrophy, route: '/leaderboard' },
-    {
-      title: 'Games',
-      icon: FaGamepad,
-      dropdown: [
-        { title: 'GeoLocate', route: '/geo-locate' },
-        { title: 'Two Truths & a Lie', route: '/two-truths' },
-      ],
-    },
-    {
-      title: 'Video Chat',
-      icon: FaVideo,
-      dropdown: [
-        { title: 'Random Room', route: '/video-chat' },
-        { title: 'Private Room', route: '/video-chat/private' },
-      ],
-    },
-    {
-      title: 'Get Ranked',
-      icon: FaStar,
-      dropdown: [
-        { title: 'Celebs', route: '/ranking?category=celebs' },
-        { title: 'Influencers', route: '/ranking?category=influencers' },
-        { title: 'Other Users', route: '/ranking?category=other-users' },
-        { title: 'All', route: '/ranking?category=all' },
-      ],
-    },
-    {
-      title: 'Analysis',
-      icon: FaEye,
-      dropdown: [
-        { title: 'Looksmatch', route: '/looksmatch' },
-        { title: 'Face Scan', route: '/analysis' },
-      ],
-    },
-    { title: 'Messages', icon: FaEnvelope, route: '/messages' },
-    { title: 'Settings', icon: FaCog, route: '/settings' },
-  ];
-
-  const isDesktop = useBreakpointValue({ base: false, md: true });
-  const [isOpen, setIsOpen] = useState(false);
-  const handleToggle = () => setIsOpen(!isOpen);
-
-  // Handle sign-out action
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      navigate('/');
-    } catch (error) {
-      console.error('Error signing out:', error);
+  const handleAuthClick = () => {
+    if (user) {
+      signOut();
+    } else {
+      navigate('/signin');
     }
   };
 
+  const menuItems = [
+    { 
+      text: 'Attractiveness Test', 
+      icon: <FaceIcon />,
+      action: () => navigate('/attractiveness-test')
+    },
+    { 
+      text: 'Autism Test', 
+      icon: <PsychologyIcon />,
+      action: () => navigate('/autism-test')
+    },
+    { 
+      text: 'Geeked Guess', 
+      icon: <SearchIcon />,
+      action: () => navigate('/geeked-guess')
+    },
+    { divider: true },
+    { 
+      text: 'About', 
+      icon: <VisibilityIcon />,
+      action: () => navigate('/about')
+    },
+    { 
+      text: "What's Next", 
+      icon: <CameraAltIcon />,
+      action: () => navigate('/whats-next')
+    },
+    { 
+      text: 'Home', 
+      icon: <AccountCircleIcon />,
+      action: () => navigate('/')
+    }
+  ];
+
   return (
-    <Box
-      bg="white"
-      boxShadow="md"
-      px={4}
-      py={2}
-      mb={6}
-      style={{ position: 'sticky', top: 0, zIndex: 100 }}
+    <AppBar 
+      position="fixed" 
+      sx={{ 
+        background: 'rgba(13, 17, 44, 0.25)',
+        backdropFilter: 'blur(10px)',
+        boxShadow: 'none',
+        borderBottom: '1px solid rgba(250, 14, 164, 0.1)',
+        height: '70px',
+        transition: 'all 0.3s ease',
+        '&:hover': {
+          background: 'rgba(13, 17, 44, 0.4)',
+          borderBottom: '1px solid rgba(250, 14, 164, 0.2)'
+        }
+      }}
     >
-      <Flex align="center" justify="center" gap={4}>
-        {/* Left Navigation Items */}
-        {isDesktop && (
-          <HStack spacing={2} flex="1" justify="flex-end">
-            {navItems.slice(0, Math.ceil(navItems.length / 2)).map((item) => {
-              if (item.dropdown) {
-                return (
-                  <Popover key={item.title} trigger="hover">
-                    <PopoverTrigger>
-                      <Button variant="ghost" colorScheme="gray" size="sm">
-                        <HStack spacing={1}>
-                          <Icon as={item.icon} w={4} h={4} color="gray.700" />
-                          <Text fontSize="sm" fontWeight="medium" color="gray.700">
-                            {item.title}
-                          </Text>
-                        </HStack>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent bg="white" borderColor="gray.200">
-                      <PopoverArrow bg="white" />
-                      <PopoverBody>
-                        <VStack align="start" spacing={1}>
-                          {item.dropdown.map((subItem) => (
-                            <Button
-                              key={subItem.title}
-                              variant="ghost"
-                              color="black"
-                              _hover={{ bg: 'gray.100' }}
-                              w="full"
-                              justifyContent="flex-start"
-                              onClick={() => navigate(subItem.route)}
-                            >
-                              {subItem.title}
-                            </Button>
-                          ))}
-                        </VStack>
-                      </PopoverBody>
-                    </PopoverContent>
-                  </Popover>
-                );
-              } else {
-                return (
-                  <Button
-                    key={item.title}
-                    variant="ghost"
-                    colorScheme="gray"
-                    size="sm"
-                    onClick={() => navigate(item.route)}
-                  >
-                    <HStack spacing={1}>
-                      <Icon as={item.icon} w={4} h={4} color="gray.700" />
-                      <Text fontSize="sm" fontWeight="medium" color="gray.700">
-                        {item.title}
-                      </Text>
-                    </HStack>
-                  </Button>
-                );
-              }
-            })}
-          </HStack>
-        )}
+      <Toolbar sx={{ 
+        justifyContent: 'space-between', 
+        height: '100%',
+        px: 2
+      }}>
+        {/* Left Menu Button */}
+        <IconButton
+          onClick={() => setIsDrawerOpen(true)}
+          sx={{
+            color: 'rgba(255,255,255,0.9)',
+            '&:hover': {
+              color: '#09c2f7'
+            }
+          }}
+        >
+          <MenuIcon />
+        </IconButton>
 
-        {/* Logo */}
+        {/* Center Logo */}
         <Box
-          as="img"
-          src="/lookzapp trans 2.png"
-          alt="Lookzapp Logo"
-          maxH="70px"
-          cursor="pointer"
           onClick={() => navigate('/')}
-        />
+          sx={{
+            position: 'absolute',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 48,
+            height: 48,
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease',
+            background: 'linear-gradient(45deg, rgba(9, 194, 247, 0.2), rgba(250, 14, 164, 0.2))',
+            animation: `${neonGlow} 2s infinite`,
+            '&:hover': {
+              transform: 'translateX(-50%) scale(1.05)',
+              boxShadow: '0 0 15px rgba(9, 194, 247, 0.4)'
+            }
+          }}
+        >
+          <img
+            src="/favicon-96x96.png"
+            alt="Lookzapp"
+            style={{ 
+              width: '70%', 
+              height: '70%', 
+              objectFit: 'contain',
+              filter: 'brightness(0) invert(1)'
+            }}
+          />
+        </Box>
 
-        {/* Right Navigation Items */}
-        {isDesktop ? (
-          <HStack spacing={2} flex="1" justify="flex-start">
-            {navItems.slice(Math.ceil(navItems.length / 2)).map((item) => {
-              if (item.dropdown) {
-                return (
-                  <Popover key={item.title} trigger="hover">
-                    <PopoverTrigger>
-                      <Button variant="ghost" colorScheme="gray" size="sm">
-                        <HStack spacing={1}>
-                          <Icon as={item.icon} w={4} h={4} color="gray.700" />
-                          <Text fontSize="sm" fontWeight="medium" color="gray.700">
-                            {item.title}
-                          </Text>
-                        </HStack>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent bg="white" borderColor="gray.200">
-                      <PopoverArrow bg="white" />
-                      <PopoverBody>
-                        <VStack align="start" spacing={1}>
-                          {item.dropdown.map((subItem) => (
-                            <Button
-                              key={subItem.title}
-                              variant="ghost"
-                              color="black"
-                              _hover={{ bg: 'gray.100' }}
-                              w="full"
-                              justifyContent="flex-start"
-                              onClick={() => navigate(subItem.route)}
-                            >
-                              {subItem.title}
-                            </Button>
-                          ))}
-                        </VStack>
-                      </PopoverBody>
-                    </PopoverContent>
-                  </Popover>
-                );
-              } else {
-                return (
-                  <Button
-                    key={item.title}
-                    variant="ghost"
-                    colorScheme="gray"
-                    size="sm"
-                    onClick={() => navigate(item.route)}
+        {/* Right Auth Icon */}
+        <IconButton
+          onClick={handleAuthClick}
+          sx={{
+            color: 'rgba(255,255,255,0.9)',
+            '&:hover': {
+              color: '#09c2f7'
+            }
+          }}
+        >
+          {user ? <LogoutIcon /> : <AccountCircleIcon />}
+        </IconButton>
+
+        {/* Mobile Drawer */}
+        <SwipeableDrawer
+          anchor="left"
+          open={isDrawerOpen}
+          onClose={() => setIsDrawerOpen(false)}
+          onOpen={() => setIsDrawerOpen(true)}
+          sx={{
+            '& .MuiDrawer-paper': {
+              width: '80%',
+              maxWidth: 300,
+              background: 'rgba(13, 17, 44, 0.95)',
+              backdropFilter: 'blur(16px)',
+              borderRight: '1px solid rgba(250, 14, 164, 0.3)'
+            }
+          }}
+        >
+          <Box sx={{ 
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            <Box sx={{ 
+              p: 2, 
+              display: 'flex', 
+              alignItems: 'center',
+              borderBottom: '1px solid rgba(250, 14, 164, 0.2)'
+            }}>
+              <img
+                src="/favicon-96x96.png"
+                alt="LookzApp"
+                style={{ 
+                  width: 40, 
+                  height: 40, 
+                  objectFit: 'contain',
+                  filter: 'brightness(0) invert(1)',
+                  marginRight: 16
+                }}
+              />
+              <Typography variant="h6" sx={{ color: '#fff' }}>
+                LookzApp
+              </Typography>
+            </Box>
+
+            <List sx={{ flex: 1, overflowY: 'auto' }}>
+              {menuItems.map((item, index) => (
+                item.divider ? (
+                  <Divider key={index} sx={{ borderColor: 'rgba(250, 14, 164, 0.15)', my: 1 }} />
+                ) : (
+                  <MenuItem 
+                    key={index}
+                    onClick={() => {
+                      item.action();
+                      setIsDrawerOpen(false);
+                    }}
                   >
-                    <HStack spacing={1}>
-                      <Icon as={item.icon} w={4} h={4} color="gray.700" />
-                      <Text fontSize="sm" fontWeight="medium" color="gray.700">
-                        {item.title}
-                      </Text>
-                    </HStack>
-                  </Button>
-                );
-              }
-            })}
-            {/* Profile Icon */}
-            <MuiIconButton aria-label="Profile" onClick={() => navigate('/profile/' + user?.uid)}>
-              <FaUser color="gray.700" size={16} />
-            </MuiIconButton>
-            {/* Sign In/Sign Out Button for Desktop */}
-            {user ? (
-              <Button variant="ghost" colorScheme="gray" size="sm" onClick={handleSignOut}>
-                Sign Out
-              </Button>
-            ) : (
-              <Button variant="ghost" colorScheme="gray" size="sm" onClick={() => navigate('/signin')}>
-                Sign In
-              </Button>
-            )}
-          </HStack>
-        ) : (
-          <MuiIconButton onClick={handleToggle}>
-            <FaBars />
-          </MuiIconButton>
-        )}
-      </Flex>
-
-      {!isDesktop && (
-        <Drawer anchor="right" open={isOpen} onClose={handleToggle}>
-          <MuiBox sx={{ width: 250, bgcolor: 'white' }} role="presentation">
-            <MuiBox sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, bgcolor: 'white' }}>
-              <Typography variant="h6">Menu</Typography>
-              <MuiIconButton onClick={handleToggle}>
-                <CloseIcon />
-              </MuiIconButton>
-            </MuiBox>
-            <MuiBox sx={{ p: 2, bgcolor: 'white' }}>
-              {navItems.map((item) => (
-                <React.Fragment key={item.title}>
-                  {item.dropdown ? (
-                    <>
-                      <Typography variant="subtitle1" sx={{ mt: 2 }}>
-                        {item.title}
-                      </Typography>
-                      {item.dropdown.map((subItem) => (
-                        <MuiButton
-                          key={subItem.title}
-                          fullWidth
-                          variant="text"
-                          onClick={() => {
-                            navigate(subItem.route);
-                            handleToggle();
-                          }}
-                          sx={{ mb: 1 }}
-                        >
-                          {subItem.title}
-                        </MuiButton>
-                      ))}
-                    </>
-                  ) : (
-                    <MuiButton
-                      fullWidth
-                      variant="text"
-                      startIcon={<item.icon size={20} color="#4B5563" />}
-                      onClick={() => {
-                        navigate(item.route);
-                        handleToggle();
+                    {item.icon && <MenuIconWrapper>{item.icon}</MenuIconWrapper>}
+                    <ListItemText 
+                      primary={item.text}
+                      sx={{
+                        '& .MuiListItemText-primary': {
+                          color: 'rgba(255,255,255,0.9)',
+                          fontSize: '1rem',
+                          fontWeight: 500
+                        }
                       }}
-                      sx={{ mb: 1 }}
-                    >
-                      {item.title}
-                    </MuiButton>
-                  )}
-                </React.Fragment>
+                    />
+                  </MenuItem>
+                )
               ))}
-              {/* Sign In/Sign Out Button for Mobile Drawer */}
-              {user ? (
-                <MuiButton
-                  fullWidth
-                  variant="text"
-                  onClick={() => {
-                    handleSignOut();
-                    handleToggle();
-                  }}
-                  sx={{ mb: 1 }}
-                >
-                  Sign Out
-                </MuiButton>
-              ) : (
-                <MuiButton
-                  fullWidth
-                  variant="text"
-                  onClick={() => {
-                    navigate('/signin');
-                    handleToggle();
-                  }}
-                  sx={{ mb: 1 }}
-                >
-                  Sign In
-                </MuiButton>
-              )}
-            </MuiBox>
-          </MuiBox>
-        </Drawer>
-      )}
-    </Box>
+            </List>
+          </Box>
+        </SwipeableDrawer>
+      </Toolbar>
+    </AppBar>
   );
 };
 
-export default TopBar;
+export default Topbar;

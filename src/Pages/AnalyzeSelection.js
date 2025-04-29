@@ -47,6 +47,7 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   alignItems: 'center',
   textAlign: 'center',
   cursor: 'pointer',
+  position: 'relative',
   '&:hover': {
     transform: 'translateY(-8px)',
     backgroundColor: 'rgba(13, 17, 44, 0.85)',
@@ -55,6 +56,20 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
       filter: 'drop-shadow(0 0 12px rgba(9, 194, 247, 0.4))'
     }
   },
+  '&.locked': {
+    cursor: 'not-allowed',
+    opacity: 0.7,
+    '&:hover': {
+      transform: 'none',
+    },
+    '&::after': {
+      content: '"🔒"',
+      position: 'absolute',
+      top: '10px',
+      right: '10px',
+      fontSize: '1.5rem',
+    }
+  }
 }));
 
 const analysisOptions = [
@@ -63,18 +78,21 @@ const analysisOptions = [
     route: '/analysis',
     description: 'Get your attractiveness rating based on facial features.',
     icon: CameraAltIcon,
+    locked: false
   },
   {
     title: 'Autism Feature Analysis',
     route: '/autism-analytic',
     description: 'Analyze features commonly associated with autism.',
     icon: PsychologyIcon,
+    locked: false
   },
   {
     title: 'GeekedGuess',
     route: '/geeked-guess',
     description: 'Analyze how open your eyes are and get insights about your alertness.',
     icon: VisibilityIcon,
+    locked: true
   },
 ];
 
@@ -100,12 +118,14 @@ function AnalyzeSelection() {
     return () => observer.disconnect();
   }, []);
 
-  const handleSelection = (route) => {
+  const handleSelection = (route, locked) => {
+    if (locked) return;
     navigate(route);
   };
 
   return (
     <>
+    <TopBar />
       <Box
         sx={{
           minHeight: '100vh',
@@ -138,6 +158,7 @@ function AnalyzeSelection() {
         <Container maxWidth="xl" sx={{ position: 'relative' }}>
           <Box
             sx={{
+              marginTop: '100px',
               display: 'flex',
               justifyContent: 'center',
               mb: 4,
@@ -197,14 +218,14 @@ function AnalyzeSelection() {
             {analysisOptions.map((option, index) => (
               <Grid item xs={12} sm={6} md={3} key={option.title}>
                 <StyledPaper
-                  className="analysis-card"
+                  className={`analysis-card ${option.locked ? 'locked' : ''}`}
                   sx={{
                     opacity: 0,
                     transform: 'translateY(20px)',
                     transition: 'all 0.5s ease-out',
                     transitionDelay: `${index * 0.1}s`,
                   }}
-                  onClick={() => handleSelection(option.route)}
+                  onClick={() => handleSelection(option.route, option.locked)}
                 >
                   <option.icon
                     className="feature-icon"
@@ -229,6 +250,16 @@ function AnalyzeSelection() {
                   }}>
                     {option.description}
                   </Typography>
+                  {option.locked && (
+                    <Typography variant="body2" sx={{
+                      color: '#fa0ea4',
+                      mt: 2,
+                      fontWeight: 'bold',
+                      textShadow: '0 0 5px rgba(250, 14, 164, 0.3)'
+                    }}>
+                      Coming Soon
+                    </Typography>
+                  )}
                 </StyledPaper>
               </Grid>
             ))}

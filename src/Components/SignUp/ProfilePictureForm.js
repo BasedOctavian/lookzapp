@@ -7,8 +7,39 @@ import {
   FormHelperText,
   Typography,
   CircularProgress,
+  styled
 } from '@mui/material';
 import exif from 'exif-js';
+
+const AuthButton = styled(Button)({
+  background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
+  backgroundSize: '200% 200%',
+  color: '#fff',
+  fontWeight: 700,
+  padding: '12px 24px',
+  borderRadius: '12px',
+  textTransform: 'none',
+  fontSize: '1rem',
+  transition: 'all 0.3s ease',
+  animation: 'gradientFlow 6s ease infinite',
+  '&:hover': {
+    transform: 'translateY(-2px)',
+    boxShadow: '0 0 24px rgba(9, 194, 247, 0.4)',
+  },
+  '&.Mui-disabled': {
+    background: 'rgba(255,255,255,0.1)',
+    color: 'rgba(255,255,255,0.5)'
+  }
+});
+
+const OutlinedButton = styled(Button)({
+  color: '#09c2f7',
+  borderColor: 'rgba(9, 194, 247, 0.3)',
+  '&:hover': {
+    borderColor: '#09c2f7',
+    backgroundColor: 'rgba(9, 194, 247, 0.1)',
+  }
+});
 
 function ProfilePictureForm({
   model,
@@ -136,45 +167,65 @@ function ProfilePictureForm({
   return (
     <Stack spacing={2}>
       <FormControl required>
-        <FormLabel>Profile Picture</FormLabel>
-        <Button variant="outlined" component="label">
+        <FormLabel sx={{ 
+          color: 'rgba(255,255,255,0.7)',
+          fontWeight: 500,
+          fontSize: '0.875rem',
+          mb: 1
+        }}>
+          Profile Picture
+        </FormLabel>
+        <OutlinedButton variant="outlined" component="label">
           Upload Profile Picture
           <input type="file" accept="image/*" hidden onChange={handleFileChange} />
-        </Button>
-        <FormHelperText>
+        </OutlinedButton>
+        <FormHelperText sx={{ 
+          color: 'rgba(255,255,255,0.6)',
+          fontSize: '0.75rem',
+          mt: 1
+        }}>
           Please upload a picture with a clearly detectable face. This is required.
         </FormHelperText>
         {isDetecting && (
           <Stack direction="row" spacing={1} alignItems="center">
-            <CircularProgress size={20} />
-            <Typography>Detecting face...</Typography>
+            <CircularProgress size={20} sx={{ color: '#09c2f7' }} />
+            <Typography sx={{ 
+              color: 'rgba(255,255,255,0.7)',
+              fontSize: '0.875rem'
+            }}>
+              Detecting face...
+            </Typography>
           </Stack>
         )}
         {profilePictureFile && (
-          <Typography color="green">Face detected, picture accepted</Typography>
+          <Typography sx={{ 
+            color: '#09c2f7',
+            fontSize: '0.875rem',
+            fontWeight: 500
+          }}>
+            Face detected, picture accepted
+          </Typography>
         )}
       </FormControl>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
       <Stack direction="row" spacing={2}>
-        <Button
+        <OutlinedButton
           variant="outlined"
-          color="primary"
           size="large"
           fullWidth
           onClick={onPrev}
         >
           Previous
-        </Button>
-        <Button
+        </OutlinedButton>
+        <AuthButton
           variant="contained"
-          color="primary"
           size="large"
           fullWidth
           onClick={onSubmit}
           disabled={isLoading || isDetecting || !profilePictureFile}
         >
           {isLoading ? 'Signing Up...' : 'Sign Up'}
-        </Button>
+        </AuthButton>
       </Stack>
     </Stack>
   );

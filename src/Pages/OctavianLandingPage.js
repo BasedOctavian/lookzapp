@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { 
   Box,
   Container,
@@ -12,11 +11,15 @@ import {
   styled,
   Paper
 } from '@mui/material';
-import FaceIcon from '@mui/icons-material/Face';
-import CameraAltIcon from '@mui/icons-material/CameraAlt';
-import SpeedIcon from '@mui/icons-material/Speed';
+import CodeIcon from '@mui/icons-material/Code';
+import DesignServicesIcon from '@mui/icons-material/DesignServices';
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import Topbar from '../Components/TopBar';
+import { useNavigate } from 'react-router-dom';
+
+
+
 
 const float = keyframes`
   0% { transform: translateY(0px); }
@@ -24,20 +27,15 @@ const float = keyframes`
   100% { transform: translateY(0px); }
 `;
 
-const neonGlow = keyframes`
-  0% { filter: drop-shadow(0 0 2px #09c2f7); }
-  50% { filter: drop-shadow(0 0 6px #09c2f7); }
-  100% { filter: drop-shadow(0 0 2px #09c2f7); }
+const goldGlow = keyframes`
+  0% { filter: drop-shadow(0 0 2px #FFD700); }
+  50% { filter: drop-shadow(0 0 6px #FFD700); }
+  100% { filter: drop-shadow(0 0 2px #FFD700); }
 `;
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
-`;
-
-const fadeOut = keyframes`
-  from { opacity: 1; transform: translateY(0); }
-  to { opacity: 0; transform: translateY(-10px); }
 `;
 
 const gradientFlow = keyframes`
@@ -49,8 +47,8 @@ const gradientFlow = keyframes`
 const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(4),
   backdropFilter: 'blur(16px)',
-  backgroundColor: 'rgba(13, 17, 44, 0.7)',
-  border: '1px solid rgba(250, 14, 164, 0.2)',
+  backgroundColor: 'rgba(20, 20, 20, 0.7)',
+  border: '1px solid rgba(255, 215, 0, 0.2)',
   borderRadius: '24px',
   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
   minHeight: 300,
@@ -60,16 +58,16 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   textAlign: 'center',
   '&:hover': {
     transform: 'translateY(-8px)',
-    backgroundColor: 'rgba(13, 17, 44, 0.85)',
-    boxShadow: '0 8px 32px rgba(250, 14, 164, 0.3)',
+    backgroundColor: 'rgba(20, 20, 20, 0.85)',
+    boxShadow: '0 8px 32px rgba(255, 215, 0, 0.3)',
     '& .feature-icon': {
-      filter: 'drop-shadow(0 0 12px rgba(9, 194, 247, 0.4))'
+      filter: 'drop-shadow(0 0 12px rgba(255, 215, 0, 0.4))'
     }
   },
 }));
 
 const StyledButton = styled(Button)({
-  background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
+  background: 'linear-gradient(45deg, #1a1a1a 0%, #FFD700 100%)',
   backgroundSize: '200% 200%',
   color: '#fff',
   fontWeight: 700,
@@ -84,31 +82,31 @@ const StyledButton = styled(Button)({
     left: '-100%',
     width: '100%',
     height: '100%',
-    background: 'linear-gradient(120deg, transparent, rgba(250, 14, 164, 0.2), transparent)',
+    background: 'linear-gradient(120deg, transparent, rgba(255, 215, 0, 0.2), transparent)',
     transition: '0.5s'
   },
   '&:hover': {
     transform: 'translateY(-2px)',
-    boxShadow: '0 0 24px rgba(9, 194, 247, 0.4)',
+    boxShadow: '0 0 24px rgba(255, 215, 0, 0.4)',
     '&:before': {
       left: '100%'
     }
   }
 });
 
-function LandingPage() {
-  const navigate = useNavigate();
+function OctavianLandingPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const featuresRef = useRef(null);
   const [currentTitleIndex, setCurrentTitleIndex] = useState(0);
   const [isFading, setIsFading] = useState(false);
+  const navigate = useNavigate();
 
   const titles = [
-    'Facial Intelligence',
-    'Neural Analysis',
-    'AI-Powered Insights',
-    'Smart Face Mapping'
+    'Innovative Solutions',
+    'Digital Excellence',
+    'Creative Technology',
+    'Future-Focused Development'
   ];
 
   useEffect(() => {
@@ -144,36 +142,35 @@ function LandingPage() {
 
   const features = [
     {
-      icon: FaceIcon,
-      title: 'Neural Facial Mapping',
-      description: 'Deep learning-powered analysis of 128 facial landmarks',
+      icon: CodeIcon,
+      title: 'Advanced Development',
+      description: 'Cutting-edge software solutions and custom applications',
     },
     {
-      icon: CameraAltIcon,
-      title: 'Real-time AR Preview',
-      description: 'Instant visualization with augmented reality overlay',
+      icon: DesignServicesIcon,
+      title: 'Creative Design',
+      description: 'Innovative UI/UX design with modern aesthetics',
     },
     {
-      icon: SpeedIcon,
-      title: 'Precision Metrics',
-      description: 'Golden ratio scoring with deviation analysis',
+      icon: RocketLaunchIcon,
+      title: 'Rapid Innovation',
+      description: 'Fast-paced development with agile methodologies',
     },
     {
       icon: PsychologyIcon,
-      title: 'Neurodiversity Analysis',
-      description: 'Advanced facial feature recognition for neurodevelopmental patterns',
+      title: 'Strategic Thinking',
+      description: 'Data-driven decision making and problem solving',
     },
   ];
 
   return (
     <>
-    <Topbar />
     <Box
       sx={{
         minHeight: '100vh',
         background: `
-          radial-gradient(circle at center, #0d112c 0%, #66043e 100%),
-          linear-gradient(45deg, rgba(9, 194, 247, 0.1), rgba(250, 14, 164, 0.1))
+          radial-gradient(circle at center, #0a0a0a 0%, #1a1a1a 100%),
+          linear-gradient(45deg, rgba(255, 215, 0, 0.1), rgba(20, 20, 20, 0.1))
         `,
         color: '#fff',
         py: 8,
@@ -189,9 +186,9 @@ function LandingPage() {
           height: '100%',
           background: `
             linear-gradient(45deg, 
-              rgba(9, 194, 247, 0.05) 0%, 
-              rgba(250, 14, 164, 0.05) 50%,
-              rgba(9, 194, 247, 0.05) 100%)
+              rgba(255, 215, 0, 0.05) 0%, 
+              rgba(20, 20, 20, 0.05) 50%,
+              rgba(255, 215, 0, 0.05) 100%)
           `,
           animation: `${gradientFlow} 12s ease infinite`,
           backgroundSize: '200% 200%',
@@ -213,24 +210,29 @@ function LandingPage() {
             sx={{
               width: 120,
               height: 120,
-              background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
               borderRadius: '24px',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
               mb: 4,
-              animation: `${neonGlow} 2s infinite`,
-              boxShadow: '0 0 32px rgba(9, 194, 247, 0.2)',
+              animation: `${goldGlow} 2s infinite`,
+              boxShadow: '0 0 32px rgba(255, 215, 0, 0.2)',
               transition: 'transform 0.3s ease',
               '&:hover': {
                 transform: 'scale(1.05)'
               }
             }}
           >
-            <img
-              src="/lookzapp trans 2.png"
-              alt="LookzApp"
-              style={{ width: '80%', filter: 'brightness(0) invert(1)' }}
+            <Box
+              component="img"
+              src="/Octavian.png"
+              alt="Octavian Ideas Logo"
+              sx={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 0 8px rgba(255, 215, 0, 0.3))'
+              }}
             />
           </Box>
 
@@ -248,7 +250,7 @@ function LandingPage() {
                 fontWeight: 800,
                 fontSize: isMobile ? '2.5rem' : '3.5rem',
                 lineHeight: 1.1,
-                background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
+                background: 'linear-gradient(45deg, #fff 30%, #FFD700 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 textAlign: 'center',
@@ -262,11 +264,11 @@ function LandingPage() {
                 fontWeight: 400,
                 fontSize: '1.5rem',
                 mt: 1.5,
-                background: 'linear-gradient(45deg, #fa0ea4 30%, #09c2f7 100%)',
+                background: 'linear-gradient(45deg, #FFD700 30%, #1a1a1a 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
               }}>
-                by Lookzapp
+                by Octavian Ideas
               </Typography>
             </Typography>
           </Box>
@@ -279,17 +281,17 @@ function LandingPage() {
               mb: 5,
               color: 'rgba(255,255,255,0.8)',
               lineHeight: 1.6,
-              textShadow: '0 0 10px rgba(9, 194, 247, 0.2)'
+              textShadow: '0 0 10px rgba(255, 215, 0, 0.2)'
             }}
           >
-            Next-generation facial analytics powered by convolutional neural networks.
-            Receive detailed symmetry analysis and beauty predictions in real-time.
+            Transforming ideas into digital reality through innovative technology solutions.
+            We craft exceptional experiences that drive business growth and success.
           </Typography>
 
           <StyledButton
+            onClick={() => navigate('/')}
             variant="contained"
             size="large"
-            onClick={() => navigate('/analyze-selection')}
             sx={{
               px: 6,
               py: 2,
@@ -298,7 +300,7 @@ function LandingPage() {
               textTransform: 'none',
             }}
           >
-            Start Free Scan →
+            Go Back to Lookzapp →
           </StyledButton>
         </Box>
 
@@ -324,23 +326,23 @@ function LandingPage() {
                   className="feature-icon"
                   sx={{
                     fontSize: 48,
-                    color: '#09c2f7',
+                    color: '#FFD700',
                     mb: 3,
-                    filter: 'drop-shadow(0 0 8px rgba(9, 194, 247, 0.3))',
+                    filter: 'drop-shadow(0 0 8px rgba(255, 215, 0, 0.3))',
                     transition: 'all 0.3s ease',
                   }} 
                 />
                 <Typography variant="h5" sx={{ 
                   mb: 2, 
                   fontWeight: 600,
-                  color: '#6ce9ff',
-                  textShadow: '0 0 10px rgba(9, 194, 247, 0.3)'
+                  color: '#FFD700',
+                  textShadow: '0 0 10px rgba(255, 215, 0, 0.3)'
                 }}>
                   {feature.title}
                 </Typography>
                 <Typography variant="body1" sx={{ 
                   color: 'rgba(255,255,255,0.7)',
-                  textShadow: '0 0 5px rgba(9, 194, 247, 0.2)'
+                  textShadow: '0 0 5px rgba(255, 215, 0, 0.2)'
                 }}>
                   {feature.description}
                 </Typography>
@@ -366,7 +368,7 @@ function LandingPage() {
           animationFillMode: 'forwards',
         }}
       >
-        <Typography variant="body2" onClick={() => navigate('/octavian')}>
+        <Typography variant="body2">
           © 2025 Octavian Ideas. All rights reserved.
         </Typography>
       </Box>
@@ -375,4 +377,4 @@ function LandingPage() {
   );
 }
 
-export default LandingPage;
+export default OctavianLandingPage; 

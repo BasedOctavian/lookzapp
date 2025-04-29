@@ -28,7 +28,8 @@ const AnalyzeSelection = lazy(() => import('./Pages/AnalyzeSelection'));
 const AutismAnalytic = lazy(() => import('./Pages/AutismAnalytic'));
 const GeekedGuess = lazy(() => import('./Pages/GeekedGuess'));
 const LandingPage = lazy(() => import('./Pages/LandingPage'));
-
+const Octavian = lazy(() => import('./Pages/OctavianLandingPage'));
+const ScanLimitPage = lazy(() => import('./Components/ScanLimitPage'));
 // Create MUI theme
 const muiTheme = createTheme({
   palette: {
@@ -45,7 +46,6 @@ const muiTheme = createTheme({
 const LoadingSpinner = () => (
   <LoadingIndicator
     message="Loading..."
-    subMessage="Please wait while we prepare your experience"
   />
 );
 
@@ -57,7 +57,7 @@ function App() {
     try {
       const hasSeenWarning = localStorage.getItem('hasSeenWarning');
       if (!hasSeenWarning) {
-        setShowWarning(true);
+        setShowWarning(false);
       }
     } catch (err) {
       console.error('Error accessing localStorage:', err);
@@ -94,25 +94,14 @@ function App() {
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
                 <Route path="/" element={<LandingPage />} />
-                <Route path="/createaccount" element={<CreateAccount />} />
+                <Route path="/signup" element={<CreateAccount />} />
                 <Route path="/signin" element={<SignIn />} />
-                <Route path="/leaderboard" element={<PrivateRoute><TopRatedUsersTable /></PrivateRoute>} />
-                <Route path="/video-chat" element={<PrivateRoute><VideoCall /></PrivateRoute>} />
-                <Route path="/home" element={<HomeScreen />} />
-                <Route path="/profile/:userId" element={<PrivateRoute><Profile /></PrivateRoute>} />
-                <Route path="/influencer-profile/:influencerId" element={<PrivateRoute><InfluencerProfile /></PrivateRoute>} />
-                <Route path="/updates" element={<PrivateRoute><Updates /></PrivateRoute>} />
-                <Route path="/geo-locate" element={<PrivateRoute><GeoCall /></PrivateRoute>} />
-                <Route path="/two-truths" element={<PrivateRoute><TwoTruths /></PrivateRoute>} />
-                <Route path="/analysis" element={<PrivateRoute><Analyze /></PrivateRoute>} />
-                <Route path="/looksmatch" element={<PrivateRoute><Looksmatch /></PrivateRoute>} />
-                <Route path="/get-ranked-selection" element={<GetRankedSelection />} />
-                <Route path="/ranking" element={<GetRanked />} />
-                <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
-                <Route path="/games-selection" element={<PrivateRoute><GamesSelection /></PrivateRoute>} />
-                <Route path="/analyze-selection" element={<PrivateRoute><AnalyzeSelection /></PrivateRoute>} />
+                <Route path="/scan-limit" element={<ScanLimitPage />} />
+                <Route path="/home" element={<Navigate to="/" />} />    
+                <Route path="/analysis" element={<Analyze />} />
+                <Route path="/analyze-selection" element={<AnalyzeSelection /> } />
                 <Route path="/autism-analytic" element={<AutismAnalytic />} />
-                <Route path="/geeked-guess" element={<GeekedGuess />} />
+                <Route path="/octavian" element={<Octavian />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </Suspense>
