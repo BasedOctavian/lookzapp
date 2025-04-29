@@ -103,12 +103,6 @@ function GetRanked() {
     localVideoRef.current = element;
   };
 
-  // Log data for debugging
-  useEffect(() => {
-    if (ratedEntityData) console.log('Current Rated Entity Data:', ratedEntityData);
-    if (userData) console.log('Current AuthUser Data:', userData);
-  }, [ratedEntityData, userData]);
-
   // Calculate sorted rated data for global rankings
   const sortedRatedData = useMemo(() => {
     if (!topRatedData) return [];
@@ -240,16 +234,13 @@ function GetRanked() {
               dailyTimesGiven: { date: today, count: 1 },
             });
           }
-          console.log('Rater dailyTimesGiven updated:', user.uid);
         }
 
         // Update the ratee's dailyTimesGiven and ratedCount (person being rated)
         if (currentEntity) {
-          console.log('Current entity type:', currentEntity.type); // Check entity type
           if (currentEntity.type === 'user') {
             const rateeRef = doc(db, 'users', currentEntity.id);
             const rateeSnap = await transaction.get(rateeRef);
-            console.log('Ratee document exists:', rateeSnap.exists()); // Check if doc exists
             if (rateeSnap.exists()) {
               const rateeData = rateeSnap.data();
               const rateeDailyTimesGiven = rateeData.dailyTimesGiven || { date: '', count: 0 };
@@ -265,7 +256,6 @@ function GetRanked() {
                 dailyTimesGiven: updatedDailyTimesGiven,
                 ratedCount: updatedRatedCount,
               });
-              console.log('Ratee updated - ratedCount:', updatedRatedCount); // Confirm update
             } else {
               // Optionally create the ratee's document if it doesn't exist
               const newRateeData = {
@@ -274,10 +264,7 @@ function GetRanked() {
                 // Add any other required fields for a new user document
               };
               transaction.set(rateeRef, newRateeData);
-              console.log('Created new ratee document with ratedCount: 1');
             }
-          } else {
-            console.log('Ratee is not a user, skipping ratedCount update');
           }
         }
       });
@@ -466,11 +453,6 @@ function GetRanked() {
     setShowFeatureSelection(false);
     setSelectedRating(null);
   };
-
-  // Debug logging for feature selection state
-  useEffect(() => {
-    console.log('Feature selection state:', { showFeatureSelection, selectedRating });
-  }, [showFeatureSelection, selectedRating]);
 
   const handleRate = (rating, selectedFeatures, featurePercentages) => {
     // Calculate feature scores based on percentages

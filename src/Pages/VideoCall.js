@@ -88,7 +88,6 @@ function VideoCall() {
   useEffect(() => {
     if (localRating) {
       setInitialRating(localRating.toFixed(1));
-      console.log("Local rating now exists:", localRating.toFixed(1));
     }
   }, [localRating]);
 
@@ -151,7 +150,6 @@ function VideoCall() {
           newPeer._pc.iceConnectionState === 'disconnected' ||
           newPeer._pc.iceConnectionState === 'failed'
         ) {
-          console.log('ICE connection lost:', newPeer._pc.iceConnectionState);
           handleCallEnded();
         }
       };
@@ -315,7 +313,6 @@ function VideoCall() {
   };
 
   const handleCallEnded = async () => {
-    console.log('Call ended, setting room to inactive');
     if (!initialRating && localRating) {
       setInitialRating(localRating.toFixed(1));
     }
@@ -432,7 +429,6 @@ function VideoCall() {
     const handleConnect = () => {
       setConnectionStatus('Connected');
       setCallStartTime(new Date());
-      console.log('Call started at:', new Date());
       if (userData && userData.id) {
         peer.send(JSON.stringify({ displayName: userData.displayName, userId: userData.id }));
       }
@@ -443,7 +439,6 @@ function VideoCall() {
         const remoteData = JSON.parse(data);
         setRemoteUserName(remoteData.displayName);
         setRemoteUserId(remoteData.userId);
-        console.log('Remote user ID set to:', remoteData.userId);
       } catch (err) {
         console.error('Invalid data received:', err);
       }
@@ -492,7 +487,6 @@ function VideoCall() {
     const unsubscribe = onSnapshot(doc(db, 'rooms', roomId), (docSnap) => {
       const roomData = docSnap.data();
       if (roomData?.status === 'inactive' && peer) {
-        console.log('Room became inactive, ending call');
         handleCallEnded();
       }
     }, (error) => {
@@ -504,7 +498,6 @@ function VideoCall() {
 
   useEffect(() => {
     if (!remoteUserId || !userData?.id || !callStartTime) {
-      console.log('Cannot set up listener: missing remoteUserId, userData.id, or callStartTime');
       return;
     }
 
@@ -518,10 +511,8 @@ function VideoCall() {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      console.log('Snapshot received with', snapshot.size, 'documents');
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'added') {
-          console.log('Remote user has rated you:', change.doc.data());
           setRemoteRatingReceived(true);
         }
       });

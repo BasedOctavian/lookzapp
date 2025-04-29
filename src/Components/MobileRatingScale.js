@@ -45,19 +45,6 @@ const MobileRatingScale = ({ selectedRating, onRate, onCancel }) => {
   const scrollIntervalRef = useRef(null);
   const [showFeatureHint, setShowFeatureHint] = useState(true);
 
-  // Debug logging
-  useEffect(() => {
-    console.log('MobileRatingScale mounted with rating:', selectedRating);
-    setCurrentRating(selectedRating);
-    
-    // Clean up interval on unmount
-    return () => {
-      if (scrollIntervalRef.current) {
-        clearInterval(scrollIntervalRef.current);
-      }
-    };
-  }, [selectedRating]);
-
   // Initialize feature percentages
   useEffect(() => {
     // Set initial percentages based on rating

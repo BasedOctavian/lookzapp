@@ -234,12 +234,10 @@ function TwoTruths() {
         });
 
         setRoomId(roomRef.id);
-        console.log('Room created with ID:', roomRef.id);
 
         onSnapshot(doc(db, 'twoTruthsRooms', roomRef.id), (docSnap) => {
           const roomData = docSnap.data();
           if (roomData?.answer && !newPeer.destroyed) {
-            console.log('Received answer:', roomData.answer);
             newPeer.signal(roomData.answer);
           }
         });
@@ -250,11 +248,9 @@ function TwoTruths() {
       });
 
       newPeer.on('error', (err) => {
-        console.error('PeerJS error:', err);
         handleCallEnded(false);
       });
       newPeer.on('close', () => {
-        console.log('PeerJS connection closed');
         handleCallEnded(false);
       });
 
@@ -324,22 +320,18 @@ function TwoTruths() {
         });
 
         newPeer.on('error', (err) => {
-          console.error('PeerJS error:', err);
           handleCallEnded(false);
         });
         newPeer.on('close', () => {
-          console.log('PeerJS connection closed');
           handleCallEnded(false);
         });
 
         setPeer(newPeer);
         setRoomId(roomId);
-        console.log('Reusing inactive room with ID:', roomId);
 
         onSnapshot(roomRef, (docSnap) => {
           const updatedData = docSnap.data();
           if (updatedData?.answer && !newPeer.destroyed) {
-            console.log('Received answer:', updatedData.answer);
             newPeer.signal(updatedData.answer);
           }
         });
@@ -353,7 +345,6 @@ function TwoTruths() {
             status: 'active',
             joinerId: userData.id,
           });
-          console.log('Answer set for room:', roomId);
         });
 
         newPeer.on('stream', (stream) => {
@@ -361,18 +352,15 @@ function TwoTruths() {
         });
 
         newPeer.on('error', (err) => {
-          console.error('PeerJS error:', err);
           handleCallEnded(false);
         });
         newPeer.on('close', () => {
-          console.log('PeerJS connection closed');
           handleCallEnded(false);
         });
 
         setPeer(newPeer);
         newPeer.signal(offer);
         setRoomId(roomId);
-        console.log('Joined waiting room:', roomId);
       }
     } catch (err) {
       console.error('Error joining room:', err);
@@ -448,7 +436,6 @@ function TwoTruths() {
             initiatorGuess: null,
             joinerGuess: null,
           });
-          console.log('Room set to inactive:', roomId);
         } catch (err) {
           console.error('Error updating room status:', err);
           setError('Failed to update room status');
@@ -698,7 +685,7 @@ function TwoTruths() {
               </Box>
               <Box>
                 <Text fontWeight="bold" color="gray.700" mb={2}>
-                  {remoteUserName || 'Opponent'}’s Statements:
+                  {remoteUserName || 'Opponent'}'s Statements:
                 </Text>
                 {roomData[remoteStatementsField].map((stmt, index) => (
                   <Text
@@ -718,8 +705,8 @@ function TwoTruths() {
                 const localCorrect = roomData[localGuessField] === roomData[remoteLieIndexField];
                 const remoteCorrect = roomData[remoteGuessField] === roomData[localLieIndexField];
                 let resultText;
-                if (localCorrect && !remoteCorrect) resultText = 'You win! You guessed right, they didn’t.';
-                else if (!localCorrect && remoteCorrect) resultText = `${remoteUserName || 'They'} win! They guessed right, you didn’t.`;
+                if (localCorrect && !remoteCorrect) resultText = "You win! You guessed right, they didn't.";
+                else if (!localCorrect && remoteCorrect) resultText = `${remoteUserName || 'They'} win! They guessed right, you didn't.`;
                 else if (localCorrect && remoteCorrect) resultText = "It's a tie! You both guessed correctly.";
                 else resultText = "It's a tie! Neither of you guessed correctly.";
                 return (
@@ -769,7 +756,6 @@ function TwoTruths() {
       if (userData && userData.id) {
         peer.send(JSON.stringify({ displayName: userData.displayName, userId: userData.id }));
       }
-      console.log('Peer connected');
     };
 
     const handleData = (data) => {
@@ -787,12 +773,10 @@ function TwoTruths() {
     };
 
     const handleError = (err) => {
-      console.error('PeerJS error:', err);
       handleCallEnded(false);
     };
 
     const handleClose = () => {
-      console.log('PeerJS connection closed');
       handleCallEnded(false);
     };
 

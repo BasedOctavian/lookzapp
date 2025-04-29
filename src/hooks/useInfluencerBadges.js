@@ -25,7 +25,6 @@ export function useInfluencerBadges(influencerId) {
           if (influencerDocSnap.exists()) {
             setInfluencerData({ id: strInfluencerId, ...influencerDocSnap.data() });
           } else {
-            console.log(`No document found for influencerId: ${strInfluencerId}`);
             setInfluencerData(null);
           }
         } catch (error) {
@@ -33,7 +32,6 @@ export function useInfluencerBadges(influencerId) {
           setInfluencerData(null);
         }
       } else {
-        console.log('influencerId is null or invalid:', influencerId);
         setInfluencerData(null);
       }
       setFetching(false);

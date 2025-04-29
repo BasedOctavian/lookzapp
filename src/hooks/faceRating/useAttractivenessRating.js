@@ -183,16 +183,6 @@ export function useAttractivenessRating(doc) {
       // Improved sigmoid normalization
       const overallRating = 100 / (1 + Math.exp(-0.12 * (rawScore - 45)));
 
-      // Log detailed scoring information
-      console.log('Scoring Details:', {
-        faceRating: faceRating.toFixed(2),
-        physicalRating: physicalRating.toFixed(2),
-        eyeColorScore,
-        bonus,
-        rawScore: rawScore.toFixed(2),
-        overallRating: overallRating.toFixed(2)
-      });
-
       return overallRating;
     } catch (error) {
       console.error('Error calculating attractiveness rating:', error.message);

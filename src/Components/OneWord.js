@@ -274,7 +274,6 @@ const genderOptions = [
   { label: 'Female', value: 'W', icon: <Face3 /> },
   { label: 'Non-binary', value: 'M', icon: <Psychology /> },
   { label: 'Other', value: 'W', icon: <Group /> },
-  { label: 'Prefer not to say', value: 'M', icon: <Visibility /> }
 ];
 
 // Helper function to calculate eye center
@@ -1280,34 +1279,30 @@ const UserInfoForm = ({ onSubmit, gender }) => {
         </TextField>
 
         {unitSystem === 'imperial' ? (
-          <Grid container spacing={2}>
-            <Grid item xs={6}>
-              <TextField
-                label="Height (feet)"
-                type="number"
-                value={heightFeet}
-                onChange={(e) => setHeightFeet(e.target.value)}
-                variant="outlined"
-                fullWidth
-                error={!!errors.heightFeet}
-                helperText={errors.heightFeet}
-                autoComplete="off"
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Height (inches)"
-                type="number"
-                value={heightInches}
-                onChange={(e) => setHeightInches(e.target.value)}
-                variant="outlined"
-                fullWidth
-                error={!!errors.heightInches}
-                helperText={errors.heightInches}
-                autoComplete="off"
-              />
-            </Grid>
-          </Grid>
+          <Stack spacing={2}>
+            <TextField
+              label="Height (feet)"
+              type="number"
+              value={heightFeet}
+              onChange={(e) => setHeightFeet(e.target.value)}
+              variant="outlined"
+              fullWidth
+              error={!!errors.heightFeet}
+              helperText={errors.heightFeet}
+              autoComplete="off"
+            />
+            <TextField
+              label="Height (inches)"
+              type="number"
+              value={heightInches}
+              onChange={(e) => setHeightInches(e.target.value)}
+              variant="outlined"
+              fullWidth
+              error={!!errors.heightInches}
+              helperText={errors.heightInches}
+              autoComplete="off"
+            />
+          </Stack>
         ) : (
           <TextField
             label="Height (cm)"
@@ -1603,10 +1598,6 @@ const DetailedResultDisplay = ({ overallRating, faceRating, userInfo }) => {
     weight: userInfo?.weight,
     gender: userInfo?.gender
   }, isBrutal);
-
-  useEffect(() => {
-    console.log('OneWord Description Result:', oneWord);
-  }, [oneWord]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -2304,6 +2295,7 @@ const AttractivenessRatingProcess = () => {
                   sx={{
                       cursor: 'pointer',
                       p: 3,
+                      marginRight: '40px',
                       height: '100%',
                       display: 'flex',
                       flexDirection: 'column',

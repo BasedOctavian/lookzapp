@@ -82,7 +82,6 @@ function ProfilePictureForm({
           resolve(orient);
         });
       });
-      console.log('EXIF Orientation:', orientation);
 
       // Set up canvas
       const canvas = canvasRef.current;
@@ -105,7 +104,6 @@ function ProfilePictureForm({
       }
       canvas.width = width;
       canvas.height = height;
-      console.log('Resized dimensions:', { width, height });
 
       // Adjust canvas for EXIF orientation
       switch (orientation) {
@@ -144,11 +142,9 @@ function ProfilePictureForm({
 
       // Draw the image
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-      console.log('Image drawn on canvas');
 
       // Perform face detection
       const predictions = await model.estimateFaces(canvas);
-      console.log('Face detection predictions:', predictions);
 
       if (predictions.length > 0) {
         onProfilePictureChange(file);

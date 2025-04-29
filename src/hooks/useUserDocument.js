@@ -21,7 +21,6 @@ export function useUserDocument(userId) {
         if (userDocSnap.exists()) {
           const userData = { id: userDocSnap.id, ...userDocSnap.data() };
           setUserDoc(userData);
-          console.log('User Document:', userData);
         } else {
           console.log('No user document found for ID:', userId);
         }

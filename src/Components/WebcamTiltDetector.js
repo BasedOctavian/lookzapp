@@ -66,6 +66,8 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import LoadingIndicator from './LoadingIndicator';
 import ShareRatingCard from './ShareRatingCard';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 // Animations
 const neonGlow = keyframes`
@@ -243,8 +245,7 @@ const genderOptions = [
   { label: 'Male', value: 'M', icon: <Face /> },
   { label: 'Female', value: 'W', icon: <Face3 /> },
   { label: 'Non-binary', value: 'M', icon: <Psychology /> },
-  { label: 'Other', value: 'W', icon: <Group /> },
-  { label: 'Prefer not to say', value: 'M', icon: <Visibility /> }
+  { label: 'Other', value: 'W', icon: <Group /> }
 ];
 
 // Helper function to calculate eye center
@@ -260,7 +261,7 @@ const calculateEyeCenter = (landmarks, indices) => {
 };
 
 // Add this new component before the WebcamTiltDetector component
-const StatsDisplay = ({ measurements, testScores }) => {
+const StatsDisplay = ({ measurements, testScores, isMobile }) => {
   if (!measurements || !testScores) return null;
 
   const stats = [
@@ -279,28 +280,28 @@ const StatsDisplay = ({ measurements, testScores }) => {
         bottom: 0,
         left: 0,
         right: 0,
-        p: 1,
+        p: isMobile ? 0.5 : 1,
         background: 'rgba(13, 17, 44, 0.85)',
         backdropFilter: 'blur(8px)',
         borderTop: '1px solid rgba(250, 14, 164, 0.2)',
         display: 'flex',
         flexDirection: 'column',
-        gap: 0.5,
+        gap: isMobile ? 0.25 : 0.5,
         zIndex: 3,
         animation: `${fadeIn} 0.5s ease-out`,
-        maxHeight: '120px',
+        maxHeight: isMobile ? '100px' : '120px',
         overflow: 'hidden',
       }}
     >
-      <Grid container spacing={0.5}>
+      <Grid container spacing={isMobile ? 0.25 : 0.5}>
         {stats.map((stat, index) => (
           <Grid item xs={6} key={index}>
             <Box
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 0.5,
-                p: 0.5,
+                gap: isMobile ? 0.25 : 0.5,
+                p: isMobile ? 0.25 : 0.5,
                 borderRadius: 0.5,
                 background: 'rgba(255, 255, 255, 0.05)',
               }}
@@ -311,10 +312,10 @@ const StatsDisplay = ({ measurements, testScores }) => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  width: 16,
-                  height: 16,
+                  width: isMobile ? 12 : 16,
+                  height: isMobile ? 12 : 16,
                   '& .MuiSvgIcon-root': {
-                    fontSize: 14,
+                    fontSize: isMobile ? 12 : 14,
                   }
                 }}
               >
@@ -327,7 +328,7 @@ const StatsDisplay = ({ measurements, testScores }) => {
                     color: 'rgba(255, 255, 255, 0.7)',
                     display: 'block',
                     mb: 0.25,
-                    fontSize: '0.65rem',
+                    fontSize: isMobile ? '0.6rem' : '0.65rem',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -337,7 +338,7 @@ const StatsDisplay = ({ measurements, testScores }) => {
                 </Typography>
                 <Box
                   sx={{
-                    height: 3,
+                    height: isMobile ? 2 : 3,
                     background: 'rgba(255, 255, 255, 0.1)',
                     borderRadius: 1.5,
                     overflow: 'hidden',
@@ -380,6 +381,8 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
   const [measurements, setMeasurements] = useState(null);
   const [testScores, setTestScores] = useState(null);
   const toast = useToast();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const config = gender === 'M' ? maleConfig : femaleConfig;
 
@@ -729,34 +732,36 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
             background: 'rgba(13, 17, 44, 0.85)',
             backdropFilter: 'blur(8px)',
             zIndex: 4,
+            p: isMobile ? 2 : 4,
           }}
         >
           <ErrorOutlineIcon 
             sx={{ 
-              fontSize: 48, 
+              fontSize: isMobile ? 36 : 48, 
               color: 'error.main',
-              mb: 2,
+              mb: isMobile ? 1 : 2,
               filter: 'drop-shadow(0 0 8px rgba(244, 67, 54, 0.3))'
             }} 
           />
           <Typography 
-            variant="h6" 
+            variant={isMobile ? "h6" : "h5"} 
             color="error"
-            mb={2}
+            mb={isMobile ? 1 : 2}
             sx={{ 
               fontSize: { base: '1rem', md: '1.25rem' },
               display: 'flex',
               alignItems: 'center',
-              gap: 1
+              gap: 1,
+              textAlign: 'center'
             }}
           >
-            <WarningAmberIcon sx={{ fontSize: 24 }} />
+            <WarningAmberIcon sx={{ fontSize: isMobile ? 20 : 24 }} />
             Camera Error
           </Typography>
           <Typography 
-            variant="body1" 
+            variant={isMobile ? "body2" : "body1"} 
             color="error"
-            mb={3}
+            mb={isMobile ? 2 : 3}
             sx={{ 
               fontSize: { base: '0.875rem', md: '1rem' },
               textAlign: 'center',
@@ -780,7 +785,10 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
               '&:hover': {
                 transform: 'translateY(-2px)',
                 boxShadow: '0 0 24px rgba(9, 194, 247, 0.4)',
-              }
+              },
+              fontSize: isMobile ? '0.875rem' : '1rem',
+              px: isMobile ? 2 : 3,
+              py: isMobile ? 1 : 1.5,
             }}
           >
             Retry
@@ -817,7 +825,7 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
           <Typography 
             variant="h1" 
             sx={{ 
-              fontSize: '6rem', 
+              fontSize: isMobile ? '4rem' : '6rem', 
               fontWeight: 800, 
               background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)', 
               WebkitBackgroundClip: 'text', 
@@ -831,7 +839,7 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
           {countdown === 0 && (
             <CheckCircleOutlineIcon 
               sx={{ 
-                fontSize: 48, 
+                fontSize: isMobile ? 36 : 48, 
                 color: '#4CAF50',
                 filter: 'drop-shadow(0 0 8px rgba(76, 175, 80, 0.3))',
                 animation: `${fadeIn} 0.5s ease-out`
@@ -846,38 +854,40 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
       {!faceDetected && !isLoading && !webcamError && (
         <StyledFaceDetectedOverlay>
           <Typography 
-            variant="body1" 
+            variant={isMobile ? "body2" : "body1"} 
             sx={{ 
               color: '#fff',
               fontSize: { base: '0.875rem', md: '1rem' },
               textShadow: '0 2px 4px rgba(0,0,0,0.5)',
               display: 'flex',
               alignItems: 'center',
-              gap: 1
+              gap: 1,
+              textAlign: 'center'
             }}
           >
-            <Face />
+            <Face sx={{ fontSize: isMobile ? 16 : 24 }} />
             Please position your face in the frame
           </Typography>
         </StyledFaceDetectedOverlay>
       )}
       <StyledInstructionText>
         <Typography 
-          variant="h6" 
+          variant={isMobile ? "subtitle1" : "h6"} 
           sx={{ 
             color: '#fff',
-            fontSize: { base: '1rem', md: '1.25rem' },
+            fontSize: { base: '0.875rem', md: '1.25rem' },
             textShadow: '0 2px 4px rgba(0,0,0,0.5)',
             display: 'flex',
             alignItems: 'center',
-            gap: 1
+            gap: 1,
+            textAlign: 'center'
           }}
         >
           {currentStep === 'scanning' ? 'Hold still for a moment...' : 'Look at the camera'}
         </Typography>
       </StyledInstructionText>
       {faceDetected && measurements && testScores && (
-        <StatsDisplay measurements={measurements} testScores={testScores} />
+        <StatsDisplay measurements={measurements} testScores={testScores} isMobile={isMobile} />
       )}
     </Box>
   );
@@ -1183,14 +1193,11 @@ const UserInfoForm = ({ onSubmit, gender }) => {
   };
 
   return (
-    <Box sx={{ 
+    <Box sx={{
       width: '100%',
-      height: '100%',
       display: 'flex',
       flexDirection: 'column',
-      justifyContent: 'space-between',
-      minHeight: '100vh',
-      color: '#fff',
+      alignItems: 'center',
       '& .MuiInputBase-root': {
         color: '#fff',
         '& fieldset': {
@@ -1219,8 +1226,26 @@ const UserInfoForm = ({ onSubmit, gender }) => {
         color: '#fff',
       },
     }}>
-      <Stack spacing={4} sx={{ width: '100%', maxWidth: '600px', mx: 'auto', flex: 1 }}>
-        <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', color: '#fff' }}>
+      <Stack 
+        spacing={4} 
+        sx={{ 
+          width: '100%', 
+          maxWidth: '600px',
+          mx: 'auto',
+          flex: 1,
+          px: { xs: 1, sm: 2 }
+        }}
+      >
+        <Typography 
+          variant="h5" 
+          gutterBottom 
+          sx={{ 
+            fontWeight: 'bold', 
+            color: '#fff',
+            textAlign: 'center',
+            width: '100%'
+          }}
+        >
           Personal Information
         </Typography>
 
@@ -1250,34 +1275,30 @@ const UserInfoForm = ({ onSubmit, gender }) => {
         </TextField>
 
         {unitSystem === 'imperial' ? (
-          <Grid container spacing={2}>
-            <Grid item xs={6}>
-              <TextField
-                label="Height (feet)"
-                type="number"
-                value={heightFeet}
-                onChange={(e) => setHeightFeet(e.target.value)}
-                variant="outlined"
-                fullWidth
-                error={!!errors.heightFeet}
-                helperText={errors.heightFeet}
-                autoComplete="off"
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Height (inches)"
-                type="number"
-                value={heightInches}
-                onChange={(e) => setHeightInches(e.target.value)}
-                variant="outlined"
-                fullWidth
-                error={!!errors.heightInches}
-                helperText={errors.heightInches}
-                autoComplete="off"
-              />
-            </Grid>
-          </Grid>
+          <Stack spacing={2}>
+            <TextField
+              label="Height (feet)"
+              type="number"
+              value={heightFeet}
+              onChange={(e) => setHeightFeet(e.target.value)}
+              variant="outlined"
+              fullWidth
+              error={!!errors.heightFeet}
+              helperText={errors.heightFeet}
+              autoComplete="off"
+            />
+            <TextField
+              label="Height (inches)"
+              type="number"
+              value={heightInches}
+              onChange={(e) => setHeightInches(e.target.value)}
+              variant="outlined"
+              fullWidth
+              error={!!errors.heightInches}
+              helperText={errors.heightInches}
+              autoComplete="off"
+            />
+          </Stack>
         ) : (
           <TextField
             label="Height (cm)"
@@ -1342,54 +1363,46 @@ const UserInfoForm = ({ onSubmit, gender }) => {
             <MenuItem key={option} value={option}>{option}</MenuItem>
           ))}
         </TextField>
-      </Stack>
 
-      <Box sx={{ 
-        width: '100%', 
-        maxWidth: '600px', 
-        mx: 'auto',
-        mt: 4,
-        mb: 4,
-        position: 'sticky',
-        bottom: 0,
-        backgroundColor: 'rgba(13, 17, 44, 0.9)',
-        padding: 2,
-        borderRadius: 2,
-        backdropFilter: 'blur(10px)',
-      }}>
-        <Stack direction="row" spacing={2} justifyContent="flex-end">
-          <MuiButton
+        <Box sx={{ 
+          width: '100%', 
+          display: 'flex', 
+          justifyContent: 'center',
+          gap: 2,
+          mt: 2
+        }}>
+          <Button
             variant="outlined"
             onClick={handleRevert}
             sx={{
               textTransform: 'none',
               px: 3,
-              py: 1,
+              py: 1.5,
               borderRadius: 2,
               color: '#fff',
               borderColor: 'rgba(255, 255, 255, 0.23)',
               '&:hover': {
                 bgcolor: 'rgba(255, 255, 255, 0.1)',
-                transform: 'translateY(-1px)',
+                transform: 'translateY(-2px)',
                 boxShadow: 1,
                 borderColor: '#09c2f7',
               },
             }}
           >
             Clear Form
-          </MuiButton>
-          <MuiButton
+          </Button>
+          <Button
             variant="contained"
             onClick={handleSubmit}
             disabled={!isFormValid()}
             sx={{
               textTransform: 'none',
               px: 3,
-              py: 1,
+              py: 1.5,
               borderRadius: 2,
               background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
               '&:hover': {
-                transform: 'translateY(-1px)',
+                transform: 'translateY(-2px)',
                 boxShadow: 2,
                 background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
               },
@@ -1400,9 +1413,9 @@ const UserInfoForm = ({ onSubmit, gender }) => {
             }}
           >
             Submit
-          </MuiButton>
-        </Stack>
-      </Box>
+          </Button>
+        </Box>
+      </Stack>
 
       <Snackbar
         open={snackbar.open}
@@ -2551,7 +2564,16 @@ const AttractivenessRatingProcess = () => {
         )}
 
         {currentStep === 'genderSelection' && (
-          <Box sx={{ textAlign: 'center', py: 8 }}>
+          <Box sx={{ 
+            textAlign: 'center', 
+            py: 8,
+            px: { xs: 2, sm: 3, md: 4 },
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '100vh'
+          }}>
             <Typography
               variant="h3"
               sx={{
@@ -2560,20 +2582,35 @@ const AttractivenessRatingProcess = () => {
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 mb: 4,
-                fontSize: { xs: '2rem', md: '2.5rem' }
+                fontSize: { xs: '2rem', md: '2.5rem' },
+                textAlign: 'center',
+                width: '100%',
+                marginTop: '-40px'
               }}
             >
               Select Analysis Profile
             </Typography>
             
-            <Grid container spacing={3} justifyContent="center" sx={{ maxWidth: '800px', mx: 'auto' }}>
+            <Grid 
+              container 
+              spacing={3} 
+              justifyContent="center" 
+              sx={{ 
+                maxWidth: '800px',
+                width: '100%',
+                mx: 'auto',
+                px: { xs: 1, sm: 2, md: 3 }
+              
+              }}
+            >
               {genderOptions.map((option) => (
                 <Grid item xs={12} sm={6} md={4} key={option.value}>
                   <GlassCard
                     onClick={() => handleGenderSelection(option.value)}
-                  sx={{
+                    sx={{ 
                       cursor: 'pointer',
                       p: 3,
+                      marginRight: '20px',
                       height: '100%',
                       display: 'flex',
                       flexDirection: 'column',
@@ -2599,6 +2636,7 @@ const AttractivenessRatingProcess = () => {
                         alignItems: 'center',
                         justifyContent: 'center',
                         mb: 2,
+                        
                         animation: `${neonGlow} 2s infinite`,
                         '& .MuiSvgIcon-root': {
                           fontSize: 32,
@@ -2614,7 +2652,8 @@ const AttractivenessRatingProcess = () => {
                         color: '#fff',
                         fontWeight: 600,
                         textAlign: 'center',
-                        mb: 1
+                        mb: 1,
+                        width: '100%'
                       }}
                     >
                       {option.label}
@@ -2624,7 +2663,8 @@ const AttractivenessRatingProcess = () => {
                       sx={{
                         color: 'rgba(255,255,255,0.7)',
                         textAlign: 'center',
-                        fontSize: '0.875rem'
+                        fontSize: '0.875rem',
+                        width: '100%'
                       }}
                     >
                       {option.label === 'Male' ? 'Masculine facial analysis' :
@@ -2633,7 +2673,7 @@ const AttractivenessRatingProcess = () => {
                        option.label === 'Other' ? 'Custom facial analysis' :
                        'Anonymous facial analysis'}
                     </Typography>
-            </GlassCard>
+                  </GlassCard>
                 </Grid>
               ))}
             </Grid>
@@ -2679,7 +2719,8 @@ const AttractivenessRatingProcess = () => {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            px: { xs: 2, sm: 3, md: 4 }
           }}>
             <Typography
               variant="h3"
@@ -2690,7 +2731,8 @@ const AttractivenessRatingProcess = () => {
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 mb: 4,
-                fontSize: { xs: '2.5rem', md: '3.5rem' }
+                fontSize: { xs: '2rem', md: '2.5rem' },
+                width: '100%'
               }}
             >
               Subject Profile Setup
@@ -2700,7 +2742,7 @@ const AttractivenessRatingProcess = () => {
               width: '100%',
               maxWidth: '800px',
               mx: 'auto',
-              p: 4,
+              p: { xs: 2, sm: 3, md: 4 },
               borderRadius: 2,
               background: 'rgba(13, 17, 44, 0.7)',
               backdropFilter: 'blur(16px)',

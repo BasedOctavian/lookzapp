@@ -8,9 +8,7 @@ export function useLooksmatch(uid) {
 
   useEffect(() => {
     const fetchLooksmatch = async () => {
-      console.log('Fetching looksmatch...');
       if (!uid) {
-        console.error('No UID provided');
         setLooksmatch(null);
         setLoading(false);
         return;
@@ -22,7 +20,6 @@ export function useLooksmatch(uid) {
         const userDocSnap = await getDoc(userDocRef);
 
         if (!userDocSnap.exists()) {
-          console.error('User document not found');
           setLooksmatch(null);
           setLoading(false);
           return;
@@ -32,7 +29,6 @@ export function useLooksmatch(uid) {
         const { gender, timesRanked: userTimesRanked = 0 } = userData;
 
         if (!gender) {
-          console.error('User gender not specified');
           setLooksmatch(null);
           setLoading(false);
           return;
@@ -82,7 +78,6 @@ export function useLooksmatch(uid) {
 
         setLooksmatch(closestCandidate);
       } catch (error) {
-        console.error('Error fetching looksmatch:', error);
         setLooksmatch(null);
       } finally {
         setLoading(false);

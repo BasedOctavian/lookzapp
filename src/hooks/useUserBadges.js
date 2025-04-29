@@ -24,7 +24,6 @@ export function useUserBadges(userId) {
           if (userDocSnap.exists()) {
             setUserData({ id: strUserId, ...userDocSnap.data() });
           } else {
-            console.log(`No document found for userId: ${strUserId}`);
             setUserData(null);
           }
         } catch (error) {
@@ -32,7 +31,6 @@ export function useUserBadges(userId) {
           setUserData(null);
         }
       } else {
-        console.log('userId is null or invalid:', userId);
         setUserData(null);
       }
       setFetching(false); // Done fetching
@@ -250,7 +248,7 @@ export function useUserBadges(userId) {
       name: 'Weak Jawline',
       emoji: '😐',
       qualifies: (info) => info.facialAverage < 1.0, // Tightened from < 1.5
-      description: 'For an average facial rating below 1.0. Your jawline’s practically invisible!',
+      description: 'For an average facial rating below 1.0. Your jawline\'s practically invisible!',
     },
     {
       name: 'Bad Hair Day',
@@ -268,7 +266,7 @@ export function useUserBadges(userId) {
       name: 'Bottom Tier',
       emoji: '⬇️',
       qualifies: (info) => info.averageRating < 1.5, // Tightened from < 2.0
-      description: 'For an average overall rating below 1.5. You’re the bottom of the bottom.',
+      description: 'For an average overall rating below 1.5. You\'re the bottom of the bottom.',
     },
     {
       name: 'Bottom 5% Eyes',
@@ -280,7 +278,7 @@ export function useUserBadges(userId) {
       name: 'Bottom 5% Smile',
       emoji: '😞',
       qualifies: (info, thresholds) => info.smileAverage <= thresholds.bottom.smile, // Now bottom 5%
-      description: 'For a smile rating in the bottom 5%. Your smile’s a rare disaster.',
+      description: 'For a smile rating in the bottom 5%. Your smile\'s a rare disaster.',
     },
     {
       name: 'Bottom 5% Facial',
@@ -292,7 +290,7 @@ export function useUserBadges(userId) {
       name: 'Bottom 5% Hair',
       emoji: '💇‍♀️',
       qualifies: (info, thresholds) => info.hairAverage <= thresholds.bottom.hair, // Now bottom 5%
-      description: 'For a hair rating in the bottom 5%. Hair so bad it’s rare.',
+      description: 'For a hair rating in the bottom 5%. Hair so bad it\'s rare.',
     },
     {
       name: 'Bottom 5% Body',
@@ -327,12 +325,10 @@ export function useUserBadges(userId) {
   ];
 
   // Compute earned badges using userInfo and thresholds
- // Compute earned badges using userInfo and thresholds
-const earnedBadges = useMemo(() => {
-  if (!userInfo || !thresholds || userInfo.timesRanked <= 3) return [];
-  return badgeDefinitions.filter((badge) => badge.qualifies(userInfo, thresholds));
-}, [userInfo, thresholds]);
-
+  const earnedBadges = useMemo(() => {
+    if (!userInfo || !thresholds || userInfo.timesRanked <= 3) return [];
+    return badgeDefinitions.filter((badge) => badge.qualifies(userInfo, thresholds));
+  }, [userInfo, thresholds]);
 
   // Combined loading state
   const loading = fetching || globalLoading;
