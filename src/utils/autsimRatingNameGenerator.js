@@ -8,45 +8,65 @@ const AUTISM_SCORE_RANGES = {
   // Humorous descriptors for each tier
   const AUTISM_DESCRIPTORS = {
     HIGH: [
-      "Autism CEO – Clocked in, never clocking out",
-      "Maxed Out Neurodivergence – No patch can nerf this build",
-      "Built Different™ – Brain's running on quantum spaghetti",
-      "Eye Contact? Nah, I see souls",
-      "NPC Social Stats, God-Tier Mental Stack"
+      "Autism Overlord – Your social skills are in the negative",
+      "Neurodivergent Nightmare – Even the DSM-5 is scared of you",
+      "Built Wrong™ – Your brain runs on Windows Vista",
+      "Eye Contact? More like soul-crushing stare",
+      "Social Skills: Error 404 – Not Found"
     ],
     MODERATE: [
-      "Budget Autism – Costco sample size of the spectrum",
-      "Might Be Autistic, Might Just Be Terminally Online",
-      "Hyperfocus DLC Unlocked – Just can’t toggle it off",
-      "Social Skills in Beta – Expect random behavior",
-      "50% Spectrum, 50% ✨Mystique✨"
+      "Autism Lite – Like regular autism but watered down",
+      "Probably Autistic, Definitely Annoying",
+      "Hyperfocus: On – Social Skills: Off",
+      "Socially Awkward Edition – Now with extra cringe",
+      "50% Spectrum, 50% Trainwreck"
     ],
     LOW: [
-      "Default Settings Enabled – Neurotypical starter pack",
-      "Social Jedi – Makes eye contact *and* small talk",
-      "No Special Interests, Just Vibes",
-      "Too normal, it's actually suspicious",
-      "Living on Easy Mode – No patch notes required"
+      "Basic Bitch Settings – Too normal to be interesting",
+      "Social Normie – Makes eye contact *and* small talk (gross)",
+      "No Special Interests, Just Boring",
+      "Suspiciously Normal – Probably a robot",
+      "Living on Tutorial Mode – No achievements unlocked"
     ]
   };
   
   // Feature-specific phrases tied to autism traits
   const FEATURE_PHRASES = {
     'Face Width Ratio': [
-      "face wider than a Google Spreadsheet – data-driven mug",
-      "cheeks with enough storage for 3 obsessions and a side quest"
+      "face wider than your social circle – which is saying something",
+      "cheeks that could store your entire personality"
     ],
     'Eye Spacing': [
-      "eyes closer than a Discord mod to his favorite VTuber",
-      "sniper-level gaze compression – zero distractions"
+      "eyes closer than your relationship with your mom",
+      "gaze so compressed it's basically a black hole"
     ],
     'Nasal Bridge': [
-      "bridge built like a Skyrim fortress – unyielding and majestic",
+      "bridge built like your social life – completely collapsed",
       "nose architecture that's 100% Brutalist Spectrum Core"
     ],
     'Forehead Ratio': [
-      "forehead roomy enough to host a Ted Talk",
-      "the thinker’s landing pad – where ideas spawn uninvited"
+      "forehead roomy enough to host your imaginary friends",
+      "the thinker's landing pad – where your one brain cell lives"
+    ]
+  };
+  
+  // Normal feature descriptions
+  const NORMAL_FEATURE_PHRASES = {
+    'Face Width Ratio': [
+      "face so normal it's actually boring",
+      "basic face shape that screams 'I peaked in high school'"
+    ],
+    'Eye Spacing': [
+      "eye spacing that's painfully average",
+      "normal eye distance that makes you forgettable"
+    ],
+    'Nasal Bridge': [
+      "nose so normal it's offensive",
+      "basic nose shape that matches your basic personality"
+    ],
+    'Forehead Ratio': [
+      "forehead size that's aggressively average",
+      "standard forehead that matches your standard personality"
     ]
   };
   
@@ -66,16 +86,28 @@ const AUTISM_SCORE_RANGES = {
     const overallDescriptor = getRandomElement(AUTISM_DESCRIPTORS[tier]);
   
     // Find the feature with the highest score (most autistic-like)
-    const featureToDescribe = Object.entries(testScores).reduce((a, b) => (a[1] > b[1] ? a : b))[0];
-    const featureScore = testScores[featureToDescribe];
+    const [bestFeature, bestScore] = Object.entries(testScores).reduce((a, b) => (a[1] > b[1] ? a : b));
+    // Find the feature with the lowest score (least autistic-like)
+    const [worstFeature, worstScore] = Object.entries(testScores).reduce((a, b) => (a[1] < b[1] ? a : b));
     
-    let featurePhrase = '';
-    if (featureScore >= 75) {
-      featurePhrase = `thanks to their ${getRandomElement(FEATURE_PHRASES[featureToDescribe])}`;
+    let bestFeaturePhrase = '';
+    if (bestScore >= 75) {
+      bestFeaturePhrase = `${getRandomElement(FEATURE_PHRASES[bestFeature])}`;
     } else {
-      featurePhrase = `with a subtle nod to ${featureToDescribe.toLowerCase()}`;
+      bestFeaturePhrase = `shows subtle traits in ${bestFeature.toLowerCase()}`;
     }
   
-    return `${overallDescriptor}, ${featurePhrase}`;
+    let worstFeaturePhrase = '';
+    if (worstScore < 30) {
+      worstFeaturePhrase = `${getRandomElement(NORMAL_FEATURE_PHRASES[worstFeature])}`;
+    } else {
+      worstFeaturePhrase = `shows typical patterns in ${worstFeature.toLowerCase()}`;
+    }
+  
+    return {
+      overall: overallDescriptor,
+      bestFeature: bestFeaturePhrase,
+      worstFeature: worstFeaturePhrase
+    };
   };
   

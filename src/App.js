@@ -6,6 +6,9 @@ import { SnackbarProvider } from 'notistack';
 import PrivateRoute from './Pages/PrivateRoute';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import LoadingIndicator from './Components/LoadingIndicator';
+import OneWord from './Components/OneWord';
+import OneWordPage from './Pages/OneWordPage';
+import Soon from './Pages/Soon';
 
 // Lazy load components for better performance
 const VideoCall = lazy(() => import('./Pages/VideoCall'));
@@ -102,6 +105,8 @@ function App() {
                 <Route path="/analyze-selection" element={<AnalyzeSelection /> } />
                 <Route path="/autism-analytic" element={<AutismAnalytic />} />
                 <Route path="/octavian" element={<Octavian />} />
+                <Route path="/label-me" element={<OneWordPage />} />
+                <Route path="/soon" element={<Soon />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </Suspense>

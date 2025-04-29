@@ -661,6 +661,8 @@ const ResultDisplay = ({ percentage, tierLabel }) => {
 // DetailedResultDisplay Component
 const DetailedResultDisplay = ({ overallPercentage, testScores }) => {
   const navigate = useNavigate();
+  const [showDetails, setShowDetails] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   let tierLabel, tierDescription, tierEmoji;
   if (overallPercentage >= 90) {
@@ -700,6 +702,9 @@ const DetailedResultDisplay = ({ overallPercentage, testScores }) => {
       impact: score >= 75 ? 'High' : score >= 50 ? 'Moderate' : 'Low',
     }));
 
+  const bestFeature = sortedFeatures[0];
+  const worstFeature = sortedFeatures[sortedFeatures.length - 1];
+
   return (
     <Box sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
       <Box
@@ -710,86 +715,236 @@ const DetailedResultDisplay = ({ overallPercentage, testScores }) => {
           border: '1px solid rgba(250, 14, 164, 0.2)',
           mb: 4,
           textAlign: 'center',
+          animation: 'fadeIn 0.5s ease-out',
+          '@keyframes fadeIn': {
+            '0%': { opacity: 0, transform: 'translateY(20px)' },
+            '100%': { opacity: 1, transform: 'translateY(0)' }
+          }
         }}
       >
-        <Typography variant="h2" sx={{ fontSize: '4rem' }}>
+        <Typography variant="h2" component="div" gutterBottom sx={{ fontSize: '4rem' }}>
           {tierEmoji}
         </Typography>
         <Typography variant="h4" gutterBottom fontWeight="bold">
           {tierLabel}
         </Typography>
         <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-          {overallPercentage.toFixed(1)}%
+          {funnyDescription?.overall}
         </Typography>
-        {funnyDescription && (
-          <Box sx={{ mt: 3, p: 2, bgcolor: 'rgba(0,0,0,0.05)', borderRadius: 2, textAlign: 'left' }}>
-            <Typography variant="body1">{funnyDescription}</Typography>
+
+        {/* Feature Highlights */}
+        <Box
+          sx={{
+            mt: 4,
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            gap: 3,
+            justifyContent: 'center'
+          }}
+        >
+          {/* Best Feature */}
+          <Box
+            sx={{
+              p: 3,
+              borderRadius: 2,
+              bgcolor: 'rgba(9, 194, 247, 0.1)',
+              border: '1px solid rgba(9, 194, 247, 0.3)',
+              flex: 1,
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center'
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Box sx={{ color: '#09c2f7' }}>{featureIcons[bestFeature?.test]}</Box>
+              <Typography variant="h6" sx={{ color: '#09c2f7' }}>
+                Most Indicative
+              </Typography>
+            </Box>
+            <Typography variant="body1" sx={{ color: '#fff', mb: 1 }}>
+              {bestFeature?.test}
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+              {funnyDescription?.bestFeature}
+            </Typography>
           </Box>
-        )}
+
+          {/* Worst Feature */}
+          <Box
+            sx={{
+              p: 3,
+              borderRadius: 2,
+              bgcolor: 'rgba(250, 14, 164, 0.1)',
+              border: '1px solid rgba(250, 14, 164, 0.3)',
+              flex: 1,
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center'
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Box sx={{ color: '#fa0ea4' }}>{featureIcons[worstFeature?.test]}</Box>
+              <Typography variant="h6" sx={{ color: '#fa0ea4' }}>
+                Least Indicative
+              </Typography>
+            </Box>
+            <Typography variant="body1" sx={{ color: '#fff', mb: 1 }}>
+              {worstFeature?.test}
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+              {funnyDescription?.worstFeature}
+            </Typography>
+          </Box>
+        </Box>
+
         <Typography variant="body1" paragraph sx={{ mt: 3 }}>
           {tierDescription}
         </Typography>
-        <GradientButton onClick={() => navigate('/')}>Back to Home</GradientButton>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={() => setShowDetails(!showDetails)}
+          sx={{ mt: 2 }}
+        >
+          {showDetails ? 'Hide Details' : 'Show Detailed Analysis'}
+        </Button>
       </Box>
 
-      <Typography
-        variant="h5"
-        gutterBottom
-        fontWeight="bold"
-        align="center"
-        mb={4}
-        sx={{
-          background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-        }}
-      >
-        Detailed Feature Analysis
-      </Typography>
-      <Stack spacing={3}>
-        {sortedFeatures.map(({ test, score, impact }, index) => {
-          const color = impact === 'High' ? '#ff6b6b' : impact === 'Moderate' ? '#ffd93d' : '#6bcb77';
-          return (
-            <Box
-              key={test}
-              sx={{
-                p: 2,
-                borderRadius: 2,
-                bgcolor: 'rgba(13, 17, 44, 0.7)',
-                border: `1px solid ${color}20`,
-                backdropFilter: 'blur(16px)',
-              }}
-            >
-              <Box display="flex" alignItems="center" mb={1}>
-                <Typography variant="h4" mr={2} sx={{ color }}>
-                  {featureIcons[test]}
-                </Typography>
-                <Box flex={1}>
-                  <Typography variant="body1" fontWeight="medium" sx={{ color: '#fff' }}>
-                    {test}
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                    {featureDescriptions[test]}
-                  </Typography>
+      {showDetails && (
+        <Box
+          sx={{
+            animation: 'slideIn 0.5s ease-out',
+            '@keyframes slideIn': {
+              '0%': { transform: 'translateY(20px)', opacity: 0 },
+              '100%': { transform: 'translateY(0)', opacity: 1 }
+            }
+          }}
+        >
+          <Typography 
+            variant="h5" 
+            gutterBottom 
+            fontWeight="bold" 
+            align="center" 
+            mb={4}
+            sx={{
+              background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              textShadow: '0 0 10px rgba(9, 194, 247, 0.3)'
+            }}
+          >
+            Detailed Feature Analysis
+          </Typography>
+          <Stack spacing={3}>
+            {sortedFeatures.map(({ test, score, impact }, index) => {
+              const color = impact === 'High' ? '#ff6b6b' : impact === 'Moderate' ? '#ffd93d' : '#6bcb77';
+              return (
+                <Box
+                  key={test}
+                  sx={{
+                    animation: `slideIn 0.5s ease-out ${index * 0.1}s both`,
+                    '@keyframes slideIn': {
+                      '0%': { transform: 'translateX(-20px)', opacity: 0 },
+                      '100%': { transform: 'translateX(0)', opacity: 1 }
+                    },
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: 'rgba(13, 17, 44, 0.7)',
+                    border: `1px solid ${color}20`,
+                    backdropFilter: 'blur(16px)'
+                  }}
+                >
+                  <Box display="flex" alignItems="center" mb={1}>
+                    <Typography variant="h4" mr={2} sx={{ color }}>
+                      {featureIcons[test]}
+                    </Typography>
+                    <Box flex={1}>
+                      <Typography 
+                        variant="body1" 
+                        fontWeight="medium"
+                        sx={{
+                          color: '#fff',
+                          textShadow: '0 0 5px rgba(9, 194, 247, 0.2)'
+                        }}
+                      >
+                        {test}
+                      </Typography>
+                      <Typography 
+                        variant="body2" 
+                        sx={{
+                          color: 'rgba(255,255,255,0.7)',
+                          textShadow: '0 0 5px rgba(9, 194, 247, 0.2)'
+                        }}
+                      >
+                        {featureDescriptions[test]}
+                      </Typography>
+                    </Box>
+                    <Typography
+                      variant="body1"
+                      sx={{
+                        bgcolor: `${color}20`,
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: 1,
+                        color: '#fff',
+                        textShadow: '0 0 5px rgba(9, 194, 247, 0.2)'
+                      }}
+                    >
+                      {impact}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ position: 'relative', mt: 1 }}>
+                    <LinearProgress
+                      variant="determinate"
+                      value={score}
+                      sx={{
+                        height: 8,
+                        borderRadius: 3,
+                        backgroundColor: 'rgba(255,255,255,0.1)',
+                        '& .MuiLinearProgress-bar': {
+                          backgroundColor: color,
+                          borderRadius: 3,
+                          transition: 'width 1s ease-in-out'
+                        }
+                      }}
+                    />
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        mt: 0.5
+                      }}
+                    >
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          color: 'rgba(255,255,255,0.7)',
+                          textShadow: '0 0 5px rgba(9, 194, 247, 0.2)',
+                          fontWeight: 'medium'
+                        }}
+                      >
+                        Low
+                      </Typography>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          color: 'rgba(255,255,255,0.7)',
+                          textShadow: '0 0 5px rgba(9, 194, 247, 0.2)',
+                          fontWeight: 'medium'
+                        }}
+                      >
+                        High
+                      </Typography>
+                    </Box>
+                  </Box>
                 </Box>
-                <Typography variant="body1" sx={{ bgcolor: `${color}20`, px: 1.5, py: 0.5, borderRadius: 1, color: '#fff' }}>
-                  {impact}
-                </Typography>
-              </Box>
-              <LinearProgress
-                variant="determinate"
-                value={score}
-                sx={{
-                  height: 8,
-                  borderRadius: 3,
-                  backgroundColor: 'rgba(255,255,255,0.1)',
-                  '& .MuiLinearProgress-bar': { backgroundColor: color, borderRadius: 3 },
-                }}
-              />
-            </Box>
-          );
-        })}
-      </Stack>
+              );
+            })}
+          </Stack>
+        </Box>
+      )}
 
       <Box sx={{ mt: 4, textAlign: 'center' }}>
         <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)' }}>
@@ -797,6 +952,28 @@ const DetailedResultDisplay = ({ overallPercentage, testScores }) => {
           accurate assessment.*
         </Typography>
       </Box>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ 
+            width: '100%',
+            backgroundColor: 'rgba(13, 17, 44, 0.9)',
+            color: '#fff',
+            '& .MuiAlert-icon': {
+              color: '#fff'
+            }
+          }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

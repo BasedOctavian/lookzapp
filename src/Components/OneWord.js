@@ -38,7 +38,7 @@ import {
   CardTitle,
   CardDescription,
   CardActions,
-  Tooltip
+  Switch,
 } from '@mui/material';
 import { useToast } from '@chakra-ui/toast';
 import { maleConfig } from '../hooks/faceRating/maleConfig';
@@ -65,7 +65,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import LoadingIndicator from './LoadingIndicator';
-import ShareRatingCard from './ShareRatingCard';
+import useOneWordDescription from '../hooks/useOneWordDescription';
 
 // Animations
 const neonGlow = keyframes`
@@ -83,6 +83,12 @@ const gradientFlow = keyframes`
 const fadeIn = keyframes`
   from { opacity: 0; }
   to { opacity: 1; }
+`;
+
+const pulse = keyframes`
+  0% { opacity: 0; }
+  50% { opacity: 1; }
+  100% { opacity: 0; }
 `;
 
 // Styled Components
@@ -213,6 +219,30 @@ const StyledInstructionText = styled(Typography)(({ theme }) => ({
   borderRadius: '16px',
   border: '1px solid rgba(250, 14, 164, 0.2)',
   animation: `${fadeIn} 0.5s ease-out`,
+}));
+
+const LoadingAnimation = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: '50vh',
+  animation: `${fadeIn} 0.5s ease-out`,
+}));
+
+const AnalyzingText = styled(Typography)(({ theme }) => ({
+  color: '#fff',
+  fontSize: '1.5rem',
+  fontWeight: 600,
+  textAlign: 'center',
+  marginBottom: theme.spacing(2),
+  '&::after': {
+    content: '"..."',
+    display: 'inline-block',
+    width: '1.2em',
+    textAlign: 'left',
+    animation: `${pulse} 1.5s infinite`,
+  },
 }));
 
 // Define tests (same for both genders)
@@ -1558,580 +1588,280 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
   );
 };
 
-// Add this new component before DetailedResultDisplay
-const FeatureCircularProgress = ({ testScores }) => {
-  const [hoveredFeature, setHoveredFeature] = useState(null);
-  const totalScore = Object.values(testScores).reduce((sum, score) => sum + score, 0);
-  const averageScore = totalScore / Object.keys(testScores).length;
+// Simplified DetailedResultDisplay Component
+const DetailedResultDisplay = ({ overallRating, faceRating, userInfo }) => {
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [isBrutal, setIsBrutal] = useState(false);
+  const oneWord = useOneWordDescription({
+    overallRating,
+    faceRating,
+    testScores: userInfo?.testScores,
+    measurements: userInfo?.measurements,
+    height: userInfo?.height,
+    weight: userInfo?.weight,
+    gender: userInfo?.gender
+  }, isBrutal);
 
-  const featureColors = {
-    'Carnal Tilt': '#09c2f7',
-    'Facial Thirds': '#6ce9ff',
-    'Cheekbone Location': '#4dabf7',
-    'Interocular Distance': '#339af0',
-    'Jawline': '#228be6',
-    'Chin': '#1c7ed6',
-    'Nose': '#1971c2'
-  };
+  useEffect(() => {
+    console.log('OneWord Description Result:', oneWord);
+  }, [oneWord]);
 
-  const sortedFeatures = Object.entries(testScores)
-    .filter(([test]) => test !== 'Overall')
-    .sort(([, a], [, b]) => b - a);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLoadingProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setIsLoading(false);
+          return 100;
+        }
+        return prev + 1;
+      });
+    }, 20);
+    return () => clearInterval(interval);
+  }, []);
 
-  const totalAngle = 360;
-  let currentAngle = 0;
-
-  return (
-    <Box sx={{ position: 'relative', width: 200, height: 200, mx: 'auto' }}>
-      <CircularProgress
-        variant="determinate"
-        value={100}
-        size={200}
-        thickness={4}
-        sx={{
-          color: 'rgba(255,255,255,0.1)',
-          position: 'absolute',
-          top: 0,
-          left: 0
-        }}
-      />
-      {sortedFeatures.map(([feature, score], index) => {
-        const angle = (score / totalScore) * totalAngle;
-        const startAngle = currentAngle;
-        currentAngle += angle;
-
-        return (
-          <Tooltip
-            key={feature}
-            title={
-              <Box>
-                <Typography variant="subtitle2">{feature}</Typography>
-                <Typography variant="body2">{score.toFixed(1)}%</Typography>
-              </Box>
-            }
-            placement="top"
-            arrow
-          >
-            <Box
-              sx={{
+  if (isLoading) {
+    return (
+      <LoadingAnimation>
+        <Box
+          sx={{
+            width: '100%',
+            maxWidth: '400px',
+            height: '4px',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '2px',
+            overflow: 'hidden',
+            position: 'relative'
+          }}
+        >
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              height: '100%',
+              width: `${loadingProgress}%`,
+              background: 'linear-gradient(90deg, #09c2f7, #fa0ea4)',
+              transition: 'width 0.1s ease-out',
+              '&:after': {
+                content: '""',
                 position: 'absolute',
                 top: 0,
                 left: 0,
-                width: '100%',
-                height: '100%',
-                clipPath: `polygon(50% 50%, ${50 + 50 * Math.cos(startAngle * Math.PI / 180)}% ${50 + 50 * Math.sin(startAngle * Math.PI / 180)}%, ${50 + 50 * Math.cos((startAngle + angle) * Math.PI / 180)}% ${50 + 50 * Math.sin((startAngle + angle) * Math.PI / 180)}%)`,
-                cursor: 'pointer',
-                transition: 'opacity 0.2s',
-                opacity: hoveredFeature === null || hoveredFeature === feature ? 1 : 0.3,
-                '&:hover': {
-                  opacity: 1
+                right: 0,
+                bottom: 0,
+                background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent)',
+                animation: 'shimmer 2s infinite',
+                '@keyframes shimmer': {
+                  '0%': { transform: 'translateX(-100%)' },
+                  '100%': { transform: 'translateX(100%)' }
                 }
-              }}
-              onMouseEnter={() => setHoveredFeature(feature)}
-              onMouseLeave={() => setHoveredFeature(null)}
-            >
-              <CircularProgress
-                variant="determinate"
-                value={100}
-                size={200}
-                thickness={4}
-                sx={{
-                  color: featureColors[feature],
-                  transform: `rotate(${startAngle}deg)`,
-                  '& .MuiCircularProgress-circle': {
-                    strokeLinecap: 'round'
-                  }
-                }}
-              />
-            </Box>
-          </Tooltip>
-        );
-      })}
-      <Box
-        sx={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          textAlign: 'center'
-        }}
-      >
-        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-          {averageScore.toFixed(1)}
+              }
+            }}
+          />
+        </Box>
+        <AnalyzingText>
+          Analyzing Results
+        </AnalyzingText>
+        <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+          {loadingProgress}%
         </Typography>
-        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-          Overall
-        </Typography>
-      </Box>
-    </Box>
-  );
-};
-
-// Modify the DetailedResultDisplay component to include the new circular progress
-const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo, setUserInfo }) => {
-  const navigate = useNavigate();
-  const [showDetails, setShowDetails] = useState(false);
-  const [showShareCard, setShowShareCard] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [loadingProgress, setLoadingProgress] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    if (isLoading) {
-      const interval = setInterval(() => {
-        setLoadingProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            setIsLoading(false);
-            return 100;
-          }
-          return prev + 1;
-        });
-      }, 20);
-
-      return () => clearInterval(interval);
-    }
-  }, [isLoading]);
-
-  const ratingName = useMemo(() => {
-    if (!testScores || !userInfo) return null;
-    return generateRatingName(testScores);
-  }, [testScores, userInfo]);
-
-  let tierLabel, tierDescription, tierEmoji;
-  if (overallRating >= 80) {
-    tierLabel = 'Very Attractive';
-    tierDescription = 'Your features align closely with conventional standards of attractiveness.';
-    tierEmoji = <Favorite />;
-  } else if (overallRating >= 60) {
-    tierLabel = 'Attractive';
-    tierDescription = 'Your features are generally appealing and well-proportioned.';
-    tierEmoji = <SentimentSatisfied />;
-  } else if (overallRating >= 40) {
-    tierLabel = 'Average';
-    tierDescription = 'Your features are typical and neither particularly striking nor unattractive.';
-    tierEmoji = <SentimentNeutral />;
-  } else {
-    tierLabel = 'Below Average';
-    tierDescription = 'Some features may benefit from enhancement or styling to improve overall attractiveness.';
-    tierEmoji = <SentimentDissatisfied />;
+      </LoadingAnimation>
+    );
   }
-
-  const featureIcons = {
-    'Carnal Tilt': <Visibility />,
-    'Facial Thirds': <Straighten />,
-    'Cheekbone Location': <FaceRetouchingNatural />,
-    'Interocular Distance': <RemoveRedEye />,
-    'Jawline': <Face3 />,
-    'Chin': <Person />,
-    'Nose': <Psychology />
-  };
-
-  const featureDescriptions = {
-    'Carnal Tilt': 'Measures the angle of the eyes relative to the horizontal plane.',
-    'Facial Thirds': 'Evaluates the proportions of the forehead, midface, and lower face.',
-    'Cheekbone Location': 'Assesses the prominence and position of the cheekbones.',
-    'Interocular Distance': 'Analyzes the distance between the eyes relative to face width.',
-    'Jawline': 'Evaluates the definition and symmetry of the jawline.',
-    'Chin': 'Assesses the shape and proportion of the chin.',
-    'Nose': 'Analyzes the size and shape of the nose relative to the face.'
-  };
-
-  const sortedFeatures = testScores
-    ? Object.entries(testScores)
-        .filter(([test]) => test !== 'Overall')
-        .sort(([, a], [, b]) => b - a)
-        .map(([test, score]) => ({
-          test,
-          score,
-          impact: score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : score >= 40 ? 'Average' : 'Needs Improvement'
-        }))
-    : [];
-
-  const bestFeature = sortedFeatures[0];
-  const worstFeature = sortedFeatures[sortedFeatures.length - 1];
 
   return (
     <Box sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
-      {isLoading ? (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: '400px',
-            gap: 2
-          }}
-        >
-          <Typography
-            variant="h6"
-            sx={{
-              color: '#fff',
-              textShadow: '0 0 10px rgba(9, 194, 247, 0.3)',
-              mb: 2
-            }}
-          >
-            Analyzing Results...
+      <Box
+        sx={{
+          p: 4,
+          borderRadius: 2,
+          bgcolor: 'rgba(13, 17, 44, 0.7)',
+          border: '1px solid rgba(250, 14, 164, 0.2)',
+          textAlign: 'center',
+          animation: 'fadeIn 0.5s ease-out',
+          '@keyframes fadeIn': {
+            '0%': { opacity: 0, transform: 'translateY(20px)' },
+            '100%': { opacity: 1, transform: 'translateY(0)' }
+          }
+        }}
+      >
+        {/* Brutality Toggle */}
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          mb: 4,
+          gap: 2
+        }}>
+          <Typography sx={{ 
+            color: 'rgba(255,255,255,0.7)',
+            fontSize: '1.1rem'
+          }}>
+            Gentle Mode
           </Typography>
-          <Box
+          <Switch
+            checked={isBrutal}
+            onChange={(e) => setIsBrutal(e.target.checked)}
             sx={{
-              width: '100%',
-              maxWidth: '400px',
-              height: '4px',
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              borderRadius: '2px',
-              overflow: 'hidden',
-              position: 'relative'
+              '& .MuiSwitch-thumb': {
+                backgroundColor: isBrutal ? '#fa0ea4' : '#09c2f7',
+              },
+              '& .MuiSwitch-track': {
+                backgroundColor: isBrutal ? 'rgba(250, 14, 164, 0.3)' : 'rgba(9, 194, 247, 0.3)',
+              },
             }}
-          >
-            <Box
-              sx={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                height: '100%',
-                width: `${loadingProgress}%`,
-                background: 'linear-gradient(90deg, #09c2f7, #fa0ea4)',
-                transition: 'width 0.1s ease-out',
-                '&:after': {
-                  content: '""',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent)',
-                  animation: 'shimmer 2s infinite',
-                  '@keyframes shimmer': {
-                    '0%': { transform: 'translateX(-100%)' },
-                    '100%': { transform: 'translateX(100%)' }
-                  }
-                }
-              }}
-            />
-          </Box>
-          <Typography
-            variant="body2"
-            sx={{
-              color: 'rgba(255, 255, 255, 0.7)',
-              mt: 1
-            }}
-          >
-            {loadingProgress}%
+          />
+          <Typography sx={{ 
+            color: 'rgba(255,255,255,0.7)',
+            fontSize: '1.1rem'
+          }}>
+            Brutal Mode
           </Typography>
         </Box>
-      ) : (
-        <>
-          <Box
+
+        {/* One Word Description */}
+        <Box sx={{ mb: 4 }}>
+          <Typography
+            variant="h2"
             sx={{
-              p: 4,
-              borderRadius: 2,
-              bgcolor: 'rgba(13, 17, 44, 0.7)',
-              border: '1px solid rgba(250, 14, 164, 0.2)',
-              mb: 4,
-              textAlign: 'center',
-              animation: 'fadeIn 0.5s ease-out',
-              '@keyframes fadeIn': {
-                '0%': { opacity: 0, transform: 'translateY(20px)' },
-                '100%': { opacity: 1, transform: 'translateY(0)' }
+              fontSize: '3.5rem',
+              fontWeight: 800,
+              background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              textShadow: '0 0 20px rgba(9, 194, 247, 0.3)',
+              mb: 2,
+              animation: 'pulse 2s infinite',
+              '@keyframes pulse': {
+                '0%': { transform: 'scale(1)' },
+                '50%': { transform: 'scale(1.05)' },
+                '100%': { transform: 'scale(1)' }
               }
             }}
           >
-            <Typography variant="h2" component="div" gutterBottom sx={{ fontSize: '4rem' }}>
-              {tierEmoji}
-            </Typography>
-            <Typography variant="h4" gutterBottom fontWeight="bold">
-              {tierLabel}
-            </Typography>
-
-            {/* Add the new circular progress component */}
-            <Box sx={{ my: 4 }}>
-              <FeatureCircularProgress testScores={testScores} />
-            </Box>
-
-            {/* Feature Highlights */}
-            <Box
-              sx={{
-                mt: 4,
-                display: 'flex',
-                flexDirection: { xs: 'column', md: 'row' },
-                gap: 3,
-                justifyContent: 'center'
-              }}
-            >
-              {/* Best Feature */}
-              <Box
-                sx={{
-                  p: 3,
-                  borderRadius: 2,
-                  bgcolor: 'rgba(9, 194, 247, 0.1)',
-                  border: '1px solid rgba(9, 194, 247, 0.3)',
-                  flex: 1,
-                  textAlign: 'center',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center'
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <Box sx={{ color: '#09c2f7' }}>{featureIcons[bestFeature?.test]}</Box>
-                  <Typography variant="h6" sx={{ color: '#09c2f7' }}>
-                    Best Feature
-                  </Typography>
-                </Box>
-                <Typography variant="body1" sx={{ color: '#fff', mb: 1 }}>
-                  {bestFeature?.test}
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                  {ratingName?.split('. ')[0]}
-                </Typography>
-              </Box>
-
-              {/* Worst Feature */}
-              <Box
-                sx={{
-                  p: 3,
-                  borderRadius: 2,
-                  bgcolor: 'rgba(250, 14, 164, 0.1)',
-                  border: '1px solid rgba(250, 14, 164, 0.3)',
-                  flex: 1,
-                  textAlign: 'center',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center'
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <Box sx={{ color: '#fa0ea4' }}>{featureIcons[worstFeature?.test]}</Box>
-                  <Typography variant="h6" sx={{ color: '#fa0ea4' }}>
-                    Area for Improvement
-                  </Typography>
-                </Box>
-                <Typography variant="body1" sx={{ color: '#fff', mb: 1 }}>
-                  {worstFeature?.test}
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                  {ratingName?.split('. ')[1]}
-                </Typography>
-              </Box>
-            </Box>
-
-            <Typography variant="body1" paragraph sx={{ mt: 3 }}>
-              {tierDescription}
-            </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => setShowDetails(!showDetails)}
-              sx={{ mt: 2 }}
-            >
-              {showDetails ? 'Hide Details' : 'Show Detailed Analysis'}
-            </Button>
-          </Box>
-
-          {showDetails && (
-            <Box
-              sx={{
-                animation: 'slideIn 0.5s ease-out',
-                '@keyframes slideIn': {
-                  '0%': { transform: 'translateY(20px)', opacity: 0 },
-                  '100%': { transform: 'translateY(0)', opacity: 1 }
-                }
-              }}
-            >
-              <Typography 
-                variant="h5" 
-                gutterBottom 
-                fontWeight="bold" 
-                align="center" 
-                mb={4}
-                sx={{
-                  background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  textShadow: '0 0 10px rgba(9, 194, 247, 0.3)'
-                }}
-              >
-                Detailed Feature Analysis
-              </Typography>
-              <Stack spacing={3}>
-                {sortedFeatures.map(({ test, score, impact }, index) => {
-                  const color = impact === 'Excellent' ? '#09c2f7' : impact === 'Good' ? '#6ce9ff' : impact === 'Average' ? '#fa0ea4' : '#ff6b6b';
-                  return (
-                    <Box
-                      key={test}
-                      sx={{
-                        animation: `slideIn 0.5s ease-out ${index * 0.1}s both`,
-                        '@keyframes slideIn': {
-                          '0%': { transform: 'translateX(-20px)', opacity: 0 },
-                          '100%': { transform: 'translateX(0)', opacity: 1 }
-                        },
-                        p: 2,
-                        borderRadius: 2,
-                        bgcolor: 'rgba(13, 17, 44, 0.7)',
-                        border: `1px solid ${color}20`,
-                        backdropFilter: 'blur(16px)'
-                      }}
-                    >
-                      <Box display="flex" alignItems="center" mb={1}>
-                        <Typography variant="h4" mr={2} sx={{ color: color }}>
-                          {featureIcons[test]}
-                        </Typography>
-                        <Box flex={1}>
-                          <Typography 
-                            variant="body1" 
-                            fontWeight="medium"
-                            sx={{
-                              color: '#fff',
-                              textShadow: '0 0 5px rgba(9, 194, 247, 0.2)'
-                            }}
-                          >
-                            {test}
-                          </Typography>
-                          <Typography 
-                            variant="body2" 
-                            sx={{
-                              color: 'rgba(255,255,255,0.7)',
-                              textShadow: '0 0 5px rgba(9, 194, 247, 0.2)'
-                            }}
-                          >
-                            {featureDescriptions[test]}
-                          </Typography>
-                        </Box>
-                        <Typography
-                          variant="body1"
-                          sx={{
-                            bgcolor: `${color}20`,
-                            px: 1.5,
-                            py: 0.5,
-                            borderRadius: 1,
-                            color: '#fff',
-                            textShadow: '0 0 5px rgba(9, 194, 247, 0.2)'
-                          }}
-                        >
-                          {impact}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ position: 'relative', mt: 1 }}>
-                        <LinearProgress
-                          variant="determinate"
-                          value={score}
-                          sx={{
-                            height: 8,
-                            borderRadius: 3,
-                            backgroundColor: 'rgba(255,255,255,0.1)',
-                            '& .MuiLinearProgress-bar': {
-                              backgroundColor: color,
-                              borderRadius: 3,
-                              transition: 'width 1s ease-in-out'
-                            }
-                          }}
-                        />
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            mt: 0.5
-                          }}
-                        >
-                          <Typography 
-                            variant="body2" 
-                            sx={{ 
-                              color: 'rgba(255,255,255,0.7)',
-                              textShadow: '0 0 5px rgba(9, 194, 247, 0.2)',
-                              fontWeight: 'medium'
-                            }}
-                          >
-                            Low
-                          </Typography>
-                          <Typography 
-                            variant="body2" 
-                            sx={{ 
-                              color: 'rgba(255,255,255,0.7)',
-                              textShadow: '0 0 5px rgba(9, 194, 247, 0.2)',
-                              fontWeight: 'medium'
-                            }}
-                          >
-                            High
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Box>
-                  );
-                })}
-              </Stack>
-            </Box>
-          )}
-
-          <Box sx={{ mt: 4, textAlign: 'center' }}>
-            <Typography variant="h6" gutterBottom>
-              Share Your Results
-            </Typography>
-            <Stack direction="row" spacing={2} justifyContent="center" mt={2}>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<Share />}
-                onClick={() => setShowShareCard(true)}
-                sx={{
-                  background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
-                    opacity: 0.9
-                  }
-                }}
-              >
-                Share Card
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={() => navigate('/')}
-                sx={{
-                  color: '#fff',
-                  borderColor: 'rgba(255,255,255,0.5)',
-                  '&:hover': {
-                    borderColor: '#fff',
-                    bgcolor: 'rgba(255,255,255,0.1)'
-                  }
-                }}
-              >
-                Back to Home
-              </Button>
-            </Stack>
-          </Box>
-
-          <ShareRatingCard
-            open={showShareCard}
-            onClose={() => setShowShareCard(false)}
-            userInfo={userInfo}
-            rating={overallRating}
-            testScores={testScores}
-          />
-
-          <Snackbar
-            open={snackbar.open}
-            autoHideDuration={3000}
-            onClose={() => setSnackbar({ ...snackbar, open: false })}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            {oneWord.word}
+          </Typography>
+          <Typography
+            variant="h6"
+            sx={{
+              color: 'rgba(255,255,255,0.7)',
+              fontStyle: 'italic',
+              textAlign: 'center',
+              maxWidth: '600px',
+              mx: 'auto',
+              animation: 'fadeIn 1s ease-out'
+            }}
           >
-            <Alert 
-              onClose={() => setSnackbar({ ...snackbar, open: false })} 
-              severity={snackbar.severity}
-              sx={{ 
-                width: '100%',
-                backgroundColor: 'rgba(13, 17, 44, 0.9)',
-                color: '#fff',
-                '& .MuiAlert-icon': {
-                  color: '#fff'
-                }
+            {oneWord.statement}
+          </Typography>
+        </Box>
+
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <Box
+              sx={{
+                p: 3,
+                borderRadius: 2,
+                bgcolor: 'rgba(0,0,0,0.2)',
+                mb: 2
               }}
             >
-              {snackbar.message}
-            </Alert>
-          </Snackbar>
-        </>
-      )}
+              <Typography variant="h6" sx={{ color: '#09c2f7', mb: 1 }}>
+                Overall Score
+              </Typography>
+              <Typography variant="h3" sx={{ color: '#fff' }}>
+                {overallRating.toFixed(1)} / 100
+              </Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Box
+              sx={{
+                p: 3,
+                borderRadius: 2,
+                bgcolor: 'rgba(0,0,0,0.2)',
+                mb: 2
+              }}
+            >
+              <Typography variant="h6" sx={{ color: '#fa0ea4', mb: 1 }}>
+                Face Score
+              </Typography>
+              <Typography variant="h3" sx={{ color: '#fff' }}>
+                {faceRating.toFixed(1)} / 100
+              </Typography>
+            </Box>
+          </Grid>
+        </Grid>
+
+        <Grid container spacing={3} sx={{ mt: 2 }}>
+          <Grid item xs={12} md={4}>
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                bgcolor: 'rgba(0,0,0,0.2)'
+              }}
+            >
+              <Typography variant="subtitle1" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                Gender
+              </Typography>
+              <Typography variant="h6" sx={{ color: '#fff' }}>
+                {userInfo?.gender === 'M' ? 'Male' : 'Female'}
+              </Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                bgcolor: 'rgba(0,0,0,0.2)'
+              }}
+            >
+              <Typography variant="subtitle1" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                Height
+              </Typography>
+              <Typography variant="h6" sx={{ color: '#fff' }}>
+                {userInfo?.height ? `${Math.floor(userInfo.height / 12)}'${userInfo.height % 12}"` : 'N/A'}
+              </Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                bgcolor: 'rgba(0,0,0,0.2)'
+              }}
+            >
+              <Typography variant="subtitle1" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                Weight
+              </Typography>
+              <Typography variant="h6" sx={{ color: '#fff' }}>
+                {userInfo?.weight ? `${userInfo.weight} lbs` : 'N/A'}
+              </Typography>
+            </Box>
+          </Grid>
+        </Grid>
+
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={() => navigate('/')}
+          sx={{ 
+            mt: 4,
+            background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
+            '&:hover': {
+              background: 'linear-gradient(45deg, #fa0ea4 0%, #09c2f7 100%)',
+            }
+          }}
+        >
+          Back to Home
+        </Button>
+      </Box>
     </Box>
   );
 };
@@ -2192,7 +1922,7 @@ const AttractivenessRatingProcess = () => {
       if (user && userData) {
         if (userData.timesRanked === 0) {
           setUserInfo({
-            displayName: userData.displayName || 'Self',
+            name: userData.name || 'Self',
             ethnicity: userData.ethnicity,
             eyeColor: mapEyeColor(userData.eyeColor),
             height: userData.height,
@@ -2750,9 +2480,7 @@ const AttractivenessRatingProcess = () => {
             <DetailedResultDisplay
               overallRating={cappedRating}
               faceRating={currentFaceRating}
-              testScores={userInfo.testScores}
               userInfo={userInfo}
-              setUserInfo={setUserInfo}
             />
             <Box
               sx={{

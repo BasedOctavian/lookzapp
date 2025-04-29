@@ -88,6 +88,13 @@ const analysisOptions = [
     locked: false
   },
   {
+    title: 'Label Me',
+    route: '/label-me',
+    description: 'Get an honest description of your appearance.',
+    icon: FaceIcon,
+    locked: false
+  },
+  {
     title: 'GeekedGuess',
     route: '/geeked-guess',
     description: 'Analyze how open your eyes are and get insights about your alertness.',

@@ -17,6 +17,7 @@ import {
   SwipeableDrawer
 } from '@mui/material';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import QuestionMarkIcon from '@mui/icons-material/QuestionMark';
 import SearchIcon from '@mui/icons-material/Search';
 import { keyframes } from '@emotion/react';
 import { styled } from '@mui/material/styles';
@@ -125,19 +126,14 @@ const Topbar = () => {
     },
     { divider: true },
     { 
-      text: 'About', 
-      icon: <VisibilityIcon />,
-      action: () => navigate('/about')
-    },
-    { 
-      text: "What's Next", 
-      icon: <CameraAltIcon />,
-      action: () => navigate('/whats-next')
-    },
-    { 
       text: 'Home', 
       icon: <AccountCircleIcon />,
       action: () => navigate('/')
+    },
+    { 
+      text: "What's Next", 
+      icon: <QuestionMarkIcon />,
+      action: () => navigate('/soon')
     }
   ];
 
