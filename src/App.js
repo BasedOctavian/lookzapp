@@ -33,6 +33,7 @@ const GeekedGuess = lazy(() => import('./Pages/GeekedGuess'));
 const LandingPage = lazy(() => import('./Pages/LandingPage'));
 const Octavian = lazy(() => import('./Pages/OctavianLandingPage'));
 const ScanLimitPage = lazy(() => import('./Components/ScanLimitPage'));
+const LiarScore = lazy(() => import('./Pages/LiarScore'));
 // Create MUI theme
 const muiTheme = createTheme({
   palette: {
@@ -111,6 +112,7 @@ function App() {
                 <Route path="/analysis" element={<Analyze />} />
                 <Route path="/analyze-selection" element={<AnalyzeSelection /> } />
                 <Route path="/autism-analytic" element={<AutismAnalytic />} />
+                <Route path="/liar-score" element={<PrivateRoute><LiarScore /></PrivateRoute>} />
                 <Route path="/octavian" element={<Octavian />} />
                 <Route path="/label-me" element={<OneWordPage />} />
                 <Route path="/soon" element={<Soon />} />

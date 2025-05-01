@@ -108,7 +108,8 @@ function LandingPage() {
     'Facial Intelligence',
     'Neural Analysis',
     'AI-Powered Insights',
-    'Smart Face Mapping'
+    'Smart Face Mapping',
+    'Voice Pattern Analysis'
   ];
 
   useEffect(() => {
@@ -160,8 +161,8 @@ function LandingPage() {
     },
     {
       icon: PsychologyIcon,
-      title: 'Neurodiversity Analysis',
-      description: 'Advanced facial feature recognition for neurodevelopmental patterns',
+      title: 'Voice Analysis',
+      description: 'Advanced voice pattern analysis for emotional and behavioral insights',
     },
   ];
 
@@ -282,8 +283,8 @@ function LandingPage() {
               textShadow: '0 0 10px rgba(9, 194, 247, 0.2)'
             }}
           >
-            Next-generation facial analytics powered by convolutional neural networks.
-            Receive detailed symmetry analysis and beauty predictions in real-time.
+            Next-generation facial and voice analytics powered by convolutional neural networks.
+            Receive detailed symmetry analysis, voice pattern insights, and beauty predictions in real-time.
           </Typography>
 
           <StyledButton

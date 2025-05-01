@@ -13,6 +13,7 @@ import FaceIcon from '@mui/icons-material/Face';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions';
 import TopBar from '../Components/TopBar';
 import Footer from '../Components/Footer';
 import '../App.css';
@@ -92,6 +93,13 @@ const analysisOptions = [
     route: '/label-me',
     description: 'Get an honest description of your appearance.',
     icon: FaceIcon,
+    locked: false
+  },
+  {
+    title: 'Liar Score',
+    route: '/liar-score',
+    description: 'Analyze voice patterns and facial expressions to detect potential deception.',
+    icon: EmojiEmotionsIcon,
     locked: false
   },
   {
