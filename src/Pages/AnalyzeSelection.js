@@ -14,6 +14,8 @@ import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions';
+import GavelIcon from '@mui/icons-material/Gavel';
+import FlagIcon from '@mui/icons-material/Flag';
 import TopBar from '../Components/TopBar';
 import Footer from '../Components/Footer';
 import '../App.css';
@@ -82,6 +84,13 @@ const analysisOptions = [
     locked: false
   },
   {
+    title: 'Criminality Analysis',
+    route: '/criminality',
+    description: 'Analyze facial features for criminality likelihood.',
+    icon: GavelIcon,
+    locked: false
+  },
+  {
     title: 'Autism Feature Analysis',
     route: '/autism-analytic',
     description: 'Analyze features commonly associated with autism.',
@@ -100,6 +109,13 @@ const analysisOptions = [
     route: '/liar-score',
     description: 'Analyze voice patterns and facial expressions to detect potential deception.',
     icon: EmojiEmotionsIcon,
+    locked: false
+  },
+  {
+    title: 'SusMeter',
+    route: '/sus-meter',
+    description: 'Analyze facial features and voice patterns for 5 seconds.',
+    icon: FlagIcon,
     locked: false
   },
   {

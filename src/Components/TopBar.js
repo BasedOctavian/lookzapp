@@ -28,6 +28,8 @@ import PsychologyIcon from '@mui/icons-material/Psychology';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import MenuIcon from '@mui/icons-material/Menu';
 import LogoutIcon from '@mui/icons-material/Logout';
+import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions';
+import GavelIcon from '@mui/icons-material/Gavel';
 
 const neonGlow = keyframes`
   0% { filter: drop-shadow(0 0 2px #09c2f7); }
@@ -110,18 +112,33 @@ const Topbar = () => {
 
   const menuItems = [
     { 
-      text: 'Attractiveness Test', 
-      icon: <FaceIcon />,
-      action: () => navigate('/attractiveness-test')
+      text: 'Attractiveness Analyzer', 
+      icon: <CameraAltIcon />,
+      action: () => navigate('/analysis')
     },
     { 
-      text: 'Autism Test', 
+      text: 'Criminality Analysis', 
+      icon: <GavelIcon />,
+      action: () => navigate('/criminality')
+    },
+    { 
+      text: 'Autism Feature Analysis', 
       icon: <PsychologyIcon />,
-      action: () => navigate('/autism-test')
+      action: () => navigate('/autism-analytic')
     },
     { 
-      text: 'Geeked Guess', 
-      icon: <SearchIcon />,
+      text: 'Label Me', 
+      icon: <FaceIcon />,
+      action: () => navigate('/label-me')
+    },
+    { 
+      text: 'Liar Score', 
+      icon: <EmojiEmotionsIcon />,
+      action: () => navigate('/liar-score')
+    },
+    { 
+      text: 'GeekedGuess', 
+      icon: <VisibilityIcon />,
       action: () => navigate('/geeked-guess')
     },
     { divider: true },

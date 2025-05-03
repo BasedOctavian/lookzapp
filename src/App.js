@@ -34,6 +34,8 @@ const LandingPage = lazy(() => import('./Pages/LandingPage'));
 const Octavian = lazy(() => import('./Pages/OctavianLandingPage'));
 const ScanLimitPage = lazy(() => import('./Components/ScanLimitPage'));
 const LiarScore = lazy(() => import('./Pages/LiarScore'));
+const Criminality = lazy(() => import('./Pages/Criminality'));
+const SusMeter = lazy(() => import('./Pages/SusMeter'));
 // Create MUI theme
 const muiTheme = createTheme({
   palette: {
@@ -112,10 +114,12 @@ function App() {
                 <Route path="/analysis" element={<Analyze />} />
                 <Route path="/analyze-selection" element={<AnalyzeSelection /> } />
                 <Route path="/autism-analytic" element={<AutismAnalytic />} />
+                <Route path="/criminality" element={<PrivateRoute><Criminality /></PrivateRoute>} />
                 <Route path="/liar-score" element={<PrivateRoute><LiarScore /></PrivateRoute>} />
                 <Route path="/octavian" element={<Octavian />} />
                 <Route path="/label-me" element={<OneWordPage />} />
                 <Route path="/soon" element={<Soon />} />
+                <Route path="/sus-meter" element={<PrivateRoute><SusMeter /></PrivateRoute>} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </Suspense>

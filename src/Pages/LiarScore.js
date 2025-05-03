@@ -32,6 +32,59 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import LoadingIndicator from '../Components/LoadingIndicator';
 
+// Utility functions
+const generateExplanation = (scores) => {
+  const explanations = [];
+  const confidenceLevels = [];
+  
+  // Voice analysis
+  if (scores.rmsMean > 0.015) {
+    const intensity = scores.rmsMean > 0.025 ? 'elevated' : 'slightly elevated';
+    explanations.push(`Your voice showed ${intensity} intensity, suggesting possible stress.`);
+    confidenceLevels.push(scores.rmsMean > 0.025 ? 0.4 : 0.3);
+  }
+
+  if (scores.zcrMean > 0.15) {
+    const instability = scores.zcrMean > 0.2 ? 'significant' : 'some';
+    explanations.push(`Your speech showed ${instability} instability, indicating mild nervousness.`);
+    confidenceLevels.push(scores.zcrMean > 0.2 ? 0.4 : 0.3);
+  }
+
+  // Body language analysis
+  if (scores.headMovementVariance > 1.5) {
+    const movement = scores.headMovementVariance > 2.5 ? 'increased' : 'slightly increased';
+    explanations.push(`Your head movements were ${movement}, suggesting some discomfort.`);
+    confidenceLevels.push(scores.headMovementVariance > 2.5 ? 0.4 : 0.3);
+  }
+
+  if (scores.smileIntensityVariance > 0.007) {
+    const variation = scores.smileIntensityVariance > 0.015 ? 'noticeable' : 'minor';
+    explanations.push(`Your facial expressions showed ${variation} variations, possibly indicating tension.`);
+    confidenceLevels.push(scores.smileIntensityVariance > 0.015 ? 0.4 : 0.3);
+  }
+
+  // Micro-expressions
+  if (scores.microExpressionCount > 2) {
+    const frequency = scores.microExpressionCount > 4 ? 'frequent' : 'some';
+    explanations.push(`${frequency} rapid facial movements were detected, suggesting concealed emotions.`);
+    confidenceLevels.push(scores.microExpressionCount > 4 ? 0.4 : 0.3);
+  }
+
+  const avgConfidence = confidenceLevels.length > 0 
+    ? confidenceLevels.reduce((a, b) => a + b, 0) / confidenceLevels.length 
+    : 0;
+  
+  const confidenceText = avgConfidence > 0.4 ? 'with moderate confidence' : 
+                        avgConfidence > 0.2 ? 'with some confidence' : 
+                        'with low confidence';
+
+  if (explanations.length === 0) {
+    return 'Your responses showed natural patterns with no significant deception indicators.';
+  }
+
+  return `Our analysis found ${confidenceText}: ${explanations.join(' ')}`;
+};
+
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -123,10 +176,10 @@ const StatsDisplay = ({ features }) => {
   if (!features) return null;
 
   const stats = [
-    { label: 'Pitch Change', value: features.pitchChangeRate * 100, icon: <Psychology />, max: 100, normal: 50, unit: '%' },
-    { label: 'Intensity', value: features.rmsMean * 1000, icon: <Person />, max: 100, normal: 70, unit: '' },
-    { label: 'Head Movement', value: features.headMovementVariance * 10, icon: <Face />, max: 100, normal: 50, unit: '' },
-    { label: 'Smile Intensity', value: features.smileIntensityVariance * 100, icon: <SentimentSatisfied />, max: 100, normal: 70, unit: '%' },
+    { label: 'Pitch Change', value: features.pitchChangeRate * 100, icon: <Psychology />, max: 50, normal: 15, unit: '%' },
+    { label: 'Intensity', value: features.rmsMean * 1000, icon: <Person />, max: 50, normal: 20, unit: '' },
+    { label: 'Head Movement', value: features.headMovementVariance * 10, icon: <Face />, max: 100, normal: 80, unit: '' },
+    { label: 'Smile Intensity', value: features.smileIntensityVariance * 100, icon: <SentimentSatisfied />, max: 50, normal: 25, unit: '%' },
   ];
 
   return (
@@ -325,7 +378,7 @@ const AudioWaveform = ({ analyser }) => {
   );
 };
 
-// FaceScanner Component - Enhanced Lie Detection with Imperative Handle
+// FaceScanner Component - Enhanced Lie Detection with Micro-Expression and Voice Analysis
 const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFaceDetected, currentPrompt, showDoneButton, onReady, isComputerSpeaking }, ref) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -337,6 +390,8 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
   const headMovementRef = useRef([]);
   const smileIntensityRef = useRef([]);
   const gazeHistoryRef = useRef([]);
+  const microExpressionDataRef = useRef([]);
+  const audioDataRef = useRef([]);
   const [isCollecting, setIsCollecting] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
   const [webcamError, setWebcamError] = useState(null);
@@ -351,6 +406,18 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
   const rightEyeIndices = [362, 385, 387, 263, 373, 390];
   const mouthIndices = [61, 291, 0, 17, 269, 405];
   const noseIndices = [1, 2, 98, 327];
+
+  const calculateDistance = (p1, p2) => {
+    if (!p1 || !p2) return 0;
+    return Math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2);
+  };
+
+  const stdDev = (arr) => {
+    if (arr.length === 0) return 0;
+    const mean = arr.reduce((sum, val) => sum + val, 0) / arr.length;
+    const variance = arr.reduce((sum, val) => sum + (val - mean) ** 2, 0) / arr.length;
+    return Math.sqrt(variance);
+  };
 
   const calculateEAR = (landmarks, indices) => {
     try {
@@ -382,12 +449,57 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
       const rightLift = Math.abs(rightCorner[1] - rightTop[1]);
       const cornerLift = (leftLift + rightLift) / 2;
       const baseRatio = height / width;
-      const smileScore = (baseRatio * 0.4) + (cornerLift * 0.6);
-      return Math.min(Math.max(smileScore / 50, 0), 1);
+      
+      // Enhanced smile detection
+      const cheekPoints = [123, 352]; // Cheek points
+      const cheekLift = Math.abs(landmarks[cheekPoints[0]][1] - landmarks[cheekPoints[1]][1]);
+      const eyeSquint = Math.abs(landmarks[159][1] - landmarks[386][1]); // Eye squint measurement
+      
+      const smileScore = (baseRatio * 0.3) + (cornerLift * 0.3) + (cheekLift * 0.2) + (eyeSquint * 0.2);
+      return Math.min(Math.max(smileScore / 40, 0), 1);
     } catch (e) {
       console.error('Error calculating smile intensity:', e);
       return 0;
     }
+  };
+
+  const detectMicroExpressions = (current, previous) => {
+    if (!current || !previous) return 0;
+    
+    let microExpressionCount = 0;
+    
+    // Detect eyebrow movements (more sensitive threshold)
+    const eyebrowLeftChange = Math.abs(current.eyebrowLeft - previous.eyebrowLeft);
+    const eyebrowRightChange = Math.abs(current.eyebrowRight - previous.eyebrowRight);
+    if (eyebrowLeftChange > 0.02 || eyebrowRightChange > 0.02) {
+      microExpressionCount++;
+    }
+    
+    // Detect mouth movements (more sensitive threshold)
+    const mouthWidthChange = Math.abs(current.mouthWidth - previous.mouthWidth);
+    if (mouthWidthChange > 0.02) {
+      microExpressionCount++;
+    }
+    
+    // Detect eye squinting (new)
+    const eyeSquintChange = Math.abs(current.eyeSquint - previous.eyeSquint);
+    if (eyeSquintChange > 0.02) {
+      microExpressionCount++;
+    }
+    
+    // Detect nose wrinkling (new)
+    const noseWrinkleChange = Math.abs(current.noseWrinkle - previous.noseWrinkle);
+    if (noseWrinkleChange > 0.02) {
+      microExpressionCount++;
+    }
+    
+    // Detect lip tension changes (new)
+    const lipTensionChange = Math.abs(current.lipTension - previous.lipTension);
+    if (lipTensionChange > 0.02) {
+      microExpressionCount++;
+    }
+    
+    return microExpressionCount;
   };
 
   const calculateHeadMovement = (landmarks) => {
@@ -493,6 +605,8 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
       headMovementRef.current = [];
       smileIntensityRef.current = [];
       gazeHistoryRef.current = [];
+      microExpressionDataRef.current = [];
+      audioDataRef.current = [];
     }
   }, [startScanning]);
 
@@ -509,51 +623,130 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
   };
 
   const calculateScore = () => {
-    const audioFeatures = audioFeaturesRef.current;
-    const headMovements = headMovementRef.current;
-    const smileIntensities = smileIntensityRef.current;
-    const gazeHistory = gazeHistoryRef.current;
+    try {
+      const microExpressionData = microExpressionDataRef.current || [];
+      const audioData = audioDataRef.current || [];
+      const headMovements = headMovementRef.current || [];
+      const smileIntensities = smileIntensityRef.current || [];
+      const gazeHistory = gazeHistoryRef.current || [];
 
-    const rmsMean = audioFeatures.map((f) => f.rms).reduce((sum, r) => sum + r, 0) / audioFeatures.length || 0;
-    const zcrMean = audioFeatures.map((f) => f.zcr).reduce((sum, z) => sum + z, 0) / audioFeatures.length || 0;
-    const headMovementVariance = headMovements.length > 1
-      ? headMovements.reduce((sum, pos, i) => {
-          if (i === 0) return 0;
-          const prev = headMovements[i - 1];
-          return sum + Math.sqrt((pos.x - prev.x) ** 2 + (pos.y - prev.y) ** 2);
-        }, 0) / (headMovements.length - 1)
-      : 0;
-    const smileIntensityVariance = smileIntensities.length > 1
-      ? smileIntensities.reduce((sum, intensity, i) => {
-          if (i === 0) return 0;
-          return sum + Math.abs(intensity - smileIntensities[i - 1]);
-        }, 0) / (smileIntensities.length - 1)
-      : 0;
-    const gazeAwayCount = gazeHistory.filter(g => g < 0.3 || g > 0.7).length;
-    const gazeAwayPercentage = gazeHistory.length > 0 ? (gazeAwayCount / gazeHistory.length) * 100 : 0;
+      // Enhanced micro-expression detection
+      let totalMicroExpressions = 0;
+      if (microExpressionData.length > 1) {
+        for (let i = 1; i < microExpressionData.length; i++) {
+          totalMicroExpressions += detectMicroExpressions(microExpressionData[i], microExpressionData[i-1]);
+        }
+      }
+      const microExpressionCount = totalMicroExpressions;
 
-    let lieScore = 0;
-    let totalWeight = 0;
+      // Compute audio features with enhanced stutter detection
+      const rmsValues = audioData.map(f => f?.rms || 0);
+      const zcrValues = audioData.map(f => f?.zcr || 0);
+      const rmsMean = rmsValues.length > 0 ? rmsValues.reduce((sum, r) => sum + r, 0) / rmsValues.length : 0;
+      const zcrMean = zcrValues.length > 0 ? zcrValues.reduce((sum, z) => sum + z, 0) / zcrValues.length : 0;
+      const rmsStd = stdDev(rmsValues);
+      const zcrStd = stdDev(zcrValues);
 
-    if (rmsMean > 0.15) lieScore += 20;
-    else if (rmsMean > 0.1) lieScore += 10;
-    totalWeight += 0.2;
+      // Detect stutters (sudden changes in audio)
+      const stutterCount = rmsValues.reduce((count, rms, i) => {
+        if (i === 0) return 0;
+        const prevRms = rmsValues[i-1];
+        const change = Math.abs(rms - prevRms);
+        // More sensitive threshold for stutter detection
+        return count + (change > 0.05 ? 1 : 0);
+      }, 0);
 
-    if (zcrMean > 0.15) lieScore += 15;
-    else if (zcrMean > 0.1) lieScore += 8;
-    totalWeight += 0.15;
+      // Also detect rapid changes in zero-crossing rate as potential stutters
+      const zcrStutterCount = zcrValues.reduce((count, zcr, i) => {
+        if (i === 0) return 0;
+        const prevZcr = zcrValues[i-1];
+        const change = Math.abs(zcr - prevZcr);
+        return count + (change > 0.1 ? 1 : 0);
+      }, 0);
 
-    if (headMovementVariance > 8) lieScore += 10;
-    else if (headMovementVariance > 5) lieScore += 5;
-    totalWeight += 0.1;
+      // Combine both types of stutters
+      const totalStutterCount = stutterCount + zcrStutterCount;
 
-    if (smileIntensityVariance > 0.15) lieScore += 10;
-    else if (smileIntensityVariance > 0.1) lieScore += 5;
-    totalWeight += 0.1;
+      const headMovementVariance = headMovements.length > 1
+        ? headMovements.reduce((sum, pos, i) => {
+            if (i === 0) return 0;
+            const prev = headMovements[i - 1];
+            return sum + Math.sqrt((pos.x - prev.x) ** 2 + (pos.y - prev.y) ** 2);
+          }, 0) / (headMovements.length - 1)
+        : 0;
 
-    const finalLieScore = Math.min((lieScore / totalWeight), 100);
+      const smileIntensityVariance = smileIntensities.length > 1
+        ? smileIntensities.reduce((sum, intensity, i) => {
+            if (i === 0) return 0;
+            return sum + Math.abs(intensity - smileIntensities[i - 1]);
+          }, 0) / (smileIntensities.length - 1)
+        : 0;
 
-    return { finalLieScore, rmsMean, zcrMean, headMovementVariance, smileIntensityVariance, gazeAwayPercentage };
+      const gazeAwayCount = gazeHistory.filter(g => g < 0.3 || g > 0.7).length;
+      const gazeAwayPercentage = gazeHistory.length > 0 ? (gazeAwayCount / gazeHistory.length) * 100 : 0;
+
+      // Calculate individual scores (0-1 range)
+      const voiceIntensityScore = Math.min(rmsMean * 15, 1);
+      const zcrScore = Math.min(zcrMean / 15, 1);
+      const headMovementScore = Math.min(headMovementVariance / 15, 1);
+      const smileScore = Math.min(smileIntensityVariance * 3, 1);
+      const microExpressionScore = Math.min(microExpressionCount / 3, 1);
+      const gazeScore = Math.min(gazeAwayPercentage / 100, 1);
+      const stutterScore = Math.min(totalStutterCount / 5, 1);
+
+      // Calculate weighted average with stutter detection
+      const weights = {
+        voiceIntensity: 0.15,
+        zcr: 0.15,
+        headMovement: 0.15,
+        smile: 0.15,
+        microExpressions: 0.15,
+        gaze: 0.1,
+        stutter: 0.15
+      };
+
+      const weightedScore = (
+        voiceIntensityScore * weights.voiceIntensity +
+        zcrScore * weights.zcr +
+        headMovementScore * weights.headMovement +
+        smileScore * weights.smile +
+        microExpressionScore * weights.microExpressions +
+        gazeScore * weights.gaze +
+        stutterScore * weights.stutter
+      );
+
+      // Calculate final score with non-linear scaling
+      const finalLieScore = Math.round(
+        (Math.tanh((weightedScore - 0.4) * 2.5) + 1) * 50
+      );
+
+      return {
+        finalLieScore,
+        microExpressionCount,
+        rmsMean,
+        zcrMean,
+        rmsStd,
+        zcrStd,
+        headMovementVariance,
+        smileIntensityVariance,
+        gazeAwayPercentage,
+        stutterCount
+      };
+    } catch (error) {
+      console.error('Error in score calculation:', error);
+      return {
+        finalLieScore: 0,
+        microExpressionCount: 0,
+        rmsMean: 0,
+        zcrMean: 0,
+        rmsStd: 0,
+        zcrStd: 0,
+        headMovementVariance: 0,
+        smileIntensityVariance: 0,
+        gazeAwayPercentage: 0,
+        stutterCount: 0
+      };
+    }
   };
 
   useImperativeHandle(ref, () => ({
@@ -564,6 +757,8 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
       headMovementRef.current = [];
       smileIntensityRef.current = [];
       gazeHistoryRef.current = [];
+      microExpressionDataRef.current = [];
+      audioDataRef.current = [];
     },
     stopCollecting: () => {
       setIsCollecting(false);
@@ -680,62 +875,55 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
             const dataArray = new Float32Array(bufferLength);
             analyser.getFloatTimeDomainData(dataArray);
 
-            // Initialize default features
-            const defaultFeatures = {
-              pitchChangeRate: 0,
-              rmsMean: 0,
-              headMovementVariance: 0,
-              smileIntensityVariance: 0
-            };
+            // Always collect micro-expression data
+            const eyebrowLeft = calculateDistance(landmarks[19], landmarks[37]);
+            const eyebrowRight = calculateDistance(landmarks[24], landmarks[44]);
+            const mouthWidth = calculateDistance(landmarks[61], landmarks[291]);
+            const eyeSquint = calculateDistance(landmarks[33], landmarks[133]);
+            const noseWrinkle = calculateDistance(landmarks[1], landmarks[2]);
+            const lipTension = calculateDistance(landmarks[61], landmarks[291]);
+            
+            microExpressionDataRef.current.push({
+              eyebrowLeft,
+              eyebrowRight,
+              mouthWidth,
+              eyeSquint,
+              noseWrinkle,
+              lipTension
+            });
 
-            if (!isComputerSpeaking) {
-              let sum = 0;
-              let silentSamples = 0;
-              const silenceThreshold = 0.01;
-
-              for (let i = 0; i < bufferLength; i++) {
-                const amplitude = Math.abs(dataArray[i]);
-                if (amplitude < silenceThreshold) {
-                  silentSamples++;
-                }
-                sum += amplitude;
-              }
-
-              const silenceRatio = silentSamples / bufferLength;
-              let rms = 0;
-              if (silenceRatio < 0.95) {
-                rms = Math.sqrt(sum / bufferLength) * 2;
-                rms = Math.min(rms * 100, 1);
-              }
-
-              let zcr = 0;
-              for (let i = 1; i < bufferLength; i++) {
-                if ((dataArray[i - 1] >= 0 && dataArray[i] < 0) || (dataArray[i - 1] < 0 && dataArray[i] >= 0)) {
-                  zcr += 1;
-                }
-              }
-              zcr /= bufferLength;
-
-              audioFeaturesRef.current.push({ rms, zcr });
-
-              setCurrentFeatures({
-                pitchChangeRate: zcr,
-                rmsMean: rms,
-                headMovementVariance: headMovementRef.current.length > 1 
-                  ? headMovementRef.current.reduce((sum, pos, i) => {
-                      if (i === 0) return 0;
-                      const prev = headMovementRef.current[i - 1];
-                      return sum + Math.sqrt((pos.x - prev.x) ** 2 + (pos.y - prev.y) ** 2);
-                    }, 0) / (headMovementRef.current.length - 1)
-                  : 0,
-                smileIntensityVariance: smileIntensity,
-              });
-            } else {
-              setCurrentFeatures(defaultFeatures);
+            // Always collect audio data
+            let sum = 0;
+            for (let i = 0; i < bufferLength; i++) {
+              sum += dataArray[i] ** 2;
             }
+            const rms = Math.sqrt(sum / bufferLength);
+
+            let zcr = 0;
+            for (let i = 1; i < bufferLength; i++) {
+              if ((dataArray[i - 1] >= 0 && dataArray[i] < 0) || (dataArray[i - 1] < 0 && dataArray[i] >= 0)) {
+                zcr += 1;
+              }
+            }
+            zcr /= bufferLength;
+
+            audioDataRef.current.push({ rms, zcr });
+
+            setCurrentFeatures({
+              pitchChangeRate: zcr,
+              rmsMean: rms,
+              headMovementVariance: headMovementRef.current.length > 1
+                ? headMovementRef.current.reduce((sum, pos, i) => {
+                    if (i === 0) return 0;
+                    const prev = headMovementRef.current[i - 1];
+                    return sum + Math.sqrt((pos.x - prev.x) ** 2 + (pos.y - prev.y) ** 2);
+                  }, 0) / (headMovementRef.current.length - 1)
+                : 0,
+              smileIntensityVariance: smileIntensity,
+            });
           }
         } catch (error) {
-          console.error('Error drawing face mesh:', error);
+          console.error('Error processing face data:', error);
         }
       } else {
         setFaceDetected(false);
@@ -846,7 +1034,7 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
         </Box>
       )}
       {faceDetected && <StatsDisplay features={currentFeatures} />}
-      {faceDetected && isCollecting && <AudioWaveform analyser={analyserRef.current} />}
+      {faceDetected && isCollecting && !isComputerSpeaking && <AudioWaveform analyser={analyserRef.current} />}
     </StyledWebcamContainer>
   );
 });
@@ -955,112 +1143,83 @@ const DetailedResultDisplay = ({ overallPercentage, testScores, previousScores, 
     headMovementVariance: 0,
     smileIntensityVariance: 0,
     gazeAwayPercentage: 0,
+    microExpressionCount: 0,
+    rmsStd: 0,
+    zcrStd: 0,
     ...testScores
   };
 
   const chartData = [
-    { label: 'Voice Intensity', value: (safeTestScores.rmsMean || 0) * 1000, max: 100 },
-    { label: 'Zero-Crossing Rate', value: (safeTestScores.zcrMean || 0) * 100, max: 100 },
+    { label: 'Voice Intensity', value: (safeTestScores.rmsMean || 0) * 1000, max: 50 },
+    { label: 'Zero-Crossing Rate', value: (safeTestScores.zcrMean || 0) * 100, max: 50 },
     { label: 'Head Movement', value: (safeTestScores.headMovementVariance || 0) * 10, max: 100 },
-    { label: 'Smile Intensity', value: (safeTestScores.smileIntensityVariance || 0) * 100, max: 100 },
+    { label: 'Smile Intensity', value: (safeTestScores.smileIntensityVariance || 0) * 100, max: 50 },
   ];
 
-  const normalRanges = [50, 50, 50, 70];
+  const normalRanges = [20, 15, 80, 25];
 
   const getRatingExplanation = (label, value, max) => {
-    const percentage = (value / max) * 100;
     let explanation = '';
     let color = '#4CAF50';
 
     switch (label) {
       case 'Voice Intensity':
-        if (value > 80) {
-          explanation = 'Very high intensity. Suggests overcompensation.';
+        if (value > 30) {
+          explanation = 'High intensity. Suggests overcompensation.';
           color = '#F44336';
-        } else if (value > 50) {
-          explanation = 'Elevated intensity. Could indicate stress.';
+        } else if (value > 20) {
+          explanation = 'Elevated intensity. Possible stress.';
           color = '#FF9800';
         } else {
-          explanation = 'Normal intensity. Natural speaking pattern.';
+          explanation = 'Normal intensity. Natural pattern.';
         }
         break;
       case 'Zero-Crossing Rate':
-        if (value > 80) {
-          explanation = 'Very unstable speech. Indicates nervousness.';
+        if (value > 20) {
+          explanation = 'Highly unstable speech. Strong nervousness.';
           color = '#F44336';
-        } else if (value > 50) {
-          explanation = 'Some instability. May suggest discomfort.';
+        } else if (value > 15) {
+          explanation = 'Unstable speech. Indicates nervousness.';
           color = '#FF9800';
         } else {
           explanation = 'Stable speech. Natural rhythm.';
         }
         break;
       case 'Head Movement':
-        if (value > 80) {
-          explanation = 'Excessive movement. Indicates stress.';
+        if (value > 90) {
+          explanation = 'Excessive movement. High stress.';
           color = '#F44336';
-        } else if (value > 50) {
-          explanation = 'Increased movement. May suggest nervousness.';
+        } else if (value > 80) {
+          explanation = 'Increased movement. Suggests nervousness.';
           color = '#FF9800';
         } else {
-          explanation = 'Natural movement. Comfortable behavior.';
+          explanation = 'Normal movement. Relaxed behavior.';
         }
         break;
       case 'Smile Intensity':
-        if (value > 80) {
-          explanation = 'Unnatural variations. Suggests forced expressions.';
+        if (value > 35) {
+          explanation = 'Highly unnatural. Likely forced.';
           color = '#F44336';
-        } else if (value > 70) {
-          explanation = 'Some instability. May indicate discomfort.';
+        } else if (value > 25) {
+          explanation = 'Unnatural variation. Possible discomfort.';
           color = '#FF9800';
         } else {
-          explanation = 'Natural smiles. Genuine expressions.';
+          explanation = 'Natural variation. Genuine expression.';
         }
         break;
     }
     return { explanation, color };
   };
 
-  const generateExplanation = (scores) => {
-    const explanations = [];
-    const confidenceLevels = [];
-    
-    if (scores.rmsMean > 0.15) {
-      explanations.push('Your voice showed high intensity, suggesting overcompensation.');
-      confidenceLevels.push(0.7);
-    }
-
-    if (scores.zcrMean > 0.15) {
-      explanations.push('Your speech had rapid tone changes, indicating uncertainty.');
-      confidenceLevels.push(0.8);
-    }
-
-    if (scores.headMovementVariance > 8) {
-      explanations.push('Your head moved significantly, suggesting stress.');
-      confidenceLevels.push(0.8);
-    }
-
-    if (scores.smileIntensityVariance > 0.25) {
-      explanations.push('Your smile showed unnatural changes, suggesting forced expressions.');
-      confidenceLevels.push(0.7);
-    }
-
-    const avgConfidence = confidenceLevels.length > 0 
-      ? confidenceLevels.reduce((a, b) => a + b, 0) / confidenceLevels.length 
-      : 0;
-    const confidenceText = avgConfidence > 0.8 ? 'with high confidence' : avgConfidence > 0.6 ? 'with moderate confidence' : 'with some confidence';
-
-    return explanations.length > 0 
-      ? `Our analysis found ${confidenceText}: ${explanations.join('. ')}.` 
-      : 'Your responses showed natural patterns with no significant deception indicators.';
-  };
-
   let tierLabel, tierEmoji;
-  if (overallPercentage >= 70) {
+  if (overallPercentage >= 75) {
     tierLabel = 'High Likelihood of Lying';
     tierEmoji = <SentimentDissatisfied />;
-  } else if (overallPercentage >= 40) {
+  } else if (overallPercentage >= 50) {
     tierLabel = 'Moderate Likelihood of Lying';
+    tierEmoji = <SentimentNeutral />;
+  } else if (overallPercentage >= 25) {
+    tierLabel = 'Some Signs of Deception';
     tierEmoji = <SentimentNeutral />;
   } else {
     tierLabel = 'Low Likelihood of Lying';
@@ -1197,12 +1356,96 @@ const QuestionResultsDisplay = ({ questionResults }) => (
         if (score >= 40) return '#FF9800';
         return '#4CAF50';
       };
+
+      const chartData = [
+        { label: 'Voice Intensity', value: (result.rmsMean || 0) * 1000, max: 50 },
+        { label: 'Zero-Crossing Rate', value: (result.zcrMean || 0) * 100, max: 50 },
+        { label: 'Head Movement', value: (result.headMovementVariance || 0) * 10, max: 100 },
+        { label: 'Smile Intensity', value: (result.smileIntensityVariance || 0) * 100, max: 50 },
+        { label: 'Micro-Expressions', value: (result.microExpressionCount || 0) * 20, max: 100 },
+        { label: 'Gaze Away', value: (result.gazeAwayPercentage || 0), max: 100 },
+        { label: 'Stutter Count', value: (result.stutterCount || 0) * 20, max: 100 }
+      ];
+
+      const normalRanges = [20, 15, 80, 25, 30, 40, 20];
+
       return (
-        <Box key={index} sx={{ mb: 2, p: 2, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.1)' }}>
-          <Typography variant="body1">{result.question}</Typography>
-          <Typography variant="body2" sx={{ mt: 1, color: getTierColor(result.finalLieScore) }}>
-            Lie Likelihood: {result.finalLieScore.toFixed(0)}%
+        <Box 
+          key={index} 
+          sx={{ 
+            mb: 4, 
+            p: 3, 
+            borderRadius: 2, 
+            bgcolor: 'rgba(13, 17, 44, 0.7)',
+            border: '1px solid rgba(250, 14, 164, 0.2)',
+          }}
+        >
+          <Typography variant="h6" sx={{ mb: 2, color: '#fff' }}>
+            Question {index + 1}: {result.question}
           </Typography>
+          
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            mb: 3,
+            gap: 2
+          }}>
+            <CircularProgress
+              variant="determinate"
+              value={result.finalLieScore || 0}
+              size={80}
+              thickness={4}
+              sx={{ color: getTierColor(result.finalLieScore) }}
+            />
+            <Box>
+              <Typography variant="h5" sx={{ color: getTierColor(result.finalLieScore) }}>
+                {result.finalLieScore.toFixed(0)}% Lie Likelihood
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                {result.finalLieScore >= 70 ? 'High Likelihood of Lying' :
+                 result.finalLieScore >= 40 ? 'Moderate Likelihood of Lying' :
+                 result.finalLieScore >= 25 ? 'Some Signs of Deception' :
+                 'Low Likelihood of Lying'}
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle1" sx={{ color: '#fff', mb: 2 }}>
+              Detailed Analysis
+            </Typography>
+            <CustomBarChart data={chartData} normalRanges={normalRanges} />
+          </Box>
+
+          <Box sx={{ 
+            p: 2, 
+            borderRadius: 1, 
+            bgcolor: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)'
+          }}>
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)' }}>
+              {generateExplanation(result)}
+            </Typography>
+          </Box>
+
+          {result.stutterCount > 0 && (
+            <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <WarningAmberIcon sx={{ color: '#FF9800' }} />
+              <Typography variant="body2" sx={{ color: '#FF9800' }}>
+                Detected {result.stutterCount} speech irregularities
+              </Typography>
+            </Box>
+          )}
+
+          {result.microExpressionCount > 0 && (
+            <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Psychology sx={{ color: '#09c2f7' }} />
+              <Typography variant="body2" sx={{ color: '#09c2f7' }}>
+                Detected {result.microExpressionCount} micro-expressions
+              </Typography>
+            </Box>
+          )}
         </Box>
       );
     })}
@@ -1235,40 +1478,199 @@ const LiarScore = () => {
 
   const scenarios = {
     easy: [
-      { prompt: "Your boss finds your 'How to Quit Your Job' search history on the work computer", context: "Explain why you were looking this up", category: "work" },
-      { prompt: "Your roommate discovers you've been using their toothbrush", context: "Make up a story about why you needed to use it", category: "social" },
+      {
+        prompt: "Someone finds a Reddit account with your name and 40,000 karma in r/AmITheAsshole",
+        context: "Explain why it might *not* be you",
+        category: "internet"
+      },
+      {
+        prompt: "You're caught in a McDonald's bathroom filming yourself saying 'I am the Alpha'",
+        context: "Justify what the video was *actually* for",
+        category: "social"
+      },
+      {
+        prompt: "Your AirPods auto-connect to a speaker and start blasting your voice memos titled 'Unhinged Rants'",
+        context: "Explain who those were *really* for",
+        category: "tech fail"
+      },
+      {
+        prompt: "Your Notes app is leaked and includes a checklist titled 'Fake Personalities I Can Pull Off'",
+        context: "Defend why this is a productivity strategy",
+        category: "psych"
+      },
+      {
+        prompt: "Your Uber driver recognizes you from a very niche meme account",
+        context: "Explain what the account is and how you're involved",
+        category: "internet"
+      },
+      {
+        prompt: "Someone catches you googling 'how to win a fight without touching them'",
+        context: "Explain why you were researching this",
+        category: "bizarre"
+      },
+      {
+        prompt: "You're found in public pretending to be on the phone to avoid someone",
+        context: "Reveal what the fake convo was about",
+        category: "social"
+      },
+      {
+        prompt: "Your YouTube history is 90% 'villain speeches' and 'interrogation room breakdowns'",
+        context: "Explain the phase you're going through",
+        category: "media"
+      }
     ],
     medium: [
-      { prompt: "Your boss discovers you've been working remotely from a beach in Mexico", context: "Explain why you needed to work from there", category: "work" },
-      { prompt: "Your partner finds your secret Instagram account", context: "Make up a story about why you needed it", category: "social" },
+      {
+        prompt: "You get exposed for running 3 anonymous Twitter accounts that reply to your main",
+        context: "Defend the accounts and their purpose",
+        category: "internet"
+      },
+      {
+        prompt: "Your group chat finds your AI-generated thirst trap edits of yourself",
+        context: "Explain why you made them",
+        category: "AI / tech"
+      },
+      {
+        prompt: "Your friends find out you've been carrying around a fake book just for the aesthetic",
+        context: "Justify the book and the performance",
+        category: "pretentious"
+      },
+      {
+        prompt: "Someone catches you recording yourself crying and then immediately smiling",
+        context: "Explain what project this was for",
+        category: "unhinged"
+      },
+      {
+        prompt: "You're exposed for editing your BeReal timestamps to make your life look cooler",
+        context: "Defend why authenticity was *overrated*",
+        category: "social media"
+      },
+      {
+        prompt: "You're caught selling your old voice memos as NFTs titled 'Mental Breakdown Vol. 1–5'",
+        context: "Pitch it as performance art",
+        category: "grift"
+      },
+      {
+        prompt: "Your Notes app includes a document titled 'Revenge Masterplan (Theoretical)'",
+        context: "Explain why it's not about anyone real",
+        category: "dark"
+      },
+      {
+        prompt: "You're found leading a Discord server called 'Exit Plan'",
+        context: "Explain what the group is *really* about",
+        category: "cult-y"
+      }
     ],
     hard: [
-      { prompt: "Your boss discovers you've been running a competing business", context: "Explain why you started this business", category: "work" },
-      { prompt: "Your partner finds evidence of a secret relationship", context: "Make up a story about why you kept it secret", category: "social" },
+      {
+        prompt: "Your search history reveals you've been researching 'how to fake your own death'",
+        context: "Explain why this is actually a creative writing project",
+        category: "dark"
+      },
+      {
+        prompt: "Someone finds your detailed notes on how to manipulate people's emotions",
+        context: "Defend this as a psychology experiment",
+        category: "psych"
+      },
+      {
+        prompt: "You're caught creating fake social media accounts to boost your own popularity",
+        context: "Justify this as a marketing strategy",
+        category: "social media"
+      },
+      {
+        prompt: "Your browser history shows you've been researching 'how to get away with murder'",
+        context: "Explain this as research for a novel",
+        category: "dark"
+      },
+      {
+        prompt: "Someone discovers you've been recording private conversations without consent",
+        context: "Defend this as a documentary project",
+        category: "unhinged"
+      },
+      {
+        prompt: "You're found with a detailed plan to ruin someone's reputation",
+        context: "Explain this as a revenge plot for a movie script",
+        category: "dark"
+      },
+      {
+        prompt: "Your notes include a list of people's weaknesses and how to exploit them",
+        context: "Justify this as character research",
+        category: "psych"
+      },
+      {
+        prompt: "You're caught creating fake evidence to frame someone",
+        context: "Explain this as part of an art installation",
+        category: "unhinged"
+      }
     ]
   };
 
   const questions = {
     easy: [
-      "Have you ever lied about your age?",
-      "Have you ever cheated on a test?",
-      "Have you ever pretended to be sick to avoid something?",
-      "Have you ever stolen something small?",
-      "Have you ever lied to a friend to avoid hurting their feelings?"
+      "Have you ever lied about your age to scam someone out of money?",
+      "Have you ever cheated on a test and bragged about it to humiliate others?",
+      "Have you ever faked a serious illness to ruin someone's plans?",
+      "Have you ever stolen something valuable and blamed it on someone else?",
+      "Have you ever lied to a friend to manipulate them into doing something wrong?",
+      "Have you ever googled yourself to find and delete negative reviews?",
+      "Have you ever been caught talking to yourself while plotting revenge?",
+      "Have you ever liked your own post from a burner account to boost engagement?",
+      "Have you ever fake laughed at someone's joke while planning their downfall?",
+      "Have you ever taken a selfie during someone else's serious moment?",
+      "Have you ever practiced an argument in the mirror to gaslight someone?",
+      "Have you ever followed someone just to gather dirt on them?",
+      "Have you ever hoped someone would get canceled for your benefit?",
+      "Have you ever eaten food off the floor and served it to guests?",
+      "Have you ever told someone they looked good just to manipulate them?",
+      "Have you ever muted a close friend to avoid helping them?",
+      "Have you ever recorded someone without consent for blackmail?",
+      "Have you ever stalked someone to find their weaknesses?",
+      "Have you ever imagined your own funeral to guilt-trip others?",
+      "Have you ever joined a cause just to scam donations?"
     ],
     medium: [
-      "Have you ever lied on your resume?",
-      "Have you ever cheated in a relationship?",
-      "Have you ever stolen from work?",
-      "Have you ever lied to your parents about something important?",
-      "Have you ever pretended to be someone else online?"
+      "Have you ever fabricated entire job experiences to scam a hiring manager?",
+      "Have you ever cheated in a relationship and framed your partner for it?",
+      "Have you ever stolen from work and sold the goods for profit?",
+      "Have you ever lied to your parents about something that could ruin them?",
+      "Have you ever pretended to be someone else online to catfish?",
+      "Have you ever gotten back with an ex just to destroy their new relationship?",
+      "Have you ever used someone for free food or rides while mocking them?",
+      "Have you ever trauma-dumped to manipulate someone's emotions?",
+      "Have you ever posted something just to make someone feel inferior?",
+      "Have you ever ghosted someone you were still manipulating?",
+      "Have you ever intentionally caused a scene to humiliate someone?",
+      "Have you ever convinced someone they were wrong just to control them?",
+      "Have you ever let someone take the blame for your serious mistake?",
+      "Have you ever threatened to leak something to destroy someone?",
+      "Have you ever lied about a mental illness to avoid consequences?",
+      "Have you ever kept receipts just to blackmail someone later?",
+      "Have you ever encouraged someone to do something dangerous for content?",
+      "Have you ever secretly hoped a couple would break up for your gain?",
+      "Have you ever faked being into someone to manipulate their friends?",
+      "Have you ever made up a tragedy to scam attention or money?"
     ],
     hard: [
-      "Have you cheated on your ex?",
-      "Have you ever committed a crime?",
-      "Have you ever lied under oath?",
-      "Have you ever betrayed a close friend?",
-      "Have you ever hidden a serious secret from your partner?"
+      "Have you ever cheated on a partner and exposed them to serious harm?",
+      "Have you ever committed a felony and walked away scot-free?",
+      "Have you ever lied under oath to destroy someone's life?",
+      "Have you ever betrayed a close friend for personal gain?",
+      "Have you ever hidden a serious secret that could harm your partner?",
+      "Have you ever flirted with someone just to cause emotional damage?",
+      "Have you ever ruined a relationship just to prove you could?",
+      "Have you ever blackmailed someone with sensitive information?",
+      "Have you ever made up a lie so big it destroyed someone's life?",
+      "Have you ever hoped someone would fail so you could take advantage?",
+      "Have you ever intentionally ruined someone's reputation permanently?",
+      "Have you ever faked love to manipulate someone's emotions?",
+      "Have you ever led multiple people on for your own entertainment?",
+      "Have you ever recorded an intimate moment without consent?",
+      "Have you ever sabotaged someone's career for personal gain?",
+      "Have you ever lied about being assaulted to manipulate others?",
+      "Have you ever taken advantage of someone while they were vulnerable?",
+      "Have you ever pretended to care just to gather damaging information?",
+      "Have you ever watched someone spiral and done nothing to help?",
+      "Have you ever manipulated someone into loving you for your benefit?"
     ]
   };
 
@@ -1276,6 +1678,12 @@ const LiarScore = () => {
     const availableScenarios = scenarios[difficultyLevel];
     const randomIndex = Math.floor(Math.random() * availableScenarios.length);
     return availableScenarios[randomIndex];
+  };
+
+  const getRandomQuestion = (difficultyLevel) => {
+    const availableQuestions = questions[difficultyLevel];
+    const randomIndex = Math.floor(Math.random() * availableQuestions.length);
+    return availableQuestions[randomIndex];
   };
 
   const handleDifficultyChange = (newDifficulty) => {
@@ -1289,7 +1697,8 @@ const LiarScore = () => {
       const newScenario = getRandomScenario(difficulty);
       setScenario(newScenario);
     } else if (newMode === 'question') {
-      setCurrentQuestions(questions[difficulty]);
+      const randomQuestion = getRandomQuestion(difficulty);
+      setCurrentQuestions([randomQuestion]);
       setCurrentQuestionIndex(0);
       setQuestionResults([]);
     }
@@ -1313,18 +1722,38 @@ const LiarScore = () => {
     if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(text);
       setIsComputerSpeaking(true);
+      setShowResultsButton(false);
+      setCanShowResults(false);
       
       utterance.onend = () => {
         setIsComputerSpeaking(false);
+        setShowResultsButton(true);
+        setCanShowResults(false);
+        setResultsButtonTimer(5);
+        
+        const timer = setInterval(() => {
+          setResultsButtonTimer(prev => {
+            if (prev <= 1) {
+              setCanShowResults(true);
+              clearInterval(timer);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
       };
       
       utterance.onerror = () => {
         setIsComputerSpeaking(false);
+        setShowResultsButton(true);
+        setCanShowResults(true);
       };
       
       speechSynthesis.speak(utterance);
     } else {
       console.log('Text-to-speech not supported');
+      setShowResultsButton(true);
+      setCanShowResults(true);
     }
   };
 
@@ -1337,13 +1766,20 @@ const LiarScore = () => {
       setCurrentQuestionIndex(prev => prev + 1);
       setIsShowingResult(false);
       setHasStartedCurrentQuestion(false);
+      setCanProceed(false);
+      setNextQuestionTimer(5);
     } else {
       setCurrentStep('result');
     }
   };
 
+  // Add timer state
+  const [nextQuestionTimer, setNextQuestionTimer] = useState(5);
+  const [canProceed, setCanProceed] = useState(false);
+  const [resultsButtonTimer, setResultsButtonTimer] = useState(5);
+  const [canShowResults, setCanShowResults] = useState(false);
+
   useEffect(() => {
-    let speechEndTimer;
     let collectionTimer;
 
     if (currentStep === 'scanning' && 
@@ -1359,30 +1795,26 @@ const LiarScore = () => {
         faceScannerRef.current.startCollecting();
         speakText(currentQuestions[currentQuestionIndex]);
         
-        // Show results button immediately after starting to speak
-        setShowResultsButton(true);
-        
-        // Set up a timer to stop collecting if user hasn't clicked after 30 seconds
         collectionTimer = setTimeout(() => {
           if (faceScannerRef.current) {
             faceScannerRef.current.stopCollecting();
           }
-        }, 30000); // Stop collecting after 30 seconds if user hasn't clicked
+        }, 30000);
       }
     }
 
     return () => {
-      if (speechEndTimer) clearInterval(speechEndTimer);
       if (collectionTimer) clearTimeout(collectionTimer);
     };
   }, [currentStep, mode, isScannerReady, currentQuestionIndex, isShowingResult, currentQuestions, faceDetected, hasStartedCurrentQuestion]);
 
   const handleShowResults = () => {
-    if (faceScannerRef.current) {
+    if (faceScannerRef.current && canShowResults) {
       faceScannerRef.current.stopCollecting();
+      setIsShowingResult(true);
+      setShowResultsButton(false);
+      setCanShowResults(false);
     }
-    setIsShowingResult(true);
-    setShowResultsButton(false);
   };
 
   const handleScanningComplete = (result) => {
@@ -1394,6 +1826,9 @@ const LiarScore = () => {
         headMovementVariance: result.headMovementVariance,
         smileIntensityVariance: result.smileIntensityVariance,
         gazeAwayPercentage: result.gazeAwayPercentage,
+        microExpressionCount: result.microExpressionCount,
+        rmsStd: result.rmsStd,
+        zcrStd: result.zcrStd,
       });
       setPreviousScores(prev => [
         ...prev,
@@ -1549,13 +1984,29 @@ const LiarScore = () => {
                       }}>
                         <GradientButton 
                           onClick={handleShowResults}
+                          disabled={!canShowResults}
                           sx={{ 
                             minWidth: '200px',
                             fontSize: '1.2rem',
                             py: 1.5,
+                            opacity: canShowResults ? 1 : 0.7,
+                            position: 'relative',
                           }}
                         >
-                          See Results
+                          {canShowResults ? 'See Results' : (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <CircularProgress
+                                size={20}
+                                thickness={4}
+                                sx={{ color: 'white' }}
+                                variant="determinate"
+                                value={(5 - resultsButtonTimer) * 20}
+                              />
+                              <Typography>
+                                {resultsButtonTimer}s
+                              </Typography>
+                            </Box>
+                          )}
                         </GradientButton>
                       </Box>
                     )}
