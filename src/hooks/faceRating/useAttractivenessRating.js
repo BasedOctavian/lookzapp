@@ -8,7 +8,7 @@ const validateRequiredProps = (doc) => {
 
   const requiredProps = [
     'height', 'weight', 'gender', 'eyeColor',
-    'carnalTilt', 'cheekbone', 'chin', 'facialThirds',
+    'carnalTilt', 'chin', 'facialThirds',
     'interocular', 'jawline', 'nose'
   ];
 
@@ -40,7 +40,6 @@ const validateRanges = (doc) => {
     height: { min: 48, max: 84 }, // inches
     weight: { min: 80, max: 400 }, // pounds
     carnalTilt: { min: 0, max: 100 },
-    cheekbone: { min: 0, max: 100 },
     chin: { min: 0, max: 100 },
     facialThirds: { min: 0, max: 100 },
     interocular: { min: 0, max: 100 },
@@ -72,42 +71,39 @@ export function useAttractivenessRating(doc) {
         weight,
         gender,
         eyeColor,
-        carnalTilt,
-        cheekbone,
-        chin,
-        facialThirds,
-        interocular,
-        jawline,
-        nose
+        carnalTilt = 0,
+        chin = 0,
+        facialThirds = 0,
+        interocular = 0,
+        jawline = 0,
+        nose = 0
       } = doc;
 
       // Calculate face rating with improved weights
       let faceRating;
       if (gender === 'M') {
         faceRating = (
-          (carnalTilt * 0.08) +      // Increased importance of eye tilt
-          (cheekbone * 0.25) +       // Slightly reduced cheekbone weight
-          (chin * 0.25) +            // Slightly reduced chin weight
-          (facialThirds * 0.12) +    // Adjusted facial thirds weight
-          (interocular * 0.08) +     // Increased eye spacing importance
-          (jawline * 0.12) +         // Adjusted jawline weight
-          (nose * 0.10)              // Increased nose importance
+          (carnalTilt * 0.10) +      // Reduced eye tilt importance
+          (chin * 0.30) +            // Increased chin weight
+          (facialThirds * 0.10) +    // Reduced facial thirds weight
+          (interocular * 0.10) +     // Reduced eye spacing importance
+          (jawline * 0.30) +         // Increased jawline weight
+          (nose * 0.10)              // Reduced nose importance
         );
       } else {
         faceRating = (
-          (carnalTilt * 0.15) +      // Increased eye tilt importance
-          (cheekbone * 0.20) +       // Adjusted cheekbone weight
-          (chin * 0.15) +            // Reduced chin weight
-          (facialThirds * 0.15) +    // Maintained facial thirds weight
-          (interocular * 0.15) +     // Increased eye spacing importance
-          (jawline * 0.10) +         // Reduced jawline weight
-          (nose * 0.10)              // Maintained nose weight
+          (carnalTilt * 0.15) +      // Reduced eye tilt importance
+          (chin * 0.25) +            // Increased chin weight
+          (facialThirds * 0.15) +    // Reduced facial thirds weight
+          (interocular * 0.15) +     // Reduced eye spacing importance
+          (jawline * 0.20) +         // Increased jawline weight
+          (nose * 0.10)              // Reduced nose importance
         );
       }
 
       // Calculate eye color score with improved mapping
       let eyeColorScore;
-      switch (eyeColor.toLowerCase()) {
+      switch (eyeColor?.toLowerCase()) {
         case 'blue':
           eyeColorScore = gender === 'M' ? 8 : 10;
           break;
@@ -153,7 +149,7 @@ export function useAttractivenessRating(doc) {
       const bonus = (() => {
         let total = 0;
         if (gender === 'M') {
-          if (height > 72 && (eyeColor.toLowerCase() === 'blue' || eyeColor.toLowerCase() === 'green')) {
+          if (height > 72 && (eyeColor?.toLowerCase() === 'blue' || eyeColor?.toLowerCase() === 'green')) {
             total += 4;
           }
           if (BMI >= 22 && BMI <= 25) {
@@ -183,10 +179,22 @@ export function useAttractivenessRating(doc) {
       // Improved sigmoid normalization
       const overallRating = 100 / (1 + Math.exp(-0.12 * (rawScore - 45)));
 
+      // Ensure the rating is a valid number
+      if (isNaN(overallRating)) {
+        console.error('Invalid rating calculation:', {
+          faceRating,
+          physicalRating,
+          eyeColorScore,
+          bonus,
+          rawScore
+        });
+        return 50; // Return a default value if calculation fails
+      }
+
       return overallRating;
     } catch (error) {
       console.error('Error calculating attractiveness rating:', error.message);
-      return null;
+      return 50; // Return a default value if calculation fails
     }
   }, [doc]);
 

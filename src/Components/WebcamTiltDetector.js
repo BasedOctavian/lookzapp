@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import * as tf from '@tensorflow/tfjs';
+import * as facemesh from '@tensorflow-models/facemesh';
 import { doc, setDoc, addDoc, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useUserData } from '../hooks/useUserData';
@@ -29,7 +30,7 @@ import {
   TextField,
   styled,
   keyframes,
-  InputLabel,
+  InputLabel, 
   Button as MuiButton,
   Card,
   CardContent,
@@ -67,12 +68,6 @@ import LoadingIndicator from './LoadingIndicator';
 import ShareRatingCard from './ShareRatingCard';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-
-// Import MediaPipe libraries
-import { FaceMesh } from '@mediapipe/face_mesh';
-import { Camera } from '@mediapipe/camera_utils';
-import * as tfjsWasm from '@tensorflow/tfjs-backend-wasm';
-import * as faceLandmarksDetection from '@tensorflow-models/face-landmarks-detection';
 
 // Animations
 const neonGlow = keyframes`
@@ -222,17 +217,14 @@ const StyledInstructionText = styled(Typography)(({ theme }) => ({
   animation: `${fadeIn} 0.5s ease-out`,
 }));
 
-// Define tests
+// Define tests (same for both genders)
 const tests = [
   'Carnal Tilt',
   'Facial Thirds',
-  'Cheekbone Location',
   'Interocular Distance',
   'Jawline',
   'Chin',
   'Nose',
-  'Symmetry',
-  'Skin Texture',
   'Overall',
 ];
 
@@ -257,56 +249,17 @@ const genderOptions = [
 
 // Helper function to calculate eye center
 const calculateEyeCenter = (landmarks, indices) => {
-  let sumX = 0, sumY = 0;
+  let sumX = 0, sumY = 0, sumZ = 0;
   indices.forEach((index) => {
-    sumX += landmarks[index].x;
-    sumY += landmarks[index].y;
+    sumX += landmarks[index][0];
+    sumY += landmarks[index][1];
+    sumZ += landmarks[index][2];
   });
   const count = indices.length;
-  return { x: sumX / count, y: sumY / count };
+  return [sumX / count, sumY / count, sumZ / count];
 };
 
-// Symmetry calculation
-const calculateSymmetryScore = (landmarks) => {
-  const leftEye = calculateEyeCenter(landmarks, [33, 133, 159, 145]);
-  const rightEye = calculateEyeCenter(landmarks, [362, 263, 386, 374]);
-  const leftCheek = landmarks[116];
-  const rightCheek = landmarks[345];
-  const leftJaw = landmarks[123];
-  const rightJaw = landmarks[352];
-
-  const eyeSymmetry = Math.abs(leftEye.x - (1 - rightEye.x));
-  const cheekSymmetry = Math.abs(leftCheek.x - (1 - rightCheek.x));
-  const jawSymmetry = Math.abs(leftJaw.x - (1 - rightJaw.x));
-
-  const totalSymmetry = (eyeSymmetry + cheekSymmetry + jawSymmetry) / 3;
-  return Math.max(0, 100 - totalSymmetry * 200); // Adjusted for scale
-};
-
-// Skin texture analysis (simplified)
-const calculateSkinTextureScore = (video, landmarks) => {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-
-  let variance = 0;
-  let count = 0;
-  for (let i = 0; i < imageData.length; i += 4) {
-    const r = imageData[i];
-    const g = imageData[i + 1];
-    const b = imageData[i + 2];
-    const avg = (r + g + b) / 3;
-    variance += avg * avg;
-    count++;
-  }
-  variance = (variance / count) - (Math.pow(variance / count, 2));
-  return Math.max(0, 100 - variance / 10); // Simplified scoring
-};
-
-// StatsDisplay Component
+// Add this new component before the WebcamTiltDetector component
 const StatsDisplay = ({ measurements, testScores, isMobile }) => {
   if (!measurements || !testScores) return null;
 
@@ -317,8 +270,6 @@ const StatsDisplay = ({ measurements, testScores, isMobile }) => {
     { label: 'Jaw Definition', value: testScores['Jawline'] || 0, icon: <Face3 /> },
     { label: 'Chin Proportion', value: testScores['Chin'] || 0, icon: <Person /> },
     { label: 'Nose Harmony', value: testScores['Nose'] || 0, icon: <Psychology /> },
-    { label: 'Symmetry', value: testScores['Symmetry'] || 0, icon: <Face /> },
-    { label: 'Skin Quality', value: testScores['Skin Texture'] || 0, icon: <FaceRetouchingNatural /> },
   ];
 
   return (
@@ -337,8 +288,8 @@ const StatsDisplay = ({ measurements, testScores, isMobile }) => {
         gap: isMobile ? 0.25 : 0.5,
         zIndex: 3,
         animation: `${fadeIn} 0.5s ease-out`,
-        maxHeight: isMobile ? '120px' : '140px',
-        overflowY: 'auto',
+        maxHeight: isMobile ? '100px' : '120px',
+        overflow: 'hidden',
       }}
     >
       <Grid container spacing={isMobile ? 0.25 : 0.5}>
@@ -410,7 +361,7 @@ const StatsDisplay = ({ measurements, testScores, isMobile }) => {
   );
 };
 
-// WebcamTiltDetector Component with MediaPipe
+// WebcamTiltDetector Component with Face Scanning Logic
 const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected, gender, onReadyToScanChange, currentStep }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -420,7 +371,7 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
   const [countdown, setCountdown] = useState(null);
   const [faceDetected, setFaceDetected] = useState(false);
   const [webcamError, setWebcamError] = useState(null);
-  const [faceMesh, setFaceMesh] = useState(null);
+  const [model, setModel] = useState(null);
   const [videoReady, setVideoReady] = useState(false);
   const [faceDetectedTime, setFaceDetectedTime] = useState(0);
   const [showFlash, setShowFlash] = useState(false);
@@ -438,23 +389,19 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
     try {
       setIsLoading(true);
       setLoadingProgress(0);
-
+      
       await tf.setBackend('webgl');
       setLoadingProgress(30);
-
-      const model = new FaceMesh({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
-      });
-      model.setOptions({
-        maxNumFaces: 1,
+      
+      const loadedModel = await facemesh.load({
+        maxFaces: 1,
         refineLandmarks: true,
-        minDetectionConfidence: 0.9,
-        minTrackingConfidence: 0.9,
+        detectionConfidence: 0.9,
+        maxContinuousChecks: 5
       });
-      model.onResults(onResults);
-      setFaceMesh(model);
-
+      
       setLoadingProgress(100);
+      setModel(loadedModel);
       setIsLoading(false);
     } catch (err) {
       setWebcamError('Failed to load FaceMesh model');
@@ -465,9 +412,9 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
   const startVideo = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
+        video: { 
+          width: { ideal: 640 }, 
+          height: { ideal: 480 }, 
           facingMode: 'user',
           frameRate: { ideal: 30 }
         },
@@ -479,14 +426,6 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
           videoRef.current.play().catch((err) => {
             setWebcamError('Failed to play video');
           });
-          const camera = new Camera(videoRef.current, {
-            onFrame: async () => {
-              if (faceMesh) await faceMesh.send({ image: videoRef.current });
-            },
-            width: 640,
-            height: 480
-          });
-          camera.start();
         };
       }
     } catch (err) {
@@ -514,143 +453,141 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
     };
   }, []);
 
-  const onResults = (results) => {
-    if (!videoRef.current || !canvasRef.current) return;
+  useEffect(() => {
+    if (!model || !videoReady) return;
 
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let lastDetectionTime = 0;
+    const DETECTION_INTERVAL = 100;
 
-    if (window.innerWidth >= 768) {
-      ctx.strokeStyle = 'white';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(canvas.width / 2, 0);
-      ctx.lineTo(canvas.width / 2, canvas.height);
-      ctx.moveTo(0, canvas.height / 2);
-      ctx.lineTo(canvas.width, canvas.height / 2);
-      ctx.ellipse(canvas.width / 2, canvas.height / 2, canvas.width / 6, canvas.height / 4, 0, 0, 2 * Math.PI);
-      ctx.stroke();
-    }
+    const detectFaceAndRunTest = async () => {
+      const now = Date.now();
+      if (now - lastDetectionTime < DETECTION_INTERVAL) return;
+      lastDetectionTime = now;
 
-    if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-      const landmarks = results.multiFaceLandmarks[0];
-      const boundingBox = {
-        topLeft: { x: Math.min(...landmarks.map(l => l.x)) * canvas.width, y: Math.min(...landmarks.map(l => l.y)) * canvas.height },
-        bottomRight: { x: Math.max(...landmarks.map(l => l.x)) * canvas.width, y: Math.max(...landmarks.map(l => l.y)) * canvas.height }
-      };
+      if (!videoRef.current || !canvasRef.current) return;
 
-      landmarks.forEach((landmark) => {
-        ctx.beginPath();
-        ctx.arc(landmark.x * canvas.width, landmark.y * canvas.height, 1, 0, 2 * Math.PI);
-        ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
-        ctx.fill();
-      });
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
 
-      ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(
-        boundingBox.topLeft.x,
-        boundingBox.topLeft.y,
-        boundingBox.bottomRight.x - boundingBox.topLeft.x,
-        boundingBox.bottomRight.y - boundingBox.topLeft.y
-      );
+      const predictions = await model.estimateFaces(video);
+      const context = canvas.getContext('2d');
+      context.clearRect(0, 0, canvas.width, canvas.height);
 
-      setFaceDetected(true);
-      onFaceDetected(true);
-      setFaceDetectedTime(prev => prev + 0.1);
-
-      const measurements = calculateMeasurements(landmarks, boundingBox, video);
-      const testScores = runTests(landmarks, boundingBox, config, video);
-
-      setMeasurements(measurements);
-      setTestScores(testScores);
-
-      if (isCollecting) {
-        scoresRef.current.push({ ...testScores, measurements });
+      if (window.innerWidth >= 768) {
+        context.strokeStyle = 'white';
+        context.lineWidth = 1;
+        context.beginPath();
+        context.moveTo(canvas.width / 2, 0);
+        context.lineTo(canvas.width / 2, canvas.height);
+        context.moveTo(0, canvas.height / 2);
+        context.lineTo(canvas.width, canvas.height / 2);
+        context.ellipse(canvas.width / 2, canvas.height / 2, canvas.width / 6, canvas.height / 4, 0, 0, 2 * Math.PI);
+        context.stroke();
       }
-    } else {
-      setFaceDetected(false);
-      onFaceDetected(false);
-      setFaceDetectedTime(0);
-    }
-  };
 
-  const calculateMeasurements = (landmarks, boundingBox, video) => {
-    const leftEyeCenter = calculateEyeCenter(landmarks, [33, 133, 159, 145]);
-    const rightEyeCenter = calculateEyeCenter(landmarks, [362, 263, 386, 374]);
-    const dy = (rightEyeCenter.y - leftEyeCenter.y) * video.videoHeight;
-    const dx = (rightEyeCenter.x - leftEyeCenter.x) * video.videoWidth;
-    const carnalTiltAngle = Math.abs(Math.atan2(dy, dx) * (180 / Math.PI));
+      if (predictions.length > 0) {
+        const face = predictions[0];
+        const landmarks = face.scaledMesh;
+        const boundingBox = face.boundingBox;
 
-    const forehead = landmarks[10].y * video.videoHeight;
-    const noseBase = landmarks[1].y * video.videoHeight;
-    const chin = landmarks[152].y * video.videoHeight;
-    const faceHeightFull = chin - forehead;
-    const upperThirdLength = noseBase - forehead;
-    const lowerThirdLength = chin - noseBase;
-    const facialThirdsRatio = upperThirdLength / lowerThirdLength;
+        landmarks.forEach(([x, y]) => {
+          context.beginPath();
+          context.arc(x, y, 1, 0, 2 * Math.PI);
+          context.fillStyle = 'rgba(0, 255, 255, 0.5)';
+          context.fill();
+        });
 
-    const leftCheekHeight = landmarks[116].y * video.videoHeight;
-    const rightCheekHeight = landmarks[345].y * video.videoHeight;
-    const cheekWidthLeft = landmarks[116].x * video.videoWidth;
-    const cheekWidthRight = landmarks[345].x * video.videoWidth;
-    const cheekHeightDiff = Math.abs(leftCheekHeight - rightCheekHeight);
-    const cheekWidth = Math.abs(cheekWidthRight - cheekWidthLeft);
+        context.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+        context.lineWidth = 2;
+        context.strokeRect(
+          boundingBox.topLeft[0],
+          boundingBox.topLeft[1],
+          boundingBox.bottomRight[0] - boundingBox.topLeft[0],
+          boundingBox.bottomRight[1] - boundingBox.topLeft[1]
+        );
 
-    const eyeDistance = Math.sqrt((dx * dx) + (dy * dy));
-    const faceWidth = boundingBox.bottomRight.x - boundingBox.topLeft.x;
-    const interocularRatio = eyeDistance / faceWidth;
+        setFaceDetected(true);
+        onFaceDetected(true);
+        setFaceDetectedTime(prev => prev + 0.1);
 
-    const jawWidth = Math.abs(landmarks[123].x - landmarks[352].x) * video.videoWidth;
-    const jawRatio = jawWidth / faceWidth;
+        // Calculate basic face measurements first
+        const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
+        const forehead = landmarks[10][1];
+        const noseBase = landmarks[1][1];
+        const chin = landmarks[152][1];
+        const faceHeightFull = chin - forehead;
+        const noseTip = landmarks[1][1];
+        const mouth = landmarks[17][1];
+        const chinLength = chin - mouth;
+        const faceHeight = chin - noseTip;
 
-    const noseTip = landmarks[1].y * video.videoHeight;
-    const mouth = landmarks[17].y * video.videoHeight;
-    const chinLength = chin - mouth;
-    const faceHeight = chin - noseTip;
-    const chinRatio = chinLength / faceHeight;
+        // Calculate eye measurements
+        const leftEyeCenter = calculateEyeCenter(landmarks, [33, 133, 159, 145]);
+        const rightEyeCenter = calculateEyeCenter(landmarks, [362, 263, 386, 374]);
+        const dy = rightEyeCenter[1] - leftEyeCenter[1];
+        const dx = rightEyeCenter[0] - leftEyeCenter[0];
+        const carnalTiltAngle = Math.abs(Math.atan2(dy, dx) * (180 / Math.PI));
+        const eyeDistance = Math.sqrt((rightEyeCenter[0] - leftEyeCenter[0]) ** 2 + (rightEyeCenter[1] - leftEyeCenter[1]) ** 2);
+        const interocularRatio = eyeDistance / faceWidth;
 
-    const noseWidth = Math.abs(landmarks[129].x - landmarks[358].x) * video.videoWidth;
-    const noseRatio = noseWidth / faceWidth;
+        // Calculate facial thirds
+        const upperThirdLength = noseBase - forehead;
+        const lowerThirdLength = chin - noseBase;
+        const facialThirdsRatio = upperThirdLength / lowerThirdLength;
 
-    return {
-      leftEyeCenter,
-      rightEyeCenter,
-      carnalTiltAngle,
-      upperThirdLength,
-      lowerThirdLength,
-      facialThirdsRatio,
-      leftCheekHeight,
-      rightCheekHeight,
-      cheekHeightDiff,
-      cheekWidth,
-      eyeDistance,
-      faceWidth,
-      interocularRatio,
-      jawWidth,
-      jawRatio,
-      chinLength,
-      faceHeight,
-      chinRatio,
-      noseWidth,
-      noseRatio,
-      faceHeightFull,
+        // Calculate jaw measurements
+        const jawWidth = Math.abs(landmarks[123][0] - landmarks[352][0]);
+        const jawRatio = jawWidth / faceWidth;
+        const chinRatio = chinLength / faceHeight;
+
+        // Calculate nose measurements
+        const noseWidth = Math.abs(landmarks[129][0] - landmarks[358][0]);
+        const noseRatio = noseWidth / faceWidth;
+
+        const measurements = {
+          leftEyeCenter,
+          rightEyeCenter,
+          carnalTiltAngle,
+          upperThirdLength,
+          lowerThirdLength,
+          facialThirdsRatio,
+          eyeDistance,
+          faceWidth,
+          interocularRatio,
+          jawWidth,
+          jawRatio,
+          chinLength,
+          faceHeight,
+          chinRatio,
+          noseWidth,
+          faceHeightFull
+        };
+
+        const testScores = {};
+        tests.forEach((test) => {
+          if (test !== 'Overall' && test !== 'Cheekbone Location') {
+            testScores[test] = runTest(test, landmarks, boundingBox, config);
+          }
+        });
+
+        setMeasurements(measurements);
+        setTestScores(testScores);
+
+        if (isCollecting) {
+          scoresRef.current.push({ ...testScores, measurements });
+        }
+      } else {
+        setFaceDetected(false);
+        onFaceDetected(false);
+        setFaceDetectedTime(0);
+      }
     };
-  };
 
-  const runTests = (landmarks, boundingBox, config, video) => {
-    const testScores = {};
-    tests.forEach((test) => {
-      if (test !== 'Overall') {
-        testScores[test] = runTest(test, landmarks, boundingBox, config, video);
-      }
-    });
-    return testScores;
-  };
+    intervalRef.current = setInterval(detectFaceAndRunTest, DETECTION_INTERVAL);
+    return () => clearInterval(intervalRef.current);
+  }, [model, videoReady, isCollecting, onFaceDetected, config]);
 
   useEffect(() => {
     onReadyToScanChange(faceDetectedTime >= 3);
@@ -726,9 +663,9 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
   }
 
   return (
-    <Box
-      position="relative"
-      width="100%"
+    <Box 
+      position="relative" 
+      width="100%" 
       height="100%"
       maxWidth={{ base: '100%', md: '800px' }}
       maxHeight={{ base: '100%', md: '600px' }}
@@ -763,12 +700,12 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
         <LoadingIndicator
           progress={loadingProgress}
           message="Loading Face Detection..."
-          subMessage={loadingProgress < 30 ? 'Initializing...' :
-                      loadingProgress < 100 ? 'Loading Model...' :
+          subMessage={loadingProgress < 30 ? 'Initializing...' : 
+                      loadingProgress < 100 ? 'Loading Model...' : 
                       'Almost Ready...'}
         />
       )}
-      {!faceMesh && !webcamError && !isLoading && (
+      {!model && !webcamError && !isLoading && (
         <LoadingIndicator
           progress={0}
           message="Preparing Camera..."
@@ -793,19 +730,19 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
             p: isMobile ? 2 : 4,
           }}
         >
-          <ErrorOutlineIcon
-            sx={{
-              fontSize: isMobile ? 36 : 48,
+          <ErrorOutlineIcon 
+            sx={{ 
+              fontSize: isMobile ? 36 : 48, 
               color: 'error.main',
               mb: isMobile ? 1 : 2,
               filter: 'drop-shadow(0 0 8px rgba(244, 67, 54, 0.3))'
-            }}
+            }} 
           />
-          <Typography
-            variant={isMobile ? "h6" : "h5"}
+          <Typography 
+            variant={isMobile ? "h6" : "h5"} 
             color="error"
             mb={isMobile ? 1 : 2}
-            sx={{
+            sx={{ 
               fontSize: { base: '1rem', md: '1.25rem' },
               display: 'flex',
               alignItems: 'center',
@@ -816,11 +753,11 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
             <WarningAmberIcon sx={{ fontSize: isMobile ? 20 : 24 }} />
             Camera Error
           </Typography>
-          <Typography
-            variant={isMobile ? "body2" : "body1"}
+          <Typography 
+            variant={isMobile ? "body2" : "body1"} 
             color="error"
             mb={isMobile ? 2 : 3}
-            sx={{
+            sx={{ 
               fontSize: { base: '0.875rem', md: '1rem' },
               textAlign: 'center',
               maxWidth: '80%'
@@ -858,36 +795,36 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
         autoPlay
         muted
         playsInline
-        style={{
-          width: '100%',
-          height: '100%',
+        style={{ 
+          width: '100%', 
+          height: '100%', 
           objectFit: 'cover',
           filter: isLoading ? 'blur(4px)' : 'none',
           transition: 'filter 0.3s ease-in-out'
         }}
       />
-      <canvas
-        ref={canvasRef}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
+      <canvas 
+        ref={canvasRef} 
+        style={{ 
+          position: 'absolute', 
+          top: 0, 
+          left: 0, 
+          width: '100%', 
           height: '100%',
           opacity: faceDetected ? 1 : 0.5,
           transition: 'opacity 0.3s ease-in-out'
-        }}
+        }} 
       />
       {countdown !== null && (
         <StyledCountdownContainer>
-          <Typography
-            variant="h1"
-            sx={{
-              fontSize: isMobile ? '4rem' : '6rem',
-              fontWeight: 800,
-              background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
+          <Typography 
+            variant="h1" 
+            sx={{ 
+              fontSize: isMobile ? '4rem' : '6rem', 
+              fontWeight: 800, 
+              background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)', 
+              WebkitBackgroundClip: 'text', 
+              WebkitTextFillColor: 'transparent', 
               textShadow: '0 0 20px rgba(9, 194, 247, 0.5)',
               animation: `${fadeIn} 0.5s ease-out`
             }}
@@ -895,13 +832,13 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
             {countdown}
           </Typography>
           {countdown === 0 && (
-            <CheckCircleOutlineIcon
-              sx={{
-                fontSize: isMobile ? 36 : 48,
+            <CheckCircleOutlineIcon 
+              sx={{ 
+                fontSize: isMobile ? 36 : 48, 
                 color: '#4CAF50',
                 filter: 'drop-shadow(0 0 8px rgba(76, 175, 80, 0.3))',
                 animation: `${fadeIn} 0.5s ease-out`
-              }}
+              }} 
             />
           )}
         </StyledCountdownContainer>
@@ -911,9 +848,9 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
       )}
       {!faceDetected && !isLoading && !webcamError && (
         <StyledFaceDetectedOverlay>
-          <Typography
-            variant={isMobile ? "body2" : "body1"}
-            sx={{
+          <Typography 
+            variant={isMobile ? "body2" : "body1"} 
+            sx={{ 
               color: '#fff',
               fontSize: { base: '0.875rem', md: '1rem' },
               textShadow: '0 2px 4px rgba(0,0,0,0.5)',
@@ -929,9 +866,9 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
         </StyledFaceDetectedOverlay>
       )}
       <StyledInstructionText>
-        <Typography
-          variant={isMobile ? "subtitle1" : "h6"}
-          sx={{
+        <Typography 
+          variant={isMobile ? "subtitle1" : "h6"} 
+          sx={{ 
             color: '#fff',
             fontSize: { base: '0.875rem', md: '1.25rem' },
             textShadow: '0 2px 4px rgba(0,0,0,0.5)',
@@ -951,16 +888,14 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
   );
 };
 
-// Scoring Helper Functions
-const runTest = (test, landmarks, boundingBox, config, video) => {
+// Scoring Helper Functions with Measurements
+const runTest = (test, landmarks, boundingBox, config) => {
   const params = config.params[test];
   switch (test) {
     case 'Carnal Tilt':
       return calculateTiltScore(landmarks, params, config.carnalTiltMultiplierFactor);
     case 'Facial Thirds':
       return calculateFacialThirdsScore(landmarks, params, config.idealRatios['Facial Thirds']);
-    case 'Cheekbone Location':
-      return calculateCheekboneScore(landmarks, params);
     case 'Interocular Distance':
       return calculateInterocularDistanceScore(landmarks, boundingBox, params, config.idealRatios['Interocular Distance']);
     case 'Jawline':
@@ -969,10 +904,6 @@ const runTest = (test, landmarks, boundingBox, config, video) => {
       return calculateChinScore(landmarks, params, config.idealRatios['Chin']);
     case 'Nose':
       return calculateNoseScore(landmarks, boundingBox, params, config.idealRatios['Nose']);
-    case 'Symmetry':
-      return calculateSymmetryScore(landmarks);
-    case 'Skin Texture':
-      return calculateSkinTextureScore(video, landmarks);
     default:
       return 0;
   }
@@ -981,17 +912,17 @@ const runTest = (test, landmarks, boundingBox, config, video) => {
 const calculateTiltScore = (landmarks, multiplier, multiplierFactor) => {
   const leftEyeCenter = calculateEyeCenter(landmarks, [33, 133, 159, 145]);
   const rightEyeCenter = calculateEyeCenter(landmarks, [362, 263, 386, 374]);
-  const dy = rightEyeCenter.y - leftEyeCenter.y;
-  const dx = rightEyeCenter.x - leftEyeCenter.x;
+  const dy = rightEyeCenter[1] - leftEyeCenter[1];
+  const dx = rightEyeCenter[0] - leftEyeCenter[0];
   const angle = Math.abs(Math.atan2(dy, dx) * (180 / Math.PI));
   const adjustedMultiplier = multiplier * multiplierFactor;
   return Math.max(0, 100 - angle * adjustedMultiplier);
 };
 
 const calculateFacialThirdsScore = (landmarks, multiplier, idealRatio) => {
-  const forehead = landmarks[10].y;
-  const noseBase = landmarks[1].y;
-  const chin = landmarks[152].y;
+  const forehead = landmarks[10][1];
+  const noseBase = landmarks[1][1];
+  const chin = landmarks[152][1];
   const third1 = noseBase - forehead;
   const third2 = chin - noseBase;
   const ratio = third1 / third2;
@@ -999,43 +930,28 @@ const calculateFacialThirdsScore = (landmarks, multiplier, idealRatio) => {
   return Math.max(0, 100 - deviation * multiplier);
 };
 
-const calculateCheekboneScore = (landmarks, multiplier) => {
-  const cheekLeft = landmarks[116].y;
-  const cheekRight = landmarks[345].y;
-  const cheekWidthLeft = landmarks[116].x;
-  const cheekWidthRight = landmarks[345].x;
-  const diffHeight = Math.abs(cheekLeft - cheekRight);
-  const width = Math.abs(cheekWidthRight - cheekWidthLeft);
-  const forehead = landmarks[10].y;
-  const chin = landmarks[152].y;
-  const faceHeight = chin - forehead;
-  const normalizedDiff = faceHeight > 0 ? diffHeight / faceHeight : 0;
-  const widthScore = width / faceHeight;
-  return Math.min(100, 100 * Math.exp(-multiplier * normalizedDiff) * (0.5 + widthScore)); // Adjusted for more stringent scoring
-};
-
 const calculateInterocularDistanceScore = (landmarks, boundingBox, multiplier, idealRatio) => {
   const leftEyeCenter = calculateEyeCenter(landmarks, [33, 133, 159, 145]);
   const rightEyeCenter = calculateEyeCenter(landmarks, [362, 263, 386, 374]);
-  const distance = Math.sqrt((rightEyeCenter.x - leftEyeCenter.x) ** 2 + (rightEyeCenter.y - leftEyeCenter.y) ** 2);
-  const faceWidth = boundingBox.bottomRight.x - boundingBox.topLeft.x;
+  const distance = Math.sqrt((rightEyeCenter[0] - leftEyeCenter[0]) ** 2 + (rightEyeCenter[1] - leftEyeCenter[1]) ** 2);
+  const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
   const ratio = distance / faceWidth;
   const deviation = Math.abs(ratio - idealRatio);
   return Math.max(0, 100 - deviation * multiplier);
 };
 
 const calculateJawlineScore = (landmarks, boundingBox, multiplier, idealRatio) => {
-  const jawWidth = Math.abs(landmarks[123].x - landmarks[352].x);
-  const faceWidth = boundingBox.bottomRight.x - boundingBox.topLeft.x;
+  const jawWidth = Math.abs(landmarks[123][0] - landmarks[352][0]);
+  const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
   const ratio = jawWidth / faceWidth;
   const deviation = Math.abs(ratio - idealRatio);
   return Math.max(0, 100 - deviation * multiplier);
 };
 
 const calculateChinScore = (landmarks, multiplier, idealRatio) => {
-  const noseTip = landmarks[1].y;
-  const chin = landmarks[152].y;
-  const mouth = landmarks[17].y;
+  const noseTip = landmarks[1][1];
+  const chin = landmarks[152][1];
+  const mouth = landmarks[17][1];
   const chinLength = chin - mouth;
   const faceHeight = chin - noseTip;
   const ratio = chinLength / faceHeight;
@@ -1044,14 +960,80 @@ const calculateChinScore = (landmarks, multiplier, idealRatio) => {
 };
 
 const calculateNoseScore = (landmarks, boundingBox, multiplier, idealRatio) => {
-  const noseWidth = Math.abs(landmarks[129].x - landmarks[358].x);
-  const faceWidth = boundingBox.bottomRight.x - boundingBox.topLeft.x;
+  const noseWidth = Math.abs(landmarks[129][0] - landmarks[358][0]);
+  const faceWidth = boundingBox.bottomRight[0] - boundingBox.topLeft[0];
   const ratio = noseWidth / faceWidth;
   const deviation = Math.abs(ratio - idealRatio);
   return Math.max(0, 100 - deviation * multiplier);
 };
 
-// UserInfoForm Component
+// Refactored Scoring Functions for Real-Time Updates
+const calculateTiltScoreAdjusted = (angle, multiplier, multiplierFactor) => {
+  const adjustedMultiplier = multiplier * multiplierFactor;
+  return Math.max(0, 100 - angle * adjustedMultiplier);
+};
+
+const calculateFacialThirdsScoreAdjusted = (ratio, multiplier, idealRatio) => {
+  const deviation = Math.abs(1 - ratio / idealRatio);
+  return Math.max(0, 100 - deviation * multiplier);
+};
+
+const calculateInterocularDistanceScoreAdjusted = (ratio, multiplier, idealRatio) => {
+  const deviation = Math.abs(ratio - idealRatio);
+  return Math.max(0, 100 - deviation * multiplier);
+};
+
+const calculateJawlineScoreAdjusted = (ratio, multiplier, idealRatio) => {
+  const deviation = Math.abs(ratio - idealRatio);
+  return Math.max(0, 100 - deviation * multiplier);
+};
+
+const calculateChinScoreAdjusted = (ratio, multiplier, idealRatio) => {
+  const deviation = Math.abs(ratio - idealRatio);
+  return Math.max(0, 100 - deviation * multiplier);
+};
+
+const calculateNoseScoreAdjusted = (ratio, multiplier, idealRatio) => {
+  const deviation = Math.abs(ratio - idealRatio);
+  return Math.max(0, 100 - deviation * multiplier);
+};
+
+const calculateTestScores = (measurements, params) => {
+  const testScores = {};
+  testScores['Carnal Tilt'] = calculateTiltScoreAdjusted(
+    measurements.carnalTiltAngle,
+    params.params['Carnal Tilt'],
+    params.carnalTiltMultiplierFactor
+  );
+  testScores['Facial Thirds'] = calculateFacialThirdsScoreAdjusted(
+    measurements.facialThirdsRatio,
+    params.params['Facial Thirds'],
+    params.idealRatios['Facial Thirds']
+  );
+  testScores['Interocular Distance'] = calculateInterocularDistanceScoreAdjusted(
+    measurements.interocularRatio,
+    params.params['Interocular Distance'],
+    params.idealRatios['Interocular Distance']
+  );
+  testScores['Jawline'] = calculateJawlineScoreAdjusted(
+    measurements.jawRatio,
+    params.params['Jawline'],
+    params.idealRatios['Jawline']
+  );
+  testScores['Chin'] = calculateChinScoreAdjusted(
+    measurements.chinRatio,
+    params.params['Chin'],
+    params.idealRatios['Chin']
+  );
+  testScores['Nose'] = calculateNoseScoreAdjusted(
+    measurements.noseRatio,
+    params.params['Nose'],
+    params.idealRatios['Nose']
+  );
+  return testScores;
+};
+
+// UserInfoForm Component with Improvements
 const UserInfoForm = ({ onSubmit, gender }) => {
   const [unitSystem, setUnitSystem] = useState('imperial');
   const [name, setName] = useState('');
@@ -1174,10 +1156,10 @@ const UserInfoForm = ({ onSubmit, gender }) => {
   };
 
   const isFormValid = () => {
-    return name &&
-           ethnicity &&
-           eyeColor &&
-           weightValue &&
+    return name && 
+           ethnicity && 
+           eyeColor && 
+           weightValue && 
            (unitSystem === 'imperial' ? (heightFeet && heightInches) : heightCm) &&
            Object.keys(errors).length === 0;
   };
@@ -1216,21 +1198,21 @@ const UserInfoForm = ({ onSubmit, gender }) => {
         color: '#fff',
       },
     }}>
-      <Stack
-        spacing={4}
-        sx={{
-          width: '100%',
+      <Stack 
+        spacing={4} 
+        sx={{ 
+          width: '100%', 
           maxWidth: '600px',
           mx: 'auto',
           flex: 1,
           px: { xs: 1, sm: 2 }
         }}
       >
-        <Typography
-          variant="h5"
-          gutterBottom
-          sx={{
-            fontWeight: 'bold',
+        <Typography 
+          variant="h5" 
+          gutterBottom 
+          sx={{ 
+            fontWeight: 'bold', 
             color: '#fff',
             textAlign: 'center',
             width: '100%'
@@ -1354,9 +1336,9 @@ const UserInfoForm = ({ onSubmit, gender }) => {
           ))}
         </TextField>
 
-        <Box sx={{
-          width: '100%',
-          display: 'flex',
+        <Box sx={{ 
+          width: '100%', 
+          display: 'flex', 
           justifyContent: 'center',
           gap: 2,
           mt: 2
@@ -1422,8 +1404,8 @@ const UserInfoForm = ({ onSubmit, gender }) => {
 
 // ResultDisplay Component
 const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
-  const cappedRating = Math.min(Math.max(rating, 15.69), 99);
-  const cappedFaceRating = faceRating ? Math.min(Math.max(faceRating, 15.69), 99) : null;
+  const cappedRating = Math.min(Math.max(rating || 0, 15.69), 99);
+  const cappedFaceRating = faceRating ? Math.min(Math.max(faceRating || 0, 15.69), 99) : null;
 
   return (
     <Box
@@ -1466,9 +1448,9 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
             alignItems="center"
             justifyContent="center"
           >
-            <Typography
-              variant="h4"
-              component="div"
+            <Typography 
+              variant="h4" 
+              component="div" 
               sx={{
                 fontWeight: 'bold',
                 background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
@@ -1477,11 +1459,11 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
                 textShadow: '0 0 10px rgba(9, 194, 247, 0.3)'
               }}
             >
-              {cappedRating.toFixed(2)}
+              {cappedRating.toFixed(1)}
             </Typography>
-            <Typography
-              variant="body2"
-              component="div"
+            <Typography 
+              variant="body2" 
+              component="div" 
               sx={{
                 color: 'rgba(255,255,255,0.7)',
                 textShadow: '0 0 5px rgba(9, 194, 247, 0.2)'
@@ -1516,9 +1498,9 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
               alignItems="center"
               justifyContent="center"
             >
-              <Typography
-                variant="h4"
-                component="div"
+              <Typography 
+                variant="h4" 
+                component="div" 
                 sx={{
                   fontWeight: 'bold',
                   background: 'linear-gradient(45deg, #fff 30%, #fa0ea4 100%)',
@@ -1527,11 +1509,11 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
                   textShadow: '0 0 10px rgba(250, 14, 164, 0.3)'
                 }}
               >
-                {cappedFaceRating.toFixed(2)}
+                {cappedFaceRating.toFixed(1)}
               </Typography>
-              <Typography
-                variant="body2"
-                component="div"
+              <Typography 
+                variant="body2" 
+                component="div" 
                 sx={{
                   color: 'rgba(255,255,255,0.7)',
                   textShadow: '0 0 5px rgba(250, 14, 164, 0.2)'
@@ -1543,9 +1525,9 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
           </Box>
         )}
       </Box>
-      <Typography
-        variant="h6"
-        component="div"
+      <Typography 
+        variant="h6" 
+        component="div" 
         sx={{
           mt: 2,
           background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
@@ -1561,10 +1543,10 @@ const ResultDisplay = ({ rating, tierLabel, faceRating }) => {
   );
 };
 
-// FeatureCircularProgress Component
+// Add this new component before DetailedResultDisplay
 const FeatureCircularProgress = ({ testScores }) => {
   const [hoveredFeature, setHoveredFeature] = useState(null);
-  const totalScore = Object.values(testScores).reduce((sum, score) => sum + score, 0);
+  const totalScore = Object.values(testScores).reduce((sum, score) => sum + (score || 0), 0);
   const averageScore = totalScore / Object.keys(testScores).length;
 
   const featureColors = {
@@ -1574,9 +1556,7 @@ const FeatureCircularProgress = ({ testScores }) => {
     'Interocular Distance': '#339af0',
     'Jawline': '#228be6',
     'Chin': '#1c7ed6',
-    'Nose': '#1971c2',
-    'Symmetry': '#fa0ea4',
-    'Skin Texture': '#ff6b6b'
+    'Nose': '#1971c2'
   };
 
   const sortedFeatures = Object.entries(testScores)
@@ -1672,7 +1652,7 @@ const FeatureCircularProgress = ({ testScores }) => {
   );
 };
 
-// DetailedResultDisplay Component
+// Modify the DetailedResultDisplay component to include the new circular progress
 const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo, setUserInfo }) => {
   const navigate = useNavigate();
   const [showDetails, setShowDetails] = useState(false);
@@ -1680,6 +1660,8 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   useEffect(() => {
     if (isLoading) {
@@ -1725,25 +1707,19 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
   const featureIcons = {
     'Carnal Tilt': <Visibility />,
     'Facial Thirds': <Straighten />,
-    'Cheekbone Location': <FaceRetouchingNatural />,
     'Interocular Distance': <RemoveRedEye />,
     'Jawline': <Face3 />,
     'Chin': <Person />,
-    'Nose': <Psychology />,
-    'Symmetry': <Face />,
-    'Skin Texture': <FaceRetouchingNatural />
+    'Nose': <Psychology />
   };
 
   const featureDescriptions = {
     'Carnal Tilt': 'Measures the angle of the eyes relative to the horizontal plane.',
     'Facial Thirds': 'Evaluates the proportions of the forehead, midface, and lower face.',
-    'Cheekbone Location': 'Assesses the prominence, width, and position of the cheekbones.',
     'Interocular Distance': 'Analyzes the distance between the eyes relative to face width.',
     'Jawline': 'Evaluates the definition and symmetry of the jawline.',
     'Chin': 'Assesses the shape and proportion of the chin.',
-    'Nose': 'Analyzes the size and shape of the nose relative to the face.',
-    'Symmetry': 'Quantifies the bilateral symmetry of facial features.',
-    'Skin Texture': 'Evaluates skin smoothness and clarity.'
+    'Nose': 'Analyzes the size and shape of the nose relative to the face.'
   };
 
   const sortedFeatures = testScores
@@ -1759,6 +1735,36 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
 
   const bestFeature = sortedFeatures[0];
   const worstFeature = sortedFeatures[sortedFeatures.length - 1];
+
+  const featureCategories = {
+    'Facial Structure': {
+      features: ['Facial Thirds', 'Jawline', 'Chin'],
+      description: 'Overall facial harmony and bone structure',
+      icon: <Face3 />
+    },
+    'Eye Features': {
+      features: ['Carnal Tilt', 'Interocular Distance'],
+      description: 'Eye positioning and alignment',
+      icon: <RemoveRedEye />
+    },
+    'Facial Balance': {
+      features: ['Nose'],
+      description: 'Facial symmetry and proportions',
+      icon: <Psychology />
+    }
+  };
+
+  const getAssessmentLevel = (score) => {
+    if (score >= 80) return { label: 'Exceptional', color: '#09c2f7', description: 'Well above average' };
+    if (score >= 60) return { label: 'Strong', color: '#6ce9ff', description: 'Above average' };
+    if (score >= 40) return { label: 'Moderate', color: '#fa0ea4', description: 'Average' };
+    return { label: 'Developing', color: '#ff6b6b', description: 'Below average' };
+  };
+
+  const getCategoryScore = (testScores, category) => {
+    const scores = category.features.map(feature => testScores[feature] || 0);
+    return scores.reduce((sum, score) => sum + score, 0) / scores.length;
+  };
 
   return (
     <Box sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
@@ -1854,10 +1860,110 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
               {tierLabel}
             </Typography>
 
-            <Box sx={{ my: 4 }}>
-              <FeatureCircularProgress testScores={testScores} />
+            {/* Ratings Display */}
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: { xs: 'column', md: 'row' },
+              justifyContent: 'center',
+              gap: 4,
+              my: 4
+            }}>
+              {/* Overall Rating */}
+              <Box sx={{ position: 'relative' }}>
+                <CircularProgress
+                  variant="determinate"
+                  value={overallRating}
+                  size={isMobile ? 160 : 200}
+                  thickness={4}
+                  sx={{
+                    color: '#09c2f7',
+                    '& .MuiCircularProgress-circle': {
+                      transition: 'stroke-dashoffset 1s ease-in-out'
+                    }
+                  }}
+                />
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    textAlign: 'center'
+                  }}
+                >
+                  <Typography
+                    variant="h4"
+                    sx={{
+                      fontWeight: 'bold',
+                      background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      textShadow: '0 0 10px rgba(9, 194, 247, 0.3)'
+                    }}
+                  >
+                    {overallRating.toFixed(1)}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: 'rgba(255,255,255,0.7)',
+                      textShadow: '0 0 5px rgba(9, 194, 247, 0.2)'
+                    }}
+                  >
+                    Overall
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* Face Rating */}
+              <Box sx={{ position: 'relative' }}>
+                <CircularProgress
+                  variant="determinate"
+                  value={faceRating}
+                  size={isMobile ? 160 : 200}
+                  thickness={4}
+                  sx={{
+                    color: '#fa0ea4',
+                    '& .MuiCircularProgress-circle': {
+                      transition: 'stroke-dashoffset 1s ease-in-out'
+                    }
+                  }}
+                />
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    textAlign: 'center'
+                  }}
+                >
+                  <Typography
+                    variant="h4"
+                    sx={{
+                      fontWeight: 'bold',
+                      background: 'linear-gradient(45deg, #fff 30%, #fa0ea4 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      textShadow: '0 0 10px rgba(250, 14, 164, 0.3)'
+                    }}
+                  >
+                    {faceRating.toFixed(1)}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: 'rgba(255,255,255,0.7)',
+                      textShadow: '0 0 5px rgba(250, 14, 164, 0.2)'
+                    }}
+                  >
+                    Face
+                  </Typography>
+                </Box>
+              </Box>
             </Box>
 
+            {/* Feature Highlights */}
             <Box
               sx={{
                 mt: 4,
@@ -1867,6 +1973,7 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
                 justifyContent: 'center'
               }}
             >
+              {/* Best Feature */}
               <Box
                 sx={{
                   p: 3,
@@ -1894,6 +2001,7 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
                 </Typography>
               </Box>
 
+              {/* Worst Feature */}
               <Box
                 sx={{
                   p: 3,
@@ -1929,7 +2037,14 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
               variant="contained"
               color="primary"
               onClick={() => setShowDetails(!showDetails)}
-              sx={{ mt: 2 }}
+              sx={{
+                mt: 2,
+                background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
+                  opacity: 0.9
+                }
+              }}
             >
               {showDetails ? 'Hide Details' : 'Show Detailed Analysis'}
             </Button>
@@ -1945,11 +2060,11 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
                 }
               }}
             >
-              <Typography
-                variant="h5"
-                gutterBottom
-                fontWeight="bold"
-                align="center"
+              <Typography 
+                variant="h5" 
+                gutterBottom 
+                fontWeight="bold" 
+                align="center" 
                 mb={4}
                 sx={{
                   background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
@@ -1958,109 +2073,112 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
                   textShadow: '0 0 10px rgba(9, 194, 247, 0.3)'
                 }}
               >
-                Detailed Feature Analysis
+                Detailed Analysis
               </Typography>
               <Stack spacing={3}>
-                {sortedFeatures.map(({ test, score, impact }, index) => {
-                  const color = impact === 'Excellent' ? '#09c2f7' : impact === 'Good' ? '#6ce9ff' : impact === 'Average' ? '#fa0ea4' : '#ff6b6b';
+                {Object.entries(featureCategories).map(([category, data], index) => {
+                  const categoryScore = getCategoryScore(testScores, data);
+                  const assessment = getAssessmentLevel(categoryScore);
+                  
                   return (
                     <Box
-                      key={test}
+                      key={category}
                       sx={{
                         animation: `slideIn 0.5s ease-out ${index * 0.1}s both`,
                         '@keyframes slideIn': {
                           '0%': { transform: 'translateX(-20px)', opacity: 0 },
                           '100%': { transform: 'translateX(0)', opacity: 1 }
                         },
-                        p: 2,
+                        p: 3,
                         borderRadius: 2,
                         bgcolor: 'rgba(13, 17, 44, 0.7)',
-                        border: `1px solid ${color}20`,
+                        border: `1px solid ${assessment.color}20`,
                         backdropFilter: 'blur(16px)'
                       }}
                     >
-                      <Box display="flex" alignItems="center" mb={1}>
-                        <Typography variant="h4" mr={2} sx={{ color: color }}>
-                          {featureIcons[test]}
-                        </Typography>
+                      <Box display="flex" alignItems="center" mb={2}>
+                        <Box sx={{ color: assessment.color, mr: 2 }}>
+                          {data.icon}
+                        </Box>
                         <Box flex={1}>
-                          <Typography
-                            variant="body1"
-                            fontWeight="medium"
+                          <Typography 
+                            variant="h6" 
                             sx={{
                               color: '#fff',
-                              textShadow: '0 0 5px rgba(9, 194, 247, 0.2)'
+                              textShadow: '0 0 5px rgba(9, 194, 247, 0.2)',
+                              mb: 0.5
                             }}
                           >
-                            {test}
+                            {category}
                           </Typography>
-                          <Typography
-                            variant="body2"
+                          <Typography 
+                            variant="body2" 
                             sx={{
                               color: 'rgba(255,255,255,0.7)',
                               textShadow: '0 0 5px rgba(9, 194, 247, 0.2)'
                             }}
                           >
-                            {featureDescriptions[test]}
+                            {data.description}
                           </Typography>
                         </Box>
                         <Typography
                           variant="body1"
                           sx={{
-                            bgcolor: `${color}20`,
-                            px: 1.5,
+                            bgcolor: `${assessment.color}20`,
+                            px: 2,
                             py: 0.5,
                             borderRadius: 1,
                             color: '#fff',
                             textShadow: '0 0 5px rgba(9, 194, 247, 0.2)'
                           }}
                         >
-                          {impact}
+                          {assessment.label}
                         </Typography>
                       </Box>
-                      <Box sx={{ position: 'relative', mt: 1 }}>
+                      
+                      <Box sx={{ position: 'relative', mt: 2 }}>
                         <LinearProgress
                           variant="determinate"
-                          value={score}
+                          value={categoryScore}
                           sx={{
                             height: 8,
                             borderRadius: 3,
                             backgroundColor: 'rgba(255,255,255,0.1)',
                             '& .MuiLinearProgress-bar': {
-                              backgroundColor: color,
+                              backgroundColor: assessment.color,
                               borderRadius: 3,
                               transition: 'width 1s ease-in-out'
                             }
                           }}
                         />
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            mt: 0.5
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            mt: 1,
+                            color: 'rgba(255,255,255,0.7)',
+                            textShadow: '0 0 5px rgba(9, 194, 247, 0.2)',
+                            textAlign: 'center'
                           }}
                         >
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              color: 'rgba(255,255,255,0.7)',
-                              textShadow: '0 0 5px rgba(9, 194, 247, 0.2)',
-                              fontWeight: 'medium'
-                            }}
-                          >
-                            Low
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              color: 'rgba(255,255,255,0.7)',
-                              textShadow: '0 0 5px rgba(9, 194, 247, 0.2)',
-                              fontWeight: 'medium'
-                            }}
-                          >
-                            High
-                          </Typography>
-                        </Box>
+                          {assessment.description}
+                        </Typography>
+                      </Box>
+
+                      <Box sx={{ mt: 2 }}>
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            color: 'rgba(255,255,255,0.7)',
+                            textShadow: '0 0 5px rgba(9, 194, 247, 0.2)',
+                            fontStyle: 'italic'
+                          }}
+                        >
+                          {data.features.map(feature => {
+                            const featureScore = testScores[feature] || 0;
+                            const featureAssessment = getAssessmentLevel(featureScore);
+                            return `${feature}: ${featureAssessment.description}`;
+                          }).join(' • ')}
+                        </Typography>
                       </Box>
                     </Box>
                   );
@@ -2120,10 +2238,10 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
             onClose={() => setSnackbar({ ...snackbar, open: false })}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
           >
-            <Alert
-              onClose={() => setSnackbar({ ...snackbar, open: false })}
+            <Alert 
+              onClose={() => setSnackbar({ ...snackbar, open: false })} 
               severity={snackbar.severity}
-              sx={{
+              sx={{ 
                 width: '100%',
                 backgroundColor: 'rgba(13, 17, 44, 0.9)',
                 color: '#fff',
@@ -2170,10 +2288,17 @@ const AttractivenessRatingProcess = () => {
   const [testScores, setTestScores] = useState(null);
   const [userInfo, setUserInfo] = useState(null);
   const [faceDetected, setFaceDetected] = useState(false);
+  const [updated, setUpdated] = useState(false);
   const [readyToScan, setReadyToScan] = useState(false);
   const { rating: rawRating } = useAttractivenessRating(userInfo);
   const cappedRating = rawRating !== null ? Math.min(Math.max(rawRating, 15.69), 99) : null;
   const toast = useToast();
+
+  // Add scan counter state
+  const [scanCount, setScanCount] = useState(() => {
+    const savedCount = localStorage.getItem('scanCount');
+    return savedCount ? parseInt(savedCount) : 0;
+  });
 
   const testToPropMap = {
     'Carnal Tilt': 'carnalTilt',
@@ -2183,8 +2308,6 @@ const AttractivenessRatingProcess = () => {
     'Jawline': 'jawline',
     'Chin': 'chin',
     'Nose': 'nose',
-    'Symmetry': 'symmetry',
-    'Skin Texture': 'skinTexture',
   };
 
   useEffect(() => {
@@ -2204,6 +2327,7 @@ const AttractivenessRatingProcess = () => {
           setCurrentStep('genderSelection');
         }
       } else {
+        // For unauthenticated users, start with gender selection
         setCurrentStep('genderSelection');
       }
     }
@@ -2273,18 +2397,21 @@ const AttractivenessRatingProcess = () => {
       for (const [test, score] of Object.entries(testAverages)) {
         const propName = testToPropMap[test];
         if (propName) {
-          transformedTestScores[propName] = score;
+          transformedTestScores[propName] = score || 0;
         }
       }
 
-      const faceRating = Object.values(testAverages).reduce((sum, score) => sum + score, 0) / Object.keys(testAverages).length;
+      const faceRating = Object.values(testAverages)
+        .filter(score => score !== undefined && !isNaN(score))
+        .reduce((sum, score) => sum + score, 0) / 
+        Object.keys(testAverages).length;
 
       if (user) {
         const updatedUserInfo = {
           ...userInfo,
           ...transformedTestScores,
           testScores: testAverages,
-          faceRating: faceRating,
+          faceRating: faceRating || 0,
           measurements: measurements,
         };
         setUserInfo(updatedUserInfo);
@@ -2342,6 +2469,14 @@ const AttractivenessRatingProcess = () => {
     ? testScoresValues.reduce((sum, score) => sum + score, 0) / testScoresValues.length
     : null;
 
+  const genderMap = {
+    'Male': 'M',
+    'Female': 'W',
+    'Non-binary': 'M',
+    'Other': 'W',
+    'Prefer not to say': 'M',
+  };
+
   return (
     <Box
       sx={{
@@ -2357,6 +2492,7 @@ const AttractivenessRatingProcess = () => {
       }}
     >
       <TopBar />
+      {/* Animated grid background */}
       <Box
         sx={{
           position: 'absolute',
@@ -2372,9 +2508,157 @@ const AttractivenessRatingProcess = () => {
       />
 
       <Container maxWidth="xl" sx={{ position: 'relative', zIndex: 1 }}>
+        {currentStep === 'scanForSelection' && (
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                mb: 4,
+                cursor: 'pointer',
+              }}
+              onClick={() => navigate('/')}
+            >
+              <Box
+                sx={{
+                  width: 120,
+                  height: 120,
+                  background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
+                  borderRadius: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  animation: `${neonGlow} 2s infinite`,
+                  boxShadow: '0 0 32px rgba(9, 194, 247, 0.2)',
+                  transition: 'transform 0.3s ease',
+                  '&:hover': {
+                    transform: 'scale(1.05)'
+                  }
+                }}
+              >
+                <img
+                  src="/lookzapp trans 2.png"
+                  alt="LookzApp"
+                  style={{ width: '80%', filter: 'brightness(0) invert(1)' }}
+                />
+              </Box>
+            </Box>
+            <Typography
+              variant="h2"
+              sx={{
+                fontWeight: 800,
+                background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                mb: 4,
+                fontSize: { xs: '2.5rem', md: '3.5rem' }
+              }}
+            >
+              Who are you scanning?
+            </Typography>
+            
+            <Grid container spacing={4} justifyContent="center">
+              <Grid item xs={12} md={6}>
+                <GlassCard
+                  onClick={() => handleGenderSelection('M')}
+                  sx={{ 
+                    cursor: 'pointer', 
+                    height: '100%',
+                    p: 4,
+                    '&:hover .optionTitle': {
+                      background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                    }
+                  }}
+                >
+                  <Typography 
+                    variant="h4" 
+                    className="optionTitle"
+                    sx={{ 
+                      mb: 2,
+                      fontSize: '1.8rem',
+                      transition: 'all 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      textShadow: '0 0 10px rgba(9, 194, 247, 0.3)',
+                      justifyContent: 'center',
+                      width: '100%'
+                    }}
+                  >
+                    <Face /> For Myself
+                  </Typography>
+                  <Typography 
+                    color="rgba(255,255,255,0.7)" 
+                    sx={{ 
+                      fontSize: '1.1rem', 
+                      textShadow: '0 0 5px rgba(9, 194, 247, 0.2)',
+                      textAlign: 'center',
+                      maxWidth: '80%'
+                    }}
+                  >
+                    Analyze your own facial features with AI-powered insights
+                  </Typography>
+                </GlassCard>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <GlassCard
+                  onClick={() => handleGenderSelection('W')}
+                  sx={{ 
+                    cursor: 'pointer', 
+                    height: '100%',
+                    p: 4,
+                    '&:hover .optionTitle': {
+                      background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                    }
+                  }}
+                >
+                  <Typography 
+                    variant="h4" 
+                    className="optionTitle"
+                    sx={{ 
+                      mb: 2,
+                      fontSize: '1.8rem',
+                      transition: 'all 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      textShadow: '0 0 10px rgba(9, 194, 247, 0.3)',
+                      justifyContent: 'center',
+                      width: '100%'
+                    }}
+                  >
+                    <Group /> For Someone Else
+                  </Typography>
+                  <Typography 
+                    color="rgba(255,255,255,0.7)" 
+                    sx={{ 
+                      fontSize: '1.1rem', 
+                      textShadow: '0 0 5px rgba(9, 194, 247, 0.2)',
+                      textAlign: 'center',
+                      maxWidth: '80%'
+                    }}
+                  >
+                    Analyze another person's features with privacy-focused technology
+                  </Typography>
+                </GlassCard>
+              </Grid>
+            </Grid>
+          </Box>
+        )}
+
         {currentStep === 'genderSelection' && (
-          <Box sx={{
-            textAlign: 'center',
+          <Box sx={{ 
+            textAlign: 'center', 
             py: 8,
             px: { xs: 2, sm: 3, md: 4 },
             display: 'flex',
@@ -2393,30 +2677,38 @@ const AttractivenessRatingProcess = () => {
                 mb: 4,
                 fontSize: { xs: '2rem', md: '2.5rem' },
                 textAlign: 'center',
-                width: '100%'
+                width: '100%',
+                marginTop: '-40px'
               }}
             >
               Select Analysis Profile
             </Typography>
-
-            <Grid
-              container
-              spacing={3}
-              justifyContent="center"
-              sx={{
+            
+            <Grid 
+              container 
+              spacing={3} 
+              justifyContent="center" 
+              sx={{ 
                 maxWidth: '800px',
                 width: '100%',
-                mx: 'auto'
+                mx: 'auto',
+                px: { xs: 1, sm: 2, md: 3 }
+              
               }}
             >
               {genderOptions.map((option) => (
-                <Grid item xs={12} sm={6} md={3} key={option.value}>
+                <Grid item xs={12} sm={6} md={4} key={option.value}>
                   <GlassCard
                     onClick={() => handleGenderSelection(option.value)}
-                    sx={{
+                    sx={{ 
                       cursor: 'pointer',
                       p: 3,
+                      marginRight: '20px',
                       height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                       border: gender === option.value ? '2px solid #09c2f7' : '1px solid rgba(250, 14, 164, 0.2)',
                       boxShadow: gender === option.value ? '0 0 20px rgba(9, 194, 247, 0.3)' : 'none',
                       transition: 'all 0.3s ease',
@@ -2428,7 +2720,7 @@ const AttractivenessRatingProcess = () => {
                     }}
                   >
                     <Box
-                      sx={{
+                      sx={{ 
                         width: 64,
                         height: 64,
                         borderRadius: '50%',
@@ -2437,6 +2729,7 @@ const AttractivenessRatingProcess = () => {
                         alignItems: 'center',
                         justifyContent: 'center',
                         mb: 2,
+                        
                         animation: `${neonGlow} 2s infinite`,
                         '& .MuiSvgIcon-root': {
                           fontSize: 32,
@@ -2470,7 +2763,8 @@ const AttractivenessRatingProcess = () => {
                       {option.label === 'Male' ? 'Masculine facial analysis' :
                        option.label === 'Female' ? 'Feminine facial analysis' :
                        option.label === 'Non-binary' ? 'Neutral facial analysis' :
-                       'Custom facial analysis'}
+                       option.label === 'Other' ? 'Custom facial analysis' :
+                       'Anonymous facial analysis'}
                     </Typography>
                   </GlassCard>
                 </Grid>
@@ -2493,7 +2787,7 @@ const AttractivenessRatingProcess = () => {
                 fontSize: { xs: '2.5rem', md: '3.5rem' }
               }}
             >
-              {currentStep === 'instructions' ? 'Prepare for Scan' : 'Scanning in Progress'}
+              
             </Typography>
 
             <StyledWebcamContainer>
@@ -2506,11 +2800,13 @@ const AttractivenessRatingProcess = () => {
                 currentStep={currentStep}
               />
             </StyledWebcamContainer>
+
+            
           </Box>
         )}
 
         {currentStep === 'form' && !user && (
-          <Box sx={{
+          <Box sx={{ 
             py: 8,
             minHeight: '100vh',
             display: 'flex',
@@ -2534,8 +2830,8 @@ const AttractivenessRatingProcess = () => {
             >
               Subject Profile Setup
             </Typography>
-
-            <Box sx={{
+            
+            <Box sx={{ 
               width: '100%',
               maxWidth: '800px',
               mx: 'auto',
@@ -2617,6 +2913,7 @@ const AttractivenessRatingProcess = () => {
       </Container>
     </Box>
   );
+
 };
 
 export default AttractivenessRatingProcess;

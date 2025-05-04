@@ -53,7 +53,6 @@ const DESCRIPTORS = {
         { word: 'Engaging', statement: 'People want to know you' },
         { word: 'Pleasant', statement: 'A joy to be around' },
         { word: 'Agreeable', statement: 'Easy to get along with' },
-        { word: 'Winsome', statement: 'Charm comes naturally' },
         { word: 'Likable', statement: 'First impressions last' }
       ]
     },
@@ -296,7 +295,6 @@ const EXTRA_POOLS = {
         { word: 'Manlet', statement: 'Height is just a number' },
         { word: 'Hobbit', statement: 'Adventure comes in all sizes' },
         { word: 'Munchkin', statement: 'Small but mighty' },
-        { word: 'Verticallet', statement: 'Compact and efficient' },
         { word: 'Dwarf', statement: 'Strength in a small package' },
         { word: 'Midget', statement: 'Every inch counts' },
         { word: 'Runt', statement: 'Small but significant' },
