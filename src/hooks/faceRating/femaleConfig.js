@@ -1,10 +1,10 @@
 export const femaleConfig = {
   weights: {
     'Carnal Tilt': 3,
-    'Facial Thirds': 3,
+    'Facial Thirds': 1.5,
     'Cheekbone Location': 2,
     'Interocular Distance': 1,
-    'Jawline': 1.5,
+    'Jawline': 3,
     'Chin': 3,
     'Nose': 2,
   },

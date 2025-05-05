@@ -84,19 +84,19 @@ export function useAttractivenessRating(doc) {
       if (gender === 'M') {
         faceRating = (
           (carnalTilt * 0.10) +      // Reduced eye tilt importance
-          (chin * 0.30) +            // Increased chin weight
-          (facialThirds * 0.10) +    // Reduced facial thirds weight
+          (chin * 0.25) +            // Slightly reduced chin weight
+          (facialThirds * 0.05) +    // Reduced facial thirds weight
           (interocular * 0.10) +     // Reduced eye spacing importance
-          (jawline * 0.30) +         // Increased jawline weight
+          (jawline * 0.40) +         // Increased jawline weight
           (nose * 0.10)              // Reduced nose importance
         );
       } else {
         faceRating = (
           (carnalTilt * 0.15) +      // Reduced eye tilt importance
-          (chin * 0.25) +            // Increased chin weight
-          (facialThirds * 0.15) +    // Reduced facial thirds weight
+          (chin * 0.20) +            // Slightly reduced chin weight
+          (facialThirds * 0.10) +    // Reduced facial thirds weight
           (interocular * 0.15) +     // Reduced eye spacing importance
-          (jawline * 0.20) +         // Increased jawline weight
+          (jawline * 0.30) +         // Increased jawline weight
           (nose * 0.10)              // Reduced nose importance
         );
       }

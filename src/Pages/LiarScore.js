@@ -14,6 +14,7 @@ import {
   Alert,
   styled,
   keyframes,
+  Paper,
 } from '@mui/material';
 import { useToast } from '@chakra-ui/toast';
 import {
@@ -31,6 +32,13 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import LoadingIndicator from '../Components/LoadingIndicator';
+
+// Animations
+const neonGlow = keyframes`
+  0% { filter: drop-shadow(0 0 2px #09c2f7); }
+  50% { filter: drop-shadow(0 0 6px #09c2f7); }
+  100% { filter: drop-shadow(0 0 2px #09c2f7); }
+`;
 
 // Utility functions
 const generateExplanation = (scores) => {
@@ -158,7 +166,7 @@ const StyledInstructionText = styled(Typography)(({ theme }) => ({
   top: '20px',
   left: '50%',
   transform: 'translateX(-50%)',
-  zIndex: 3,
+  zIndex: '3',
   textAlign: 'center',
   background: 'rgba(13, 17, 44, 0.95)',
   backdropFilter: 'blur(8px)',
@@ -1473,6 +1481,10 @@ const LiarScore = () => {
   const [isComputerSpeaking, setIsComputerSpeaking] = useState(false);
   const [hasStartedCurrentQuestion, setHasStartedCurrentQuestion] = useState(false);
   const [showResultsButton, setShowResultsButton] = useState(false);
+  const [resultsButtonTimer, setResultsButtonTimer] = useState(3);
+  const [canShowResults, setCanShowResults] = useState(false);
+  const [nextQuestionTimer, setNextQuestionTimer] = useState(0);
+  const [canProceedToNext, setCanProceedToNext] = useState(false);
   const toast = useToast();
   const faceScannerRef = useRef(null);
 
@@ -1680,10 +1692,10 @@ const LiarScore = () => {
     return availableScenarios[randomIndex];
   };
 
-  const getRandomQuestion = (difficultyLevel) => {
+  const getRandomQuestions = (difficultyLevel, count = 5) => {
     const availableQuestions = questions[difficultyLevel];
-    const randomIndex = Math.floor(Math.random() * availableQuestions.length);
-    return availableQuestions[randomIndex];
+    const shuffled = [...availableQuestions].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, count);
   };
 
   const handleDifficultyChange = (newDifficulty) => {
@@ -1697,8 +1709,8 @@ const LiarScore = () => {
       const newScenario = getRandomScenario(difficulty);
       setScenario(newScenario);
     } else if (newMode === 'question') {
-      const randomQuestion = getRandomQuestion(difficulty);
-      setCurrentQuestions([randomQuestion]);
+      const randomQuestions = getRandomQuestions(difficulty, 5);
+      setCurrentQuestions(randomQuestions);
       setCurrentQuestionIndex(0);
       setQuestionResults([]);
     }
@@ -1716,6 +1728,9 @@ const LiarScore = () => {
       return;
     }
     setCurrentStep('scanning');
+    if (mode === 'scenario') {
+      speakText(`${scenario.prompt}\n\n${scenario.context}`);
+    }
   };
 
   const speakText = (text) => {
@@ -1729,7 +1744,7 @@ const LiarScore = () => {
         setIsComputerSpeaking(false);
         setShowResultsButton(true);
         setCanShowResults(false);
-        setResultsButtonTimer(5);
+        setResultsButtonTimer(3);
         
         const timer = setInterval(() => {
           setResultsButtonTimer(prev => {
@@ -1766,34 +1781,28 @@ const LiarScore = () => {
       setCurrentQuestionIndex(prev => prev + 1);
       setIsShowingResult(false);
       setHasStartedCurrentQuestion(false);
-      setCanProceed(false);
-      setNextQuestionTimer(5);
+      setCanProceedToNext(false);
     } else {
       setCurrentStep('result');
     }
   };
 
-  // Add timer state
-  const [nextQuestionTimer, setNextQuestionTimer] = useState(5);
-  const [canProceed, setCanProceed] = useState(false);
-  const [resultsButtonTimer, setResultsButtonTimer] = useState(5);
-  const [canShowResults, setCanShowResults] = useState(false);
-
   useEffect(() => {
     let collectionTimer;
 
     if (currentStep === 'scanning' && 
-        mode === 'question' && 
         isScannerReady && 
         faceDetected && 
-        currentQuestionIndex < currentQuestions.length && 
         !isShowingResult && 
         !hasStartedCurrentQuestion) {
       
       if (faceScannerRef.current) {
         setHasStartedCurrentQuestion(true);
         faceScannerRef.current.startCollecting();
-        speakText(currentQuestions[currentQuestionIndex]);
+        
+        if (mode === 'question') {
+          speakText(currentQuestions[currentQuestionIndex]);
+        }
         
         collectionTimer = setTimeout(() => {
           if (faceScannerRef.current) {
@@ -1807,6 +1816,24 @@ const LiarScore = () => {
       if (collectionTimer) clearTimeout(collectionTimer);
     };
   }, [currentStep, mode, isScannerReady, currentQuestionIndex, isShowingResult, currentQuestions, faceDetected, hasStartedCurrentQuestion]);
+
+  useEffect(() => {
+    if (isShowingResult) {
+      setNextQuestionTimer(3);
+      setCanProceedToNext(false);
+      const timer = setInterval(() => {
+        setNextQuestionTimer(prev => {
+          if (prev <= 1) {
+            setCanProceedToNext(true);
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [isShowingResult]);
 
   const handleShowResults = () => {
     if (faceScannerRef.current && canShowResults) {
@@ -1841,6 +1868,40 @@ const LiarScore = () => {
     }
   };
 
+  const GlassCard = styled(Paper)(({ theme }) => ({
+    padding: theme.spacing(4),
+    backdropFilter: 'blur(16px)',
+    backgroundColor: 'rgba(13, 17, 44, 0.7)',
+    border: '1px solid rgba(250, 14, 164, 0.2)',
+    borderRadius: '24px',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    '&:hover': {
+      transform: 'translateY(-8px)',
+      backgroundColor: 'rgba(13, 17, 44, 0.85)',
+      boxShadow: '0 8px 32px rgba(250, 14, 164, 0.3)'
+    },
+    position: 'relative',
+    overflow: 'hidden',
+    aspectRatio: '1',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
+    '&:before': {
+      content: '""',
+      position: 'absolute',
+      width: '100%',
+      height: '100%',
+      background: `
+        linear-gradient(rgba(9, 194, 247, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(9, 194, 247, 0.05) 1px, transparent 1px)
+      `,
+      backgroundSize: '40px 40px',
+      opacity: 0.3,
+    }
+  }));
+
   return (
     <Box
       sx={{
@@ -1857,24 +1918,77 @@ const LiarScore = () => {
           <LoadingAnimation>
             <Box
               sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                mb: 4,
+                cursor: 'pointer',
+              }}
+              onClick={() => navigate('/')}
+            >
+              <Box
+                sx={{
+                  width: 120,
+                  height: 120,
+                  background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
+                  borderRadius: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  animation: `${neonGlow} 2s infinite`,
+                  boxShadow: '0 0 32px rgba(9, 194, 247, 0.2)',
+                  transition: 'transform 0.3s ease',
+                  '&:hover': {
+                    transform: 'scale(1.05)'
+                  }
+                }}
+              >
+                <img
+                  src="/lookzapp trans 2.png"
+                  alt="LookzApp"
+                  style={{ width: '80%', filter: 'brightness(0) invert(1)' }}
+                />
+              </Box>
+            </Box>
+            <Box
+              sx={{
                 width: '100%',
                 maxWidth: '400px',
                 height: '4px',
                 backgroundColor: 'rgba(255, 255, 255, 0.1)',
                 borderRadius: '2px',
                 overflow: 'hidden',
+                position: 'relative'
               }}
             >
               <Box
                 sx={{
-                  width: `${loadingProgress}%`,
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
                   height: '100%',
+                  width: `${loadingProgress}%`,
                   background: 'linear-gradient(90deg, #09c2f7, #fa0ea4)',
                   transition: 'width 0.1s ease-out',
+                  '&:after': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent)',
+                    animation: 'shimmer 2s infinite',
+                    '@keyframes shimmer': {
+                      '0%': { transform: 'translateX(-100%)' },
+                      '100%': { transform: 'translateX(100%)' }
+                    }
+                  }
                 }}
               />
             </Box>
-            <AnalyzingText>Analyzing Results</AnalyzingText>
+            <AnalyzingText>
+              Analyzing Results
+            </AnalyzingText>
             <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)' }}>
               {loadingProgress}%
             </Typography>
@@ -1883,58 +1997,210 @@ const LiarScore = () => {
           <>
             {currentStep === 'instructions' && (
               <Box sx={{ my: 8, textAlign: 'center' }}>
-                <Typography variant="h3" sx={{ fontWeight: 800, mb: 4 }}>
-                  Lie Detector Scan
-                </Typography>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    mb: 4,
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => navigate('/')}
+                >
+                  <Box
+                    sx={{
+                      width: 120,
+                      height: 120,
+                      background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
+                      borderRadius: '24px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      animation: `${neonGlow} 2s infinite`,
+                      boxShadow: '0 0 32px rgba(9, 194, 247, 0.2)',
+                      transition: 'transform 0.3s ease',
+                      '&:hover': {
+                        transform: 'scale(1.05)'
+                      }
+                    }}
+                  >
+                    <img
+                      src="/lookzapp trans 2.png"
+                      alt="LookzApp"
+                      style={{ width: '80%', filter: 'brightness(0) invert(1)' }}
+                    />
+                  </Box>
+                </Box>
                 <Box sx={{ mb: 4 }}>
-                  <Typography variant="h6" sx={{ color: '#fff', mb: 2 }}>
+                  <Typography 
+                    variant="h6" 
+                    sx={{ 
+                      color: '#fff', 
+                      mb: 2,
+                      background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      textShadow: '0 0 10px rgba(9, 194, 247, 0.3)',
+                    }}
+                  >
                     Select Difficulty
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mb: 4 }}>
-                    <Button
-                      variant={difficulty === 'easy' ? 'contained' : 'outlined'}
-                      onClick={() => handleDifficultyChange('easy')}
-                      sx={{ color: difficulty === 'easy' ? '#fff' : '#09c2f7', borderColor: '#09c2f7', '&:hover': { borderColor: '#fa0ea4' } }}
-                    >
-                      Easy
-                    </Button>
-                    <Button
-                      variant={difficulty === 'medium' ? 'contained' : 'outlined'}
-                      onClick={() => handleDifficultyChange('medium')}
-                      sx={{ color: difficulty === 'medium' ? '#fff' : '#09c2f7', borderColor: '#09c2f7', '&:hover': { borderColor: '#fa0ea4' } }}
-                    >
-                      Medium
-                    </Button>
-                    <Button
-                      variant={difficulty === 'hard' ? 'contained' : 'outlined'}
-                      onClick={() => handleDifficultyChange('hard')}
-                      sx={{ color: difficulty === 'hard' ? '#fff' : '#09c2f7', borderColor: '#09c2f7', '&:hover': { borderColor: '#fa0ea4' } }}
-                    >
-                      Hard
-                    </Button>
-                  </Box>
+                  <Grid container spacing={3} justifyContent="center" sx={{ maxWidth: '800px', mx: 'auto' }}>
+                    {[
+                      { value: 'easy', label: 'Easy', icon: <SentimentSatisfied />, description: 'Simple scenarios and questions' },
+                      { value: 'medium', label: 'Medium', icon: <SentimentNeutral />, description: 'Moderate complexity' },
+                      { value: 'hard', label: 'Hard', icon: <SentimentDissatisfied />, description: 'Challenging scenarios' }
+                    ].map((option) => (
+                      <Grid item xs={12} sm={6} md={4} key={option.value}>
+                        <GlassCard
+                          onClick={() => handleDifficultyChange(option.value)}
+                          sx={{
+                            cursor: 'pointer',
+                            p: 3,
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: difficulty === option.value ? '2px solid #09c2f7' : '1px solid rgba(250, 14, 164, 0.2)',
+                            boxShadow: difficulty === option.value ? '0 0 20px rgba(9, 194, 247, 0.3)' : 'none',
+                            transition: 'all 0.3s ease',
+                            '&:hover': {
+                              transform: 'translateY(-8px)',
+                              boxShadow: '0 8px 32px rgba(250, 14, 164, 0.3)',
+                              border: '2px solid #09c2f7'
+                            }
+                          }}
+                        >
+                          <Box
+                            sx={{ 
+                              width: 64,
+                              height: 64,
+                              borderRadius: '50%',
+                              background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              mb: 2,
+                              animation: `${neonGlow} 2s infinite`,
+                              '& .MuiSvgIcon-root': {
+                                fontSize: 32,
+                                color: '#fff'
+                              }
+                            }}
+                          >
+                            {option.icon}
+                          </Box>
+                          <Typography
+                            variant="h6"
+                            sx={{
+                              color: '#fff',
+                              fontWeight: 600,
+                              textAlign: 'center',
+                              mb: 1
+                            }}
+                          >
+                            {option.label}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              color: 'rgba(255,255,255,0.7)',
+                              textAlign: 'center',
+                              fontSize: '0.875rem'
+                            }}
+                          >
+                            {option.description}
+                          </Typography>
+                        </GlassCard>
+                      </Grid>
+                    ))}
+                  </Grid>
                 </Box>
                 {difficulty && (
                   <Box sx={{ mb: 4 }}>
-                    <Typography variant="h6" sx={{ color: '#fff', mb: 2 }}>
+                    <Typography 
+                      variant="h6" 
+                      sx={{ 
+                        color: '#fff', 
+                        mb: 2,
+                        background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        textShadow: '0 0 10px rgba(9, 194, 247, 0.3)',
+                      }}
+                    >
                       Select Mode
                     </Typography>
-                    <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mb: 4 }}>
-                      <Button
-                        variant={mode === 'scenario' ? 'contained' : 'outlined'}
-                        onClick={() => handleModeChange('scenario')}
-                        sx={{ color: mode === 'scenario' ? '#fff' : '#09c2f7', borderColor: '#09c2f7', '&:hover': { borderColor: '#fa0ea4' } }}
-                      >
-                        Scenario Based
-                      </Button>
-                      <Button
-                        variant={mode === 'question' ? 'contained' : 'outlined'}
-                        onClick={() => handleModeChange('question')}
-                        sx={{ color: mode === 'question' ? '#fff' : '#09c2f7', borderColor: '#09c2f7', '&:hover': { borderColor: '#fa0ea4' } }}
-                      >
-                        Question Based
-                      </Button>
-                    </Box>
+                    <Grid container spacing={3} justifyContent="center" sx={{ maxWidth: '800px', mx: 'auto' }}>
+                      {[
+                        { value: 'scenario', label: 'Scenario Based', icon: <Psychology />, description: 'Respond to unique scenarios' },
+                        { value: 'question', label: 'Question Based', icon: <RemoveRedEye />, description: 'Answer specific questions' }
+                      ].map((option) => (
+                        <Grid item xs={12} sm={6} key={option.value}>
+                          <GlassCard
+                            onClick={() => handleModeChange(option.value)}
+                            sx={{
+                              cursor: 'pointer',
+                              p: 3,
+                              height: '100%',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              border: mode === option.value ? '2px solid #09c2f7' : '1px solid rgba(250, 14, 164, 0.2)',
+                              boxShadow: mode === option.value ? '0 0 20px rgba(9, 194, 247, 0.3)' : 'none',
+                              transition: 'all 0.3s ease',
+                              '&:hover': {
+                                transform: 'translateY(-8px)',
+                                boxShadow: '0 8px 32px rgba(250, 14, 164, 0.3)',
+                                border: '2px solid #09c2f7'
+                              }
+                            }}
+                          >
+                            <Box
+                              sx={{ 
+                                width: 64,
+                                height: 64,
+                                borderRadius: '50%',
+                                background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                mb: 2,
+                                animation: `${neonGlow} 2s infinite`,
+                                '& .MuiSvgIcon-root': {
+                                  fontSize: 32,
+                                  color: '#fff'
+                                }
+                              }}
+                            >
+                              {option.icon}
+                            </Box>
+                            <Typography
+                              variant="h6"
+                              sx={{
+                                color: '#fff',
+                                fontWeight: 600,
+                                textAlign: 'center',
+                                mb: 1
+                              }}
+                            >
+                              {option.label}
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                color: 'rgba(255,255,255,0.7)',
+                                textAlign: 'center',
+                                fontSize: '0.875rem'
+                              }}
+                            >
+                              {option.description}
+                            </Typography>
+                          </GlassCard>
+                        </Grid>
+                      ))}
+                    </Grid>
                   </Box>
                 )}
                 <GradientButton onClick={handleStartScanning} disabled={!difficulty || !mode}>
@@ -1956,9 +2222,13 @@ const LiarScore = () => {
                     />
                     <GradientButton 
                       onClick={handleNextQuestion}
+                      disabled={!canProceedToNext}
                       sx={{ mt: 4 }}
                     >
-                      {currentQuestionIndex < currentQuestions.length - 1 ? 'Next Question' : 'See Final Results'}
+                      {canProceedToNext ? 
+                        (currentQuestionIndex < currentQuestions.length - 1 ? 'Next Question' : 'View Full Results') :
+                        `Loading next question in ${nextQuestionTimer}s`
+                      }
                     </GradientButton>
                   </Box>
                 ) : (
@@ -2000,7 +2270,7 @@ const LiarScore = () => {
                                 thickness={4}
                                 sx={{ color: 'white' }}
                                 variant="determinate"
-                                value={(5 - resultsButtonTimer) * 20}
+                                value={(3 - resultsButtonTimer) * (100 / 3)}
                               />
                               <Typography>
                                 {resultsButtonTimer}s

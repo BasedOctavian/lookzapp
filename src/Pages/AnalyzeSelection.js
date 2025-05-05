@@ -77,51 +77,53 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
 
 const analysisOptions = [
   {
-    title: 'Attractiveness Analyzer',
-    route: '/analysis',
-    description: 'Get your attractiveness rating based on facial features.',
+    title: 'Attractiveness',
+    route: '/scan/attractiveness',
+    description: 'Get your personal attractiveness rating and detailed breakdown.',
     icon: CameraAltIcon,
     locked: false
   },
   {
-    title: 'Criminality Analysis',
-    route: '/criminality',
-    description: 'Analyze facial features for criminality likelihood.',
+    title: 'Predict a Crime',
+    route: '/scan/crime',
+    description: 'Discover patterns in facial features that may indicate criminal tendencies.',
     icon: GavelIcon,
     locked: false
   },
   {
-    title: 'Autism Feature Analysis',
-    route: '/autism-analytic',
-    description: 'Analyze features commonly associated with autism.',
-    icon: PsychologyIcon,
-    locked: false
-  },
-  {
-    title: 'Label Me',
-    route: '/label-me',
-    description: 'Get an honest description of your appearance.',
+    title: 'Sum Me Up',
+    route: '/scan/summary',
+    description: 'Get a detailed breakdown of your facial features and characteristics.',
     icon: FaceIcon,
     locked: false
   },
   {
-    title: 'Liar Score',
-    route: '/liar-score',
-    description: 'Analyze voice patterns and facial expressions to detect potential deception.',
+    title: 'Autism',
+    route: '/scan/autism',
+    description: 'Explore facial features commonly found in autism spectrum conditions.',
+    icon: PsychologyIcon,
+    locked: false,
+    requiresAccount: true
+  },
+  {
+    title: 'Lying Skill',
+    route: '/scan/lying',
+    description: 'Test your ability to detect deception through voice and facial cues.',
     icon: EmojiEmotionsIcon,
-    locked: false
+    locked: false,
+    requiresAccount: true
   },
   {
-    title: 'SusMeter',
-    route: '/sus-meter',
-    description: 'Analyze facial features and voice patterns for 5 seconds.',
+    title: 'Sus Score',
+    route: '/scan/sus',
+    description: 'Quick 5-second scan of your face and voice for suspicious patterns.',
     icon: FlagIcon,
-    locked: false
+    locked: true
   },
   {
-    title: 'GeekedGuess',
-    route: '/geeked-guess',
-    description: 'Analyze how open your eyes are and get insights about your alertness.',
+    title: 'Substances',
+    route: '/scan/substances',
+    description: 'Check your eye patterns and alertness levels for substance indicators.',
     icon: VisibilityIcon,
     locked: true
   },
@@ -233,7 +235,7 @@ function AnalyzeSelection() {
               mb: 2,
             }}
           >
-            Select Analysis
+            What do you want to scan for?
           </Typography>
           <Typography
             variant="subtitle1"
@@ -289,6 +291,16 @@ function AnalyzeSelection() {
                       textShadow: '0 0 5px rgba(250, 14, 164, 0.3)'
                     }}>
                       Coming Soon
+                    </Typography>
+                  )}
+                  {option.requiresAccount && (
+                    <Typography variant="body2" sx={{
+                      color: '#09c2f7',
+                      mt: 2,
+                      fontWeight: 'bold',
+                      textShadow: '0 0 5px rgba(9, 194, 247, 0.3)'
+                    }}>
+                      Requires FREE Account
                     </Typography>
                   )}
                 </StyledPaper>

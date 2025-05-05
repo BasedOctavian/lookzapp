@@ -881,9 +881,6 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
           {currentStep === 'scanning' ? 'Hold still for a moment...' : 'Look at the camera'}
         </Typography>
       </StyledInstructionText>
-      {faceDetected && measurements && testScores && (
-        <StatsDisplay measurements={measurements} testScores={testScores} isMobile={isMobile} />
-      )}
     </Box>
   );
 };
@@ -1652,7 +1649,141 @@ const FeatureCircularProgress = ({ testScores }) => {
   );
 };
 
-// Modify the DetailedResultDisplay component to include the new circular progress
+// Add this new component before DetailedResultDisplay
+const ExploreOtherTests = () => {
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  const tests = [
+    {
+      title: 'Autism Analysis',
+      description: 'Advanced AI-powered analysis of potential autism spectrum traits',
+      path: '/scan/autism',
+      icon: <Psychology />,
+      color: '#09c2f7'
+    },
+    {
+      title: 'Criminality Analysis',
+      description: 'Evaluate behavioral patterns and risk factors',
+      path: '/scan/crime',
+      icon: <WarningAmberIcon />,
+      color: '#fa0ea4'
+    },
+    {
+      title: 'Liar Score',
+      description: 'Detect deception patterns and truthfulness indicators',
+      path: '/scan/lying',
+      icon: <SentimentDissatisfied />,
+      color: '#6ce9ff'
+    }
+  ];
+
+  return (
+    <Box sx={{ mt: 8, mb: 4 }}>
+      <Typography
+        variant="h4"
+        sx={{
+          textAlign: 'center',
+          mb: 4,
+          fontWeight: 'bold',
+          background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          textShadow: '0 0 10px rgba(9, 194, 247, 0.3)'
+        }}
+      >
+        Explore Our Other Tests
+      </Typography>
+      
+      <Grid container spacing={3} justifyContent="center">
+        {tests.map((test, index) => (
+          <Grid item xs={12} sm={6} md={4} key={test.title}>
+            <Card
+              sx={{
+                height: '100%',
+                background: 'rgba(13, 17, 44, 0.7)',
+                backdropFilter: 'blur(16px)',
+                border: '1px solid rgba(250, 14, 164, 0.2)',
+                transition: 'all 0.3s ease',
+                cursor: 'pointer',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: `0 8px 32px ${test.color}40`,
+                  border: `1px solid ${test.color}40`
+                }
+              }}
+              onClick={() => navigate(test.path)}
+            >
+              <CardContent sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                textAlign: 'center',
+                p: 3
+              }}>
+                <Box
+                  sx={{
+                    color: test.color,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 64,
+                    height: 64,
+                    borderRadius: '50%',
+                    background: `${test.color}20`,
+                    mb: 2,
+                    '& .MuiSvgIcon-root': {
+                      fontSize: 32
+                    }
+                  }}
+                >
+                  {test.icon}
+                </Box>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    color: '#fff',
+                    fontWeight: 600,
+                    mb: 1
+                  }}
+                >
+                  {test.title}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'rgba(255,255,255,0.7)',
+                    mb: 2,
+                    minHeight: '40px'
+                  }}
+                >
+                  {test.description}
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  sx={{
+                    color: test.color,
+                    borderColor: `${test.color}40`,
+                    '&:hover': {
+                      borderColor: test.color,
+                      backgroundColor: `${test.color}10`
+                    }
+                  }}
+                >
+                  Try Now
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+    </Box>
+  );
+};
+
+// Modify the DetailedResultDisplay component to include the new section
 const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo, setUserInfo }) => {
   const navigate = useNavigate();
   const [showDetails, setShowDetails] = useState(false);
@@ -2187,41 +2318,23 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
             </Box>
           )}
 
+          <ExploreOtherTests />
+          
           <Box sx={{ mt: 4, textAlign: 'center' }}>
-            <Typography variant="h6" gutterBottom>
-              Share Your Results
-            </Typography>
-            <Stack direction="row" spacing={2} justifyContent="center" mt={2}>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<Share />}
-                onClick={() => setShowShareCard(true)}
-                sx={{
-                  background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
-                    opacity: 0.9
-                  }
-                }}
-              >
-                Share Card
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={() => navigate('/')}
-                sx={{
-                  color: '#fff',
-                  borderColor: 'rgba(255,255,255,0.5)',
-                  '&:hover': {
-                    borderColor: '#fff',
-                    bgcolor: 'rgba(255,255,255,0.1)'
-                  }
-                }}
-              >
-                Back to Home
-              </Button>
-            </Stack>
+            <Button
+              variant="outlined"
+              onClick={() => navigate('/')}
+              sx={{
+                color: '#fff',
+                borderColor: 'rgba(255,255,255,0.5)',
+                '&:hover': {
+                  borderColor: '#fff',
+                  bgcolor: 'rgba(255,255,255,0.1)'
+                }
+              }}
+            >
+              Back to Home
+            </Button>
           </Box>
 
           <ShareRatingCard

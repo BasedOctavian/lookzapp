@@ -27,6 +27,9 @@ import {
   RadioGroup,
   Radio,
   FormControlLabel,
+  Paper,
+  Card,
+  CardContent,
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
 import { useToast } from '@chakra-ui/toast';
@@ -53,14 +56,15 @@ import LoadingIndicator from '../Components/LoadingIndicator';
 import { 
   crimeCategories, 
   getDominantCategory, 
-  calculateCategoryScore,
   calculateSkinDarknessScore 
 } from '../config/crimeCategories';
+import { crimeFinder } from '../config/crimeFinder';
 import { 
-  crimeFinder,
   getCrimePredictions,
   getCrimeExamples 
-} from '../config/crimeFinder';
+} from '../config/crimePrediction';
+import { useTheme } from '@mui/material/styles';
+import { useMediaQuery } from '@mui/material';
 
 // Styled components remain unchanged for brevity
 const fadeIn = keyframes`
@@ -78,6 +82,12 @@ const gradientFlow = keyframes`
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
+`;
+
+const neonGlow = keyframes`
+  0% { filter: drop-shadow(0 0 2px #09c2f7); }
+  50% { filter: drop-shadow(0 0 6px #09c2f7); }
+  100% { filter: drop-shadow(0 0 2px #09c2f7); }
 `;
 
 const LoadingAnimation = styled(Box)(({ theme }) => ({
@@ -158,7 +168,7 @@ const StyledInstructionText = styled(Typography)(({ theme }) => ({
   padding: theme.spacing(2, 3),
   borderRadius: '16px',
   border: '1px solid rgba(250, 14, 164, 0.2)',
-  animation: `${fadeIn} 0.5s ease-out`,
+  animation: `${fadeIn} 0.5s ease-out`
 }));
 
 const StyledCountdownContainer = styled(Box)(({ theme }) => ({
@@ -166,14 +176,11 @@ const StyledCountdownContainer = styled(Box)(({ theme }) => ({
   top: '50%',
   left: '50%',
   transform: 'translate(-50%, -50%)',
-  zIndex: 5,
-  textAlign: 'center',
-  background: 'rgba(13, 17, 44, 0.85)',
-  backdropFilter: 'blur(8px)',
-  padding: theme.spacing(2, 3),
-  borderRadius: '16px',
-  border: '1px solid rgba(250, 14, 164, 0.2)',
-  animation: `${fadeIn} 0.5s ease-out`,
+  zIndex: 3,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: theme.spacing(2)
 }));
 
 const StyledFlashOverlay = styled(Box)(({ theme }) => ({
@@ -185,6 +192,30 @@ const StyledFlashOverlay = styled(Box)(({ theme }) => ({
   background: 'rgba(0, 0, 0, 0.5)',
   backdropFilter: 'blur(8px)',
   zIndex: 6,
+}));
+
+const StyledPaper = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(4),
+  backdropFilter: 'blur(16px)',
+  backgroundColor: 'rgba(13, 17, 44, 0.7)',
+  border: '1px solid rgba(250, 14, 164, 0.2)',
+  borderRadius: '24px',
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+  minHeight: 300,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  textAlign: 'center',
+  cursor: 'pointer',
+  position: 'relative',
+  '&:hover': {
+    transform: 'translateY(-8px)',
+    backgroundColor: 'rgba(13, 17, 44, 0.85)',
+    boxShadow: '0 8px 32px rgba(250, 14, 164, 0.3)',
+    '& .feature-icon': {
+      filter: 'drop-shadow(0 0 12px rgba(9, 194, 247, 0.4))'
+    }
+  }
 }));
 
 // Tests and weights remain unchanged except for Skin Color focus
@@ -272,16 +303,16 @@ const rgbToHsl = (r, g, b) => {
   return [h, s, l];
 };
 
-// Helper function to categorize skin color (from HTML solution)
+// Helper function to categorize skin color
 const categorizeColor = (r, g, b) => {
   const [h, s, l] = rgbToHsl(r, g, b);
-  if (l > 0.8) {
+  if (l > 0.65) {  // Changed from 0.8 to be more generous for very light skin
     return 'very light';
-  } else if (l > 0.6) {
+  } else if (l > 0.45) {  // Changed from 0.6 to be more generous for light skin
     return 'light';
-  } else if (l > 0.4) {
+  } else if (l > 0.35) {  // Changed from 0.4 to be more generous for medium skin
     return 'medium';
-  } else if (l > 0.2) {
+  } else if (l > 0.15) {  // Kept the same for dark skin
     return 'dark';
   } else {
     return 'very dark';
@@ -401,13 +432,13 @@ const calculateSkinColorScore = (video, landmarks, userData) => {
   // Base crime tendency on skin darkness and category
   if (category === 'dark' || category === 'very dark') {
     crimeTendency = 'violent';
-    crimeScore = 70; // Matches violent crime threshold
+    crimeScore = userData?.gender === 'female' ? 40 : 70; // Lower base violent score for females
   } else if (category === 'medium') {
     crimeTendency = 'sexual';
-    crimeScore = 60; // Matches sexual crime threshold
+    crimeScore = userData?.gender === 'female' ? 35 : 60; // Lower base sexual crime score for females
   } else if (category === 'light' || category === 'very light') {
     crimeTendency = 'whiteCollar';
-    crimeScore = 30; // Matches white collar crime threshold
+    crimeScore = userData?.gender === 'female' ? 45 : 30; // Higher white collar score for females
   }
 
   // Adjust based on gender if available
@@ -417,13 +448,26 @@ const calculateSkinColorScore = (video, landmarks, userData) => {
     // Gender-based adjustments
     if (gender === 'female') {
       if (crimeTendency === 'violent') {
-        crimeScore = Math.max(30, crimeScore - 15); // Reduce violent crime probability for females
+        crimeScore = Math.max(20, crimeScore - 25); // Significant reduction for violent crimes
+        if (height > 68) { // Taller women
+          crimeScore += 5;
+        }
       } else if (crimeTendency === 'whiteCollar') {
-        crimeScore = Math.min(100, crimeScore + 10); // Increase white collar crime probability for females
+        crimeScore = Math.min(100, crimeScore + 15); // Increase for white collar crimes
+        if (ethnicity === 'euro') {
+          crimeScore += 5;
+        }
+      } else if (crimeTendency === 'sexual') {
+        crimeScore = Math.max(15, crimeScore - 20); // Reduction for sexual crimes
       }
     } else if (gender === 'male') {
       if (crimeTendency === 'violent') {
-        crimeScore = Math.min(100, crimeScore + 10); // Increase violent crime probability for males
+        crimeScore = Math.min(100, crimeScore + 10);
+        if (height > 72) { // Taller men
+          crimeScore += 10;
+        }
+      } else if (crimeTendency === 'sexual') {
+        crimeScore = Math.min(100, crimeScore + 15);
       }
     }
 
@@ -431,44 +475,50 @@ const calculateSkinColorScore = (video, landmarks, userData) => {
     switch (ethnicity) {
       case 'euro':
         if (crimeTendency === 'violent') {
-          crimeScore = Math.max(30, crimeScore - 20);
+          crimeScore = Math.max(20, crimeScore - 20);
         } else if (crimeTendency === 'whiteCollar') {
-          crimeScore = Math.min(100, crimeScore + 10);
+          crimeScore = Math.min(100, crimeScore + 15);
         }
         break;
       case 'african':
-        if (crimeTendency === 'violent') {
+        if (crimeTendency === 'violent' && gender === 'male') {
           crimeScore = Math.min(100, crimeScore + 5);
         }
         break;
       case 'asian':
         if (crimeTendency === 'whiteCollar') {
-          crimeScore = Math.min(100, crimeScore + 5);
+          crimeScore = Math.min(100, crimeScore + 10);
         }
         break;
       case 'indian':
-        if (crimeTendency === 'sexual') {
+        if (crimeTendency === 'sexual' && gender === 'male') {
           crimeScore = Math.min(100, crimeScore + 5);
         }
         break;
     }
 
-    // Existing height and weight adjustments
-    if (height < 65) {
-      if (crimeTendency === 'violent') {
-        crimeScore = Math.max(30, crimeScore - 15);
+    // Height and weight adjustments based on gender
+    if (gender === 'female') {
+      if (height < 63) { // Short women
+        if (crimeTendency === 'violent') {
+          crimeScore = Math.max(15, crimeScore - 20);
+        }
       }
-    }
-    
-    if (weight > 200) {
-      if (crimeTendency === 'violent') {
-        crimeScore = Math.max(30, crimeScore - 10);
+      if (weight < 120) { // Lighter women
+        if (crimeTendency === 'violent') {
+          crimeScore = Math.max(15, crimeScore - 15);
+        }
       }
-    }
-
-    if (weight < 100) {
-      if (crimeTendency === 'violent') {
-        crimeScore = Math.max(30, crimeScore - 10);
+    } else { // male
+      if (height < 68) { // Short men
+        if (crimeTendency === 'violent') {
+          crimeScore = Math.max(25, crimeScore - 15);
+        }
+      }
+      if (weight > 220) { // Heavier men
+        if (crimeTendency === 'violent') {
+          crimeScore = Math.min(100, crimeScore + 10);
+        }
       }
     }
   }
@@ -479,7 +529,8 @@ const calculateSkinColorScore = (video, landmarks, userData) => {
     color, 
     compliment,
     darknessScore,
-    crimeTendency
+    crimeTendency,
+    userData
   };
 };
 
@@ -613,7 +664,7 @@ const StatsDisplay = ({ testScores }) => {
 };
 
 // FaceScanner Component
-const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, userData }) => {
+const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, userData, currentStep }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const intervalRef = useRef(null);
@@ -861,7 +912,9 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, userDa
           progress={loadingProgress}
           message="Loading Face Detection..."
           subMessage={
-            loadingProgress < 30 ? 'Initializing...' : loadingProgress < 100 ? 'Loading Model...' : 'Almost Ready...'
+            loadingProgress < 30 ? 'Initializing...' : 
+            loadingProgress < 100 ? 'Loading Model...' : 
+            'Almost Ready...'
           }
         />
       )}
@@ -926,22 +979,28 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, userDa
       />
       {countdown !== null && (
         <StyledCountdownContainer>
-          <Typography
-            variant="h1"
-            sx={{
-              fontSize: '6rem',
-              fontWeight: 800,
-              background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
+          <Typography 
+            variant="h1" 
+            sx={{ 
+              fontSize: '6rem', 
+              fontWeight: 800, 
+              background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)', 
+              WebkitBackgroundClip: 'text', 
+              WebkitTextFillColor: 'transparent', 
               textShadow: '0 0 20px rgba(9, 194, 247, 0.5)',
+              animation: `${fadeIn} 0.5s ease-out`
             }}
           >
             {countdown}
           </Typography>
           {countdown === 0 && (
-            <CheckCircleOutline
-              sx={{ fontSize: 48, color: '#4CAF50', filter: 'drop-shadow(0 0 8px rgba(76, 175, 80, 0.3))' }}
+            <CheckCircleOutline 
+              sx={{ 
+                fontSize: 48, 
+                color: '#4CAF50',
+                filter: 'drop-shadow(0 0 8px rgba(76, 175, 80, 0.3))',
+                animation: `${fadeIn} 0.5s ease-out`
+              }} 
             />
           )}
         </StyledCountdownContainer>
@@ -949,13 +1008,34 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, userDa
       {showFlash && <StyledFlashOverlay sx={{ opacity: 0.8 }} />}
       {!faceDetected && !isLoading && !webcamError && (
         <StyledFaceDetectedOverlay>
-          <Typography variant="body1" sx={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Face /> Please position your face in the frame
+          <Typography 
+            variant="body1" 
+            sx={{ 
+              color: '#fff',
+              fontSize: { base: '0.875rem', md: '1rem' },
+              textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1
+            }}
+          >
+            <Face />
+            Please position your face in the frame
           </Typography>
         </StyledFaceDetectedOverlay>
       )}
       <StyledInstructionText>
-        <Typography variant="h6" sx={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            color: '#fff',
+            fontSize: { base: '1rem', md: '1.25rem' },
+            textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1
+          }}
+        >
           {isCollecting ? 'Hold still for a moment...' : 'Look at the camera'}
         </Typography>
       </StyledInstructionText>
@@ -963,21 +1043,37 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected, userDa
   );
 };
 
-// DetailedResultDisplay updated to show only one random crime from the selected category
+// DetailedResultDisplay updated to show more details
 const DetailedResultDisplay = ({ overallPercentage, testScores }) => {
   const navigate = useNavigate();
   const dominantCategory = getDominantCategory(testScores);
   const { category, details } = dominantCategory;
 
-  // Get one random crime from the category
-  const getRandomCrime = (category) => {
-    const crimes = crimeFinder[category]?.crimes || [];
+  // Get skin tone and gender from test scores
+  const skinTone = testScores['Skin Color']?.category || 'medium';
+  const userData = testScores['Skin Color']?.userData;
+  
+  // Get gender from userData
+  const gender = userData?.gender?.toLowerCase() || 'male';
+
+  // Get one random crime from the category based on gender and skin tone
+  const getRandomCrime = (category, gender, skinTone) => {
+    const skinToneMapping = {
+      'very light': 'light',
+      'light': 'light',
+      'medium': 'medium',
+      'dark': 'dark',
+      'very dark': 'dark'
+    };
+    const mappedSkinTone = skinToneMapping[skinTone] || 'medium';
+    const crimes = crimeFinder[category]?.crimes[gender]?.[mappedSkinTone] || [];
     if (crimes.length === 0) return null;
     const randomIndex = Math.floor(Math.random() * crimes.length);
     return crimes[randomIndex];
   };
 
-  const randomCrime = getRandomCrime(category);
+  const randomCrime = getRandomCrime(category, gender, skinTone);
+  const predictions = getCrimePredictions(category, overallPercentage || 50, gender, skinTone);
 
   return (
     <Box sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
@@ -992,8 +1088,11 @@ const DetailedResultDisplay = ({ overallPercentage, testScores }) => {
         <Typography variant="h4" gutterBottom fontWeight="bold" sx={{ color: details.color }}>
           {details.name}
         </Typography>
+        <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)', mb: 4 }}>
+          {details.description}
+        </Typography>
 
-        {/* Single Crime Example */}
+        {/* Primary Crime Prediction */}
         {randomCrime && (
           <Box 
             sx={{ 
@@ -1017,8 +1116,66 @@ const DetailedResultDisplay = ({ overallPercentage, testScores }) => {
             <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>
               Jail Term: {randomCrime.jailTerm}
             </Typography>
+            {randomCrime.examples && randomCrime.examples.length > 0 && (
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)', mt: 1 }}>
+                Notable Example: {randomCrime.examples[0]}
+              </Typography>
+            )}
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)', mt: 2 }}>
+              Severity: {randomCrime.severity}
+            </Typography>
           </Box>
         )}
+
+        {/* Additional Predictions */}
+        {predictions && predictions.length > 1 && (
+          <Box sx={{ mt: 4 }}>
+            <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.9)', mb: 2 }}>
+              Additional Criminal Tendencies
+            </Typography>
+            <Grid container spacing={2} justifyContent="center">
+              {predictions.slice(1, 3).map((prediction, index) => (
+                <Grid item xs={12} sm={6} key={index}>
+                  <Box
+                    sx={{
+                      p: 2,
+                      bgcolor: 'rgba(0,0,0,0.2)',
+                      borderRadius: 1,
+                      height: '100%'
+                    }}
+                  >
+                    <Typography variant="subtitle1" sx={{ color: details.color }}>
+                      {prediction.name}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mt: 1 }}>
+                      {prediction.description}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)', mt: 1 }}>
+                      Likelihood: {prediction.likelihood}%
+                    </Typography>
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        )}
+
+        <Box sx={{ mt: 4 }}>
+          <Button
+            variant="outlined"
+            onClick={() => navigate('/')}
+            sx={{
+              color: '#fff',
+              borderColor: 'rgba(255,255,255,0.5)',
+              '&:hover': {
+                borderColor: '#fff',
+                bgcolor: 'rgba(255,255,255,0.1)'
+              }
+            }}
+          >
+            Back to Home
+          </Button>
+        </Box>
       </Box>
     </Box>
   );
@@ -1026,47 +1183,151 @@ const DetailedResultDisplay = ({ overallPercentage, testScores }) => {
 
 // Add new component for scanning selection
 const ScanSelection = ({ onSelect }) => {
+  const cardsRef = useRef(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.style.opacity = '1';
+            entry.target.style.transform = 'translateY(0)';
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    const cardElements = cardsRef.current?.querySelectorAll('.scan-card');
+    cardElements?.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
+  const scanOptions = [
+    {
+      title: 'Scan Myself',
+      description: 'Use your own profile data for analysis.',
+      icon: Person,
+      action: () => onSelect('myself')
+    },
+    {
+      title: 'Scan Someone Else',
+      description: 'Enter details manually for analysis.',
+      icon: Group,
+      action: () => onSelect('someoneElse')
+    }
+  ];
+
   return (
-    <Box sx={{ textAlign: 'center', maxWidth: '600px', mx: 'auto', mt: 4 }}>
-      <Typography variant="h5" sx={{ color: '#fff', mb: 3 }}>
+    <Box sx={{ textAlign: 'center', maxWidth: '1200px', mx: 'auto', mt: 4 }}>
+      <Box
+        sx={{
+          marginTop: '100px',
+          display: 'flex',
+          justifyContent: 'center',
+          mb: 4,
+          cursor: 'pointer',
+        }}
+        onClick={() => navigate('/')}
+      >
+        <Box
+          sx={{
+            width: 120,
+            height: 120,
+            background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
+            borderRadius: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            animation: `${neonGlow} 2s infinite`,
+            boxShadow: '0 0 32px rgba(9, 194, 247, 0.2)',
+            transition: 'transform 0.3s ease',
+            '&:hover': {
+              transform: 'scale(1.05)'
+            }
+          }}
+        >
+          <img
+            src="/lookzapp trans 2.png"
+            alt="LookzApp"
+            style={{ width: '80%', filter: 'brightness(0) invert(1)' }}
+          />
+        </Box>
+      </Box>
+      <Typography
+        variant="h4"
+        component="h1"
+        align="center"
+        sx={{
+          fontWeight: 700,
+          background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          mb: 2,
+        }}
+      >
         Who would you like to scan?
       </Typography>
-      <Stack spacing={2} direction="row" justifyContent="center">
-        <Button
-          variant="contained"
-          size="large"
-          onClick={() => onSelect('myself')}
-          sx={{
-            background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
-            color: '#fff',
-            px: 4,
-            py: 2,
-            '&:hover': {
-              transform: 'translateY(-2px)',
-              boxShadow: '0 0 24px rgba(9, 194, 247, 0.4)',
-            },
-          }}
-        >
-          Scan Myself
-        </Button>
-        <Button
-          variant="contained"
-          size="large"
-          onClick={() => onSelect('someoneElse')}
-          sx={{
-            background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
-            color: '#fff',
-            px: 4,
-            py: 2,
-            '&:hover': {
-              transform: 'translateY(-2px)',
-              boxShadow: '0 0 24px rgba(9, 194, 247, 0.4)',
-            },
-          }}
-        >
-          Scan Someone Else
-        </Button>
-      </Stack>
+      <Typography
+        variant="subtitle1"
+        align="center"
+        sx={{
+          color: 'rgba(255,255,255,0.8)',
+          mb: 6,
+        }}
+      >
+        Choose an option to proceed with the analysis.
+      </Typography>
+      <Grid container spacing={4} justifyContent="center" ref={cardsRef}>
+        {scanOptions.map((option, index) => (
+          <Grid item xs={12} sm={6} md={4} key={option.title}>
+            <StyledPaper
+              className="scan-card"
+              sx={{
+                opacity: 0,
+                transform: 'translateY(20px)',
+                transition: 'all 0.5s ease-out',
+                transitionDelay: `${index * 0.1}s`,
+                cursor: 'pointer',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  backgroundColor: 'rgba(13, 17, 44, 0.85)',
+                  boxShadow: '0 8px 32px rgba(250, 14, 164, 0.3)',
+                  '& .feature-icon': {
+                    filter: 'drop-shadow(0 0 12px rgba(9, 194, 247, 0.4))'
+                  }
+                }
+              }}
+              onClick={option.action}
+            >
+              <option.icon
+                className="feature-icon"
+                sx={{
+                  fontSize: 48,
+                  color: '#09c2f7',
+                  mb: 3,
+                  filter: 'drop-shadow(0 0 8px rgba(9, 194, 247, 0.3))',
+                }}
+              />
+              <Typography variant="h5" sx={{ 
+                mb: 2, 
+                fontWeight: 600,
+                color: '#6ce9ff',
+                textShadow: '0 0 10px rgba(9, 194, 247, 0.3)'
+              }}>
+                {option.title}
+              </Typography>
+              <Typography variant="body1" sx={{ 
+                color: 'rgba(255,255,255,0.7)',
+                textShadow: '0 0 5px rgba(9, 194, 247, 0.2)'
+              }}>
+                {option.description}
+              </Typography>
+            </StyledPaper>
+          </Grid>
+        ))}
+      </Grid>
     </Box>
   );
 };
@@ -1301,11 +1562,146 @@ const SomeoneElseForm = ({ onSubmit, onBack }) => {
   );
 };
 
+// Add ExploreOtherTests component before DetailedResultDisplay
+const ExploreOtherTests = () => {
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  const tests = [
+    {
+      title: 'Attractiveness Analysis',
+      description: 'AI-powered analysis of facial features and attractiveness',
+      path: '/scan/attractiveness',
+      icon: <FaceRetouchingNatural />,
+      color: '#09c2f7'
+    },
+    {
+      title: 'Autism Analysis',
+      description: 'Advanced AI-powered analysis of potential autism spectrum traits',
+      path: '/scan/autism',
+      icon: <Psychology />,
+      color: '#fa0ea4'
+    },
+    {
+      title: 'Liar Score',
+      description: 'Detect deception patterns and truthfulness indicators',
+      path: '/scan/lying',
+      icon: <SentimentDissatisfied />,
+      color: '#6ce9ff'
+    }
+  ];
+
+  return (
+    <Box sx={{ mt: 8, mb: 4 }}>
+      <Typography
+        variant="h4"
+        sx={{
+          textAlign: 'center',
+          mb: 4,
+          fontWeight: 'bold',
+          background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          textShadow: '0 0 10px rgba(9, 194, 247, 0.3)'
+        }}
+      >
+        Explore Our Other Tests
+      </Typography>
+      
+      <Grid container spacing={3} justifyContent="center">
+        {tests.map((test, index) => (
+          <Grid item xs={12} sm={6} md={4} key={test.title}>
+            <Card
+              sx={{
+                height: '100%',
+                background: 'rgba(13, 17, 44, 0.7)',
+                backdropFilter: 'blur(16px)',
+                border: '1px solid rgba(250, 14, 164, 0.2)',
+                transition: 'all 0.3s ease',
+                cursor: 'pointer',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: `0 8px 32px ${test.color}40`,
+                  border: `1px solid ${test.color}40`
+                }
+              }}
+              onClick={() => navigate(test.path)}
+            >
+              <CardContent sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                textAlign: 'center',
+                p: 3
+              }}>
+                <Box
+                  sx={{
+                    color: test.color,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 64,
+                    height: 64,
+                    borderRadius: '50%',
+                    background: `${test.color}20`,
+                    mb: 2,
+                    '& .MuiSvgIcon-root': {
+                      fontSize: 32
+                    }
+                  }}
+                >
+                  {test.icon}
+                </Box>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    color: '#fff',
+                    fontWeight: 600,
+                    mb: 1
+                  }}
+                >
+                  {test.title}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'rgba(255,255,255,0.7)',
+                    mb: 2,
+                    minHeight: '40px'
+                  }}
+                >
+                  {test.description}
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  sx={{
+                    color: test.color,
+                    borderColor: `${test.color}40`,
+                    '&:hover': {
+                      borderColor: test.color,
+                      backgroundColor: `${test.color}10`
+                    }
+                  }}
+                >
+                  Try Now
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+    </Box>
+  );
+};
+
 // Main Component
 const CriminalityAnalytic = () => {
   const { user } = useAuth();
   const { userData, loading: loadingUser } = useUserData();
-  const [currentStep, setCurrentStep] = useState('selection'); // Changed initial step
+  const navigate = useNavigate();
+  const [currentStep, setCurrentStep] = useState('selection');
   const [likelihoodScore, setLikelihoodScore] = useState(null);
   const [testScores, setTestScores] = useState(null);
   const [faceDetected, setFaceDetected] = useState(false);
@@ -1349,7 +1745,14 @@ const CriminalityAnalytic = () => {
             clearInterval(interval);
             const { finalScore, testAverages } = result;
             setLikelihoodScore(finalScore);
-            setTestScores(testAverages);
+            // Add scan subject data to test scores
+            setTestScores({
+              ...testAverages,
+              'Skin Color': {
+                ...testAverages['Skin Color'],
+                userData: scanSubject // Pass the scan subject data
+              }
+            });
             setCurrentStep('result');
             setIsLoadingResults(false);
             return 100;
@@ -1376,6 +1779,39 @@ const CriminalityAnalytic = () => {
       <Box sx={{ position: 'relative', maxWidth: 'xl', mx: 'auto' }}>
         {isLoadingResults ? (
           <LoadingAnimation>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                mb: 4,
+                cursor: 'pointer',
+              }}
+              onClick={() => navigate('/')}
+            >
+              <Box
+                sx={{
+                  width: 120,
+                  height: 120,
+                  background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
+                  borderRadius: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  animation: `${neonGlow} 2s infinite`,
+                  boxShadow: '0 0 32px rgba(9, 194, 247, 0.2)',
+                  transition: 'transform 0.3s ease',
+                  '&:hover': {
+                    transform: 'scale(1.05)'
+                  }
+                }}
+              >
+                <img
+                  src="/lookzapp trans 2.png"
+                  alt="LookzApp"
+                  style={{ width: '80%', filter: 'brightness(0) invert(1)' }}
+                />
+              </Box>
+            </Box>
             <Box sx={{ width: '400px', height: '4px', backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '2px', overflow: 'hidden' }}>
               <Box sx={{ width: `${loadingProgress}%`, height: '100%', background: 'linear-gradient(90deg, #09c2f7, #fa0ea4)', transition: 'width 0.1s ease-out' }} />
             </Box>
@@ -1391,28 +1827,76 @@ const CriminalityAnalytic = () => {
               <SomeoneElseForm onSubmit={handleSomeoneElseSubmit} onBack={handleBackToSelection} />
             )}
             {(currentStep === 'instructions' || currentStep === 'scanning') && (
-              <Box sx={{ my: 8 }}>
-                <Typography variant="h3" sx={{ fontWeight: 800, textAlign: 'center', color: '#fff', mb: 4 }}>Face Scan</Typography>
+              <Box sx={{ my: 8 }}>    
                 <FaceScanner
                   startScanning={currentStep === 'scanning'}
                   onScanningComplete={handleScanningComplete}
                   onFaceDetected={handleFaceDetected}
                   userData={scanSubject}
                 />
-                {currentStep === 'instructions' && (
-                  <Box sx={{ textAlign: 'center', mt: 4 }}>
-                    <Typography variant="h5" sx={{ color: '#fff' }}>Position your face in the frame</Typography>
-                    <Typography sx={{ color: 'rgba(255,255,255,0.7)' }}>Ensure good lighting and keep your face straight</Typography>
-                  </Box>
-                )}
               </Box>
             )}
             {currentStep === 'result' && likelihoodScore !== null && (
               <Box sx={{ py: 8 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    mb: 4,
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => navigate('/')}
+                >
+                  <Box
+                    sx={{
+                      width: 120,
+                      height: 120,
+                      background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
+                      borderRadius: '24px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      animation: `${neonGlow} 2s infinite`,
+                      boxShadow: '0 0 32px rgba(9, 194, 247, 0.2)',
+                      transition: 'transform 0.3s ease',
+                      '&:hover': {
+                        transform: 'scale(1.05)'
+                      }
+                    }}
+                  >
+                    <img
+                      src="/lookzapp trans 2.png"
+                      alt="LookzApp"
+                      style={{ width: '80%', filter: 'brightness(0) invert(1)' }}
+                    />
+                  </Box>
+                </Box>
                 <DetailedResultDisplay overallPercentage={likelihoodScore} testScores={testScores} />
+                <ExploreOtherTests />
               </Box>
             )}
           </>
+        )}
+        {(isLoadingResults || currentStep === 'result') && (
+          <Box
+            sx={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              py: 3,
+              textAlign: 'center',
+              color: 'rgba(255,255,255,0.6)',
+              fontSize: '0.9rem',
+              animation: `${fadeIn} 1s ease-out`,
+              opacity: 0,
+              animationFillMode: 'forwards',
+            }}
+          >
+            <Typography variant="body2" >
+              © 2025 Octavian Ideas. All rights reserved.
+            </Typography>
+          </Box>
         )}
       </Box>
     </Box>

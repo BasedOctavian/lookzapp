@@ -291,29 +291,56 @@ const DESCRIPTORS = {
 const EXTRA_POOLS = {
   M: {
     short: {
-      brutal: [
-        { word: 'Manlet', statement: 'Height is just a number' },
-        { word: 'Hobbit', statement: 'Adventure comes in all sizes' },
-        { word: 'Munchkin', statement: 'Small but mighty' },
-        { word: 'Dwarf', statement: 'Strength in a small package' },
-        { word: 'Midget', statement: 'Every inch counts' },
-        { word: 'Runt', statement: 'Small but significant' },
-        { word: 'Pipsqueak', statement: 'Tiny but tenacious' },
-        { word: 'Shrimp', statement: 'Small but full of flavor' },
-        { word: 'Peewee', statement: 'Compact and complete' }
-      ],
-      gentle: [
-        { word: 'Short', statement: 'Height is just one measure' },
-        { word: 'Petite', statement: 'Elegant in every way' },
-        { word: 'Compact', statement: 'Efficient and effective' },
-        { word: 'Small', statement: 'Perfectly proportioned' },
-        { word: 'Diminutive', statement: 'Graceful in stature' },
-        { word: 'Little', statement: 'Charm in every inch' },
-        { word: 'Tiny', statement: 'Delicate and defined' },
-        { word: 'Miniature', statement: 'Precision in form' },
-        { word: 'Mini', statement: 'Compact and complete' },
-        { word: 'Small-statured', statement: 'Perfectly proportioned' }
-      ]
+      brutal: {
+        high: [
+          { word: 'Manlet', statement: 'Height is just a number' },
+          { word: 'Hobbit', statement: 'Adventure comes in all sizes' },
+          { word: 'Munchkin', statement: 'Small but mighty' },
+          { word: 'Dwarf', statement: 'Strength in a small package' },
+          { word: 'Midget', statement: 'Every inch counts' },
+          { word: 'Runt', statement: 'Small but significant' },
+          { word: 'Pipsqueak', statement: 'Tiny but tenacious' },
+          { word: 'Shrimp', statement: 'Small but full of flavor' },
+          { word: 'Peewee', statement: 'Compact and complete' }
+        ],
+        low: [
+          { word: 'Manlet', statement: 'Height and face both lacking' },
+          { word: 'Hobbit', statement: 'Short and unfortunate' },
+          { word: 'Munchkin', statement: 'Small and unremarkable' },
+          { word: 'Dwarf', statement: 'Short and plain' },
+          { word: 'Midget', statement: 'Height matches face' },
+          { word: 'Runt', statement: 'Small and forgettable' },
+          { word: 'Pipsqueak', statement: 'Tiny and unimpressive' },
+          { word: 'Shrimp', statement: 'Small and basic' },
+          { word: 'Peewee', statement: 'Compact and mediocre' }
+        ]
+      },
+      gentle: {
+        high: [
+          { word: 'Short', statement: 'Height is just one measure' },
+          { word: 'Petite', statement: 'Elegant in every way' },
+          { word: 'Compact', statement: 'Efficient and effective' },
+          { word: 'Small', statement: 'Perfectly proportioned' },
+          { word: 'Diminutive', statement: 'Graceful in stature' },
+          { word: 'Little', statement: 'Charm in every inch' },
+          { word: 'Tiny', statement: 'Delicate and defined' },
+          { word: 'Miniature', statement: 'Precision in form' },
+          { word: 'Mini', statement: 'Compact and complete' },
+          { word: 'Small-statured', statement: 'Perfectly proportioned' }
+        ],
+        low: [
+          { word: 'Short', statement: 'Height is just one measure' },
+          { word: 'Petite', statement: 'Compact in stature' },
+          { word: 'Compact', statement: 'Efficient in form' },
+          { word: 'Small', statement: 'Modest in size' },
+          { word: 'Diminutive', statement: 'Subtle in presence' },
+          { word: 'Little', statement: 'Simple in stature' },
+          { word: 'Tiny', statement: 'Basic in form' },
+          { word: 'Miniature', statement: 'Plain in presence' },
+          { word: 'Mini', statement: 'Modest in size' },
+          { word: 'Small-statured', statement: 'Simple in form' }
+        ]
+      }
     },
     tall: {
       brutal: [
@@ -435,30 +462,56 @@ const EXTRA_POOLS = {
   },
   F: {
     short: {
-      brutal: [
-        { word: 'Munchkin', statement: 'Height is just a number' },
-        { word: 'Ankle-biter', statement: 'Small but significant' },
-        { word: 'Fun-sized fail', statement: 'Compact and complete' },
-        { word: 'Gnome-ass', statement: 'Small but mighty' },
-        { word: 'Dwarf', statement: 'Strength in a small package' },
-        { word: 'Midget', statement: 'Every inch counts' },
-        { word: 'Runt', statement: 'Small but significant' },
-        { word: 'Pipsqueak', statement: 'Tiny but tenacious' },
-        { word: 'Shrimp', statement: 'Small but full of flavor' },
-        { word: 'Peewee', statement: 'Compact and complete' }
-      ],
-      gentle: [
-        { word: 'Short', statement: 'Height is just one measure' },
-        { word: 'Petite', statement: 'Elegant in every way' },
-        { word: 'Compact', statement: 'Efficient and effective' },
-        { word: 'Small', statement: 'Perfectly proportioned' },
-        { word: 'Diminutive', statement: 'Graceful in stature' },
-        { word: 'Little', statement: 'Charm in every inch' },
-        { word: 'Tiny', statement: 'Delicate and defined' },
-        { word: 'Miniature', statement: 'Precision in form' },
-        { word: 'Mini', statement: 'Compact and complete' },
-        { word: 'Small-statured', statement: 'Perfectly proportioned' }
-      ]
+      brutal: {
+        high: [
+          { word: 'Manlet', statement: 'Height is just a number' },
+          { word: 'Hobbit', statement: 'Adventure comes in all sizes' },
+          { word: 'Munchkin', statement: 'Small but mighty' },
+          { word: 'Dwarf', statement: 'Strength in a small package' },
+          { word: 'Midget', statement: 'Every inch counts' },
+          { word: 'Runt', statement: 'Small but significant' },
+          { word: 'Pipsqueak', statement: 'Tiny but tenacious' },
+          { word: 'Shrimp', statement: 'Small but full of flavor' },
+          { word: 'Peewee', statement: 'Compact and complete' }
+        ],
+        low: [
+          { word: 'Manlet', statement: 'Height and face both lacking' },
+          { word: 'Hobbit', statement: 'Short and unfortunate' },
+          { word: 'Munchkin', statement: 'Small and unremarkable' },
+          { word: 'Dwarf', statement: 'Short and plain' },
+          { word: 'Midget', statement: 'Height matches face' },
+          { word: 'Runt', statement: 'Small and forgettable' },
+          { word: 'Pipsqueak', statement: 'Tiny and unimpressive' },
+          { word: 'Shrimp', statement: 'Small and basic' },
+          { word: 'Peewee', statement: 'Compact and mediocre' }
+        ]
+      },
+      gentle: {
+        high: [
+          { word: 'Short', statement: 'Height is just one measure' },
+          { word: 'Petite', statement: 'Elegant in every way' },
+          { word: 'Compact', statement: 'Efficient and effective' },
+          { word: 'Small', statement: 'Perfectly proportioned' },
+          { word: 'Diminutive', statement: 'Graceful in stature' },
+          { word: 'Little', statement: 'Charm in every inch' },
+          { word: 'Tiny', statement: 'Delicate and defined' },
+          { word: 'Miniature', statement: 'Precision in form' },
+          { word: 'Mini', statement: 'Compact and complete' },
+          { word: 'Small-statured', statement: 'Perfectly proportioned' }
+        ],
+        low: [
+          { word: 'Short', statement: 'Height is just one measure' },
+          { word: 'Petite', statement: 'Compact in stature' },
+          { word: 'Compact', statement: 'Efficient in form' },
+          { word: 'Small', statement: 'Modest in size' },
+          { word: 'Diminutive', statement: 'Subtle in presence' },
+          { word: 'Little', statement: 'Simple in stature' },
+          { word: 'Tiny', statement: 'Basic in form' },
+          { word: 'Miniature', statement: 'Plain in presence' },
+          { word: 'Mini', statement: 'Modest in size' },
+          { word: 'Small-statured', statement: 'Simple in form' }
+        ]
+      }
     },
     tall: {
       brutal: [
@@ -636,155 +689,196 @@ const FACE_POOLS = {
 // Utility to pick random
 const getRandom = arr => arr[Math.floor(Math.random() * arr.length)];
 
-const useOneWordDescription = (ratingData, isBrutal = false) => {
+const useOneWordDescription = ({ overallRating, faceRating, testScores, measurements, height, weight, gender }) => {
   return useMemo(() => {
-    if (!ratingData) return { word: 'Scanning...', statement: 'Analyzing your features' };
+    // Generate both gentle and brutal descriptions
+    const gentleDescription = generateDescription(false);
+    const brutalDescription = generateDescription(true);
 
-    const {
-      gender,
-      height,
-      weight,
-      overallRating,
-      faceRating,
-      testScores = {},
-      measurements = {}
-    } = ratingData;
+    return {
+      gentle: gentleDescription,
+      brutal: brutalDescription
+    };
 
-    const g = gender === 'F' ? 'F' : 'M';
-    const pool = DESCRIPTORS[g];
-    const extra = EXTRA_POOLS[g];
-
-    // Calculate rating first
-    const rating =
-      overallRating != null
-        ? overallRating
-        : faceRating != null
-        ? faceRating
-        : Object.keys(testScores).length
-        ? Object.values(testScores).reduce((a, b) => a + b, 0) / Object.keys(testScores).length
-        : null;
-
-    // 1️⃣ Height/weight restrictions and body archetype descriptors
-    if (height != null && weight != null) {
-      const bmi = (weight / (height * height)) * 703;
-      // For very short men, prioritize height-based descriptors
-      if (gender === 'M' && height < 68) {
-        return getRandom(extra.short[isBrutal ? 'brutal' : 'gentle']);
+    function generateDescription(isBrutal) {
+      if (!overallRating && !faceRating && !testScores && !measurements && !height && !weight && !gender) {
+        return { word: 'Scanning...', statement: 'Analyzing your features' };
       }
-      if (height > 74) return getRandom(extra.tall[isBrutal ? 'brutal' : 'gentle']);
-      if (bmi < 18.5) return getRandom(extra.skinny[isBrutal ? 'brutal' : 'gentle']);
-      if (bmi >= 30) return getRandom(extra.overweight[isBrutal ? 'brutal' : 'gentle']);
-      if (bmi >= 25) return getRandom(extra.overweight[isBrutal ? 'brutal' : 'gentle']);
-    }
 
-    // 2️⃣ Rating-based burns
-    if (rating != null) {
-      if (rating >= 90) return getRandom(pool.elite[isBrutal ? 'brutal' : 'gentle']);
-      if (rating >= 70) return getRandom(pool.high[isBrutal ? 'brutal' : 'gentle']);
-      if (rating >= 50) return getRandom(pool.avg[isBrutal ? 'brutal' : 'gentle']);
-      if (rating >= 30) return getRandom(pool.low[isBrutal ? 'brutal' : 'gentle']);
-      return getRandom(pool.poor[isBrutal ? 'brutal' : 'gentle']);
-    }
+      const g = gender === 'F' ? 'F' : 'M';
+      const pool = DESCRIPTORS[g];
+      const extra = EXTRA_POOLS[g];
 
-    // 3️⃣ Feature-specific burns
-    const {
-      carnalTiltAngle,
-      cheekboneLocation,
-      chinLength,
-      facialThirdsRatio,
-      interocularRatio,
-      jawRatio,
-      noseWidth,
-      faceWidth,
-      chinRatio,
-      eyeDistance,
-      jawWidth,
-      leftCheekHeight,
-      rightCheekHeight,
-      faceHeightFull
-    } = measurements;
+      // Calculate rating first
+      const rating =
+        overallRating != null
+          ? overallRating
+          : faceRating != null
+          ? faceRating
+          : Object.keys(testScores).length
+          ? Object.values(testScores).reduce((a, b) => a + b, 0) / Object.keys(testScores).length
+          : null;
 
-    // Tilt extremes
-    if (carnalTiltAngle != null) {
-      if (carnalTiltAngle > 45) return isBrutal ? { word: 'Turtleneck', statement: 'Your head tilt is extreme' } : { word: 'Tilted', statement: 'Your head is noticeably tilted' };
-      if (carnalTiltAngle < -45) return isBrutal ? { word: 'Duckface', statement: 'Your head tilt is extreme' } : { word: 'Tilted', statement: 'Your head is noticeably tilted' };
-    }
-    // Cheekbone high/low
-    if (cheekboneLocation != null) {
-      if (cheekboneLocation > 90) return isBrutal ? { word: 'Hamsterface', statement: 'Your cheekbones are very high' } : { word: 'High-cheeked', statement: 'You have prominent cheekbones' };
-      if (cheekboneLocation < 50) return isBrutal ? { word: 'Pugface', statement: 'Your cheekbones are very low' } : { word: 'Low-cheeked', statement: 'Your cheekbones are set low' };
-    }
-    // Chin length
-    if (chinLength != null) {
-      if (chinLength > 50) return isBrutal ? { word: 'Buttchin', statement: 'Your chin is very prominent' } : { word: 'Strong-chinned', statement: 'You have a strong chin' };
-      if (chinLength < 30) return isBrutal ? { word: 'Weakchin', statement: 'Your chin is very weak' } : { word: 'Soft-chinned', statement: 'You have a soft chin' };
-    }
-    // Facial thirds skew
-    if (facialThirdsRatio != null) {
-      if (facialThirdsRatio > 1.5) return isBrutal ? { word: 'Elongated', statement: 'Your face is very long' } : { word: 'Long-faced', statement: 'You have a long face shape' };
-      if (facialThirdsRatio < 1) return isBrutal ? { word: 'Squatface', statement: 'Your face is very short' } : { word: 'Short-faced', statement: 'You have a short face shape' };
-    }
-    // Interocular width
-    if (interocularRatio != null) {
-      if (interocularRatio > 0.35) return isBrutal ? { word: 'Bug-eye', statement: 'Your eyes are very wide apart' } : { word: 'Wide-eyed', statement: 'Your eyes are set wide apart' };
-      if (interocularRatio < 0.25) return isBrutal ? { word: 'Cyclops', statement: 'Your eyes are very close together' } : { word: 'Close-eyed', statement: 'Your eyes are set close together' };
-    }
-    // Jaw width
-    if (jawRatio != null) {
-      if (jawRatio > 0.7) return isBrutal ? { word: 'Hatchet-face', statement: 'Your jaw is very wide' } : { word: 'Strong-jawed', statement: 'You have a strong jawline' };
-      if (jawRatio < 0.4) return isBrutal ? { word: 'Jawless', statement: 'Your jaw is very narrow' } : { word: 'Narrow-jawed', statement: 'You have a narrow jawline' };
-    }
-    // Nose size
-    if (noseWidth && faceWidth) {
-      const nr = noseWidth / faceWidth;
-      if (nr > 0.2) return getRandom(FACE_POOLS.bigNose[isBrutal ? 'brutal' : 'gentle']);
-      if (nr < 0.1) return getRandom(FACE_POOLS.smallNose[isBrutal ? 'brutal' : 'gentle']);
-    }
-    // Chin prominence
-    if (chinRatio != null) {
-      if (chinRatio < 0.3) return getRandom(FACE_POOLS.weakChin[isBrutal ? 'brutal' : 'gentle']);
-      if (chinRatio > 0.5) return getRandom(FACE_POOLS.bigChin[isBrutal ? 'brutal' : 'gentle']);
-    }
-    // Eye spacing
-    if (eyeDistance && faceWidth) {
-      const er = eyeDistance / faceWidth;
-      if (er > 0.4) return getRandom(FACE_POOLS.wideEyes[isBrutal ? 'brutal' : 'gentle']);
-      if (er < 0.3) return getRandom(FACE_POOLS.closeEyes[isBrutal ? 'brutal' : 'gentle']);
-    }
-    // Jaw-to-face ratio
-    if (jawWidth && faceWidth) {
-      const jr2 = jawWidth / faceWidth;
-      if (jr2 > 0.6) return getRandom(FACE_POOLS.wideJaw[isBrutal ? 'brutal' : 'gentle']);
-      if (jr2 < 0.35) return getRandom(FACE_POOLS.narrowJaw[isBrutal ? 'brutal' : 'gentle']);
-    }
-    // Cheek height
-    if (leftCheekHeight && rightCheekHeight && faceHeightFull) {
-      const avgC = (leftCheekHeight + rightCheekHeight) / 2;
-      const cr = avgC / faceHeightFull;
-      if (cr > 0.35) return getRandom(FACE_POOLS.highCheeks[isBrutal ? 'brutal' : 'gentle']);
-      if (cr < 0.25) return getRandom(FACE_POOLS.lowCheeks[isBrutal ? 'brutal' : 'gentle']);
-    }
-
-    // 4️⃣ Ugly/dumb catch-all for extreme lows
-    if ((overallRating || faceRating || 100) < 20) {
-      return getRandom(FACE_POOLS.ugly[isBrutal ? 'brutal' : 'gentle']);
-    }
-    if ((testScores.iq || 100) < 70) {
-      return getRandom(FACE_POOLS.dumb[isBrutal ? 'brutal' : 'gentle']);
-    }
-
-    // 5️⃣ Facial symmetry vibe check
-    const { carnalTiltAngle: t, facialThirdsRatio: thirds2, cheekHeightDiff } = measurements;
-    if (t != null && thirds2 != null && cheekHeightDiff != null) {
-      if (t < 2 && thirds2 > 0.9 && thirds2 < 1.1 && cheekHeightDiff < 5) {
-        return getRandom(pool.high[isBrutal ? 'brutal' : 'gentle']);
+      // 1️⃣ Height/weight restrictions and body archetype descriptors
+      if (height != null && weight != null) {
+        const bmi = (weight / (height * height)) * 703;
+        // For very short men, prioritize height-based descriptors
+        if (gender === 'M' && height < 68) {
+          const faceScore = faceRating || overallRating || 50;
+          const category = faceScore >= 60 ? 'high' : 'low';
+          return getRandom(extra.short[isBrutal ? 'brutal' : 'gentle'][category]);
+        }
+        if (height > 74) return getRandom(extra.tall[isBrutal ? 'brutal' : 'gentle']);
+        if (bmi < 18.5) return getRandom(extra.skinny[isBrutal ? 'brutal' : 'gentle']);
+        if (bmi >= 30) return getRandom(extra.overweight[isBrutal ? 'brutal' : 'gentle']);
+        if (bmi >= 25) return getRandom(extra.overweight[isBrutal ? 'brutal' : 'gentle']);
       }
-      return getRandom(pool.avg[isBrutal ? 'brutal' : 'gentle']);
-    }
 
-    // 6️⃣ Nothing stands out
-    return getRandom(extra.none[isBrutal ? 'brutal' : 'gentle']);
-  }, [ratingData, isBrutal]);
+      // 2️⃣ Rating-based burns
+      if (rating != null) {
+        if (rating >= 90) return getRandom(pool.elite[isBrutal ? 'brutal' : 'gentle']);
+        if (rating >= 70) return getRandom(pool.high[isBrutal ? 'brutal' : 'gentle']);
+        if (rating >= 50) return getRandom(pool.avg[isBrutal ? 'brutal' : 'gentle']);
+        if (rating >= 30) return getRandom(pool.low[isBrutal ? 'brutal' : 'gentle']);
+        return getRandom(pool.poor[isBrutal ? 'brutal' : 'gentle']);
+      }
+
+      // 3️⃣ Feature-specific burns
+      const {
+        carnalTiltAngle,
+        cheekboneLocation,
+        chinLength,
+        facialThirdsRatio,
+        interocularRatio,
+        jawRatio,
+        noseWidth,
+        faceWidth,
+        chinRatio,
+        eyeDistance,
+        jawWidth,
+        leftCheekHeight,
+        rightCheekHeight,
+        faceHeightFull
+      } = measurements;
+
+      // Tilt extremes
+      if (carnalTiltAngle != null) {
+        if (carnalTiltAngle > 45) return {
+          word: 'Tilted',
+          statement: 'Your head is noticeably tilted'
+        };
+        if (carnalTiltAngle < -45) return {
+          word: 'Tilted',
+          statement: 'Your head tilt is extreme'
+        };
+      }
+      // Cheekbone high/low
+      if (cheekboneLocation != null) {
+        if (cheekboneLocation > 90) return {
+          word: 'High-cheeked',
+          statement: 'You have prominent cheekbones'
+        };
+        if (cheekboneLocation < 50) return {
+          word: 'Low-cheeked',
+          statement: 'Your cheekbones are set low'
+        };
+      }
+      // Chin length
+      if (chinLength != null) {
+        if (chinLength > 50) return {
+          word: 'Strong-chinned',
+          statement: 'You have a strong chin'
+        };
+        if (chinLength < 30) return {
+          word: 'Soft-chinned',
+          statement: 'You have a soft chin'
+        };
+      }
+      // Facial thirds skew
+      if (facialThirdsRatio != null) {
+        if (facialThirdsRatio > 1.5) return {
+          word: 'Long-faced',
+          statement: 'You have a long face shape'
+        };
+        if (facialThirdsRatio < 1) return {
+          word: 'Short-faced',
+          statement: 'You have a short face shape'
+        };
+      }
+      // Interocular width
+      if (interocularRatio != null) {
+        if (interocularRatio > 0.35) return {
+          word: 'Wide-eyed',
+          statement: 'Your eyes are set wide apart'
+        };
+        if (interocularRatio < 0.25) return {
+          word: 'Close-eyed',
+          statement: 'Your eyes are set close together'
+        };
+      }
+      // Jaw width
+      if (jawRatio != null) {
+        if (jawRatio > 0.7) return {
+          word: 'Strong-jawed',
+          statement: 'You have a strong jawline'
+        };
+        if (jawRatio < 0.4) return {
+          word: 'Narrow-jawed',
+          statement: 'You have a narrow jawline'
+        };
+      }
+      // Nose size
+      if (noseWidth && faceWidth) {
+        const nr = noseWidth / faceWidth;
+        if (nr > 0.2) return getRandom(FACE_POOLS.bigNose[isBrutal ? 'brutal' : 'gentle']);
+        if (nr < 0.1) return getRandom(FACE_POOLS.smallNose[isBrutal ? 'brutal' : 'gentle']);
+      }
+      // Chin prominence
+      if (chinRatio != null) {
+        if (chinRatio < 0.3) return getRandom(FACE_POOLS.weakChin[isBrutal ? 'brutal' : 'gentle']);
+        if (chinRatio > 0.5) return getRandom(FACE_POOLS.bigChin[isBrutal ? 'brutal' : 'gentle']);
+      }
+      // Eye spacing
+      if (eyeDistance && faceWidth) {
+        const er = eyeDistance / faceWidth;
+        if (er > 0.4) return getRandom(FACE_POOLS.wideEyes[isBrutal ? 'brutal' : 'gentle']);
+        if (er < 0.3) return getRandom(FACE_POOLS.closeEyes[isBrutal ? 'brutal' : 'gentle']);
+      }
+      // Jaw-to-face ratio
+      if (jawWidth && faceWidth) {
+        const jr2 = jawWidth / faceWidth;
+        if (jr2 > 0.6) return getRandom(FACE_POOLS.wideJaw[isBrutal ? 'brutal' : 'gentle']);
+        if (jr2 < 0.35) return getRandom(FACE_POOLS.narrowJaw[isBrutal ? 'brutal' : 'gentle']);
+      }
+      // Cheek height
+      if (leftCheekHeight && rightCheekHeight && faceHeightFull) {
+        const avgC = (leftCheekHeight + rightCheekHeight) / 2;
+        const cr = avgC / faceHeightFull;
+        if (cr > 0.35) return getRandom(FACE_POOLS.highCheeks[isBrutal ? 'brutal' : 'gentle']);
+        if (cr < 0.25) return getRandom(FACE_POOLS.lowCheeks[isBrutal ? 'brutal' : 'gentle']);
+      }
+
+      // 4️⃣ Ugly/dumb catch-all for extreme lows
+      if ((overallRating || faceRating || 100) < 20) {
+        return getRandom(FACE_POOLS.ugly[isBrutal ? 'brutal' : 'gentle']);
+      }
+      if ((testScores.iq || 100) < 70) {
+        return getRandom(FACE_POOLS.dumb[isBrutal ? 'brutal' : 'gentle']);
+      }
+
+      // 5️⃣ Facial symmetry vibe check
+      const { carnalTiltAngle: t, facialThirdsRatio: thirds2, cheekHeightDiff } = measurements;
+      if (t != null && thirds2 != null && cheekHeightDiff != null) {
+        if (t < 2 && thirds2 > 0.9 && thirds2 < 1.1 && cheekHeightDiff < 5) {
+          return getRandom(pool.high[isBrutal ? 'brutal' : 'gentle']);
+        }
+        return getRandom(pool.avg[isBrutal ? 'brutal' : 'gentle']);
+      }
+
+      // 6️⃣ Nothing stands out
+      return getRandom(extra.none[isBrutal ? 'brutal' : 'gentle']);
+    }
+  }, [overallRating, faceRating, testScores, measurements, height, weight, gender]);
 };
 
 export default useOneWordDescription;

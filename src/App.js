@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, Suspense, lazy, useRef } from 'react';
 import { ChakraProvider, Button, Flex, Box, Text, Spinner } from '@chakra-ui/react';
 import { system } from '@chakra-ui/react/preset';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -58,6 +58,7 @@ const LoadingSpinner = () => (
 function App() {
   const [showWarning, setShowWarning] = useState(false);
   const [error, setError] = useState(null);
+  const hasPrintedArt = useRef(false);
 
   useEffect(() => {
     try {
@@ -65,13 +66,17 @@ function App() {
       if (!hasSeenWarning) {
         setShowWarning(false);
       }
-      console.log(`
+      
+      if (!hasPrintedArt.current) {
+        console.log(`
 ██╗░░░░░░█████╗░░█████╗░██╗░░██╗███████╗░█████╗░██████╗░██████╗░
 ██║░░░░░██╔══██╗██╔══██╗██║░██╔╝╚════██║██╔══██╗██╔══██╗██╔══██╗
 ██║░░░░░██║░░██║██║░░██║█████═╝░░░███╔═╝███████║██████╔╝██████╔╝
 ██║░░░░░██║░░██║██║░░██║██╔═██╗░██╔══╝░░██╔══██║██╔═══╝░██╔═══╝░
 ███████╗╚█████╔╝╚█████╔╝██║░╚██╗███████╗██║░░██║██║░░░░░██║░░░░░
 ╚══════╝░╚════╝░░╚════╝░╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝╚═╝░░░░░╚═╝░░░░░`);
+        hasPrintedArt.current = true;
+      }
     } catch (err) {
       console.error('Error accessing localStorage:', err);
       setError('Unable to access browser storage. Some features may be limited.');
@@ -111,15 +116,16 @@ function App() {
                 <Route path="/signin" element={<SignIn />} />
                 <Route path="/scan-limit" element={<ScanLimitPage />} />
                 <Route path="/home" element={<Navigate to="/" />} />    
-                <Route path="/analysis" element={<Analyze />} />
-                <Route path="/analyze-selection" element={<AnalyzeSelection /> } />
-                <Route path="/autism-analytic" element={<AutismAnalytic />} />
-                <Route path="/criminality" element={<PrivateRoute><Criminality /></PrivateRoute>} />
-                <Route path="/liar-score" element={<PrivateRoute><LiarScore /></PrivateRoute>} />
+                <Route path="/scan/attractiveness" element={<Analyze />} />
+                <Route path="/scan" element={<AnalyzeSelection />} />
+                <Route path="/scan/autism" element={<PrivateRoute><AutismAnalytic /></PrivateRoute>} />
+                <Route path="/scan/crime" element={<PrivateRoute><Criminality /></PrivateRoute>} />
+                <Route path="/scan/lying" element={<PrivateRoute><LiarScore /></PrivateRoute>} />
                 <Route path="/octavian" element={<Octavian />} />
-                <Route path="/label-me" element={<OneWordPage />} />
+                <Route path="/scan/summary" element={<OneWordPage />} />
                 <Route path="/soon" element={<Soon />} />
-                <Route path="/sus-meter" element={<PrivateRoute><SusMeter /></PrivateRoute>} />
+                <Route path="/scan/sus" element={<PrivateRoute><SusMeter /></PrivateRoute>} />
+                <Route path="/scan/substances" element={<PrivateRoute><GeekedGuess /></PrivateRoute>} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </Suspense>

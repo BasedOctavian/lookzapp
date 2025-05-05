@@ -290,7 +290,7 @@ function LandingPage() {
           <StyledButton
             variant="contained"
             size="large"
-            onClick={() => navigate('/analyze-selection')}
+            onClick={() => navigate('/scan')}
             sx={{
               px: 6,
               py: 2,

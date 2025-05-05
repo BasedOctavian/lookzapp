@@ -24,6 +24,10 @@ import {
   styled,
   keyframes,
   InputLabel,
+  Card,
+  CardContent,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import { useToast } from '@chakra-ui/toast';
 import { generateAutismRatingName } from '../utils/autsimRatingNameGenerator';
@@ -557,11 +561,25 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected }) => {
         autoPlay
         muted
         playsInline
-        style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isLoading ? 'blur(4px)' : 'none' }}
+        style={{ 
+          width: '100%', 
+          height: '100%', 
+          objectFit: 'cover',
+          filter: isLoading ? 'blur(4px)' : 'none',
+          transition: 'filter 0.3s ease-in-out'
+        }}
       />
       <canvas
         ref={canvasRef}
-        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: faceDetected ? 1 : 0.5 }}
+        style={{ 
+          position: 'absolute', 
+          top: 0, 
+          left: 0, 
+          width: '100%', 
+          height: '100%',
+          opacity: faceDetected ? 1 : 0.5,
+          transition: 'opacity 0.3s ease-in-out'
+        }}
       />
       {countdown !== null && (
         <StyledCountdownContainer>
@@ -574,13 +592,19 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected }) => {
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               textShadow: '0 0 20px rgba(9, 194, 247, 0.5)',
+              animation: `${fadeIn} 0.5s ease-out`
             }}
           >
             {countdown}
           </Typography>
           {countdown === 0 && (
             <CheckCircleOutlineIcon
-              sx={{ fontSize: 48, color: '#4CAF50', filter: 'drop-shadow(0 0 8px rgba(76, 175, 80, 0.3))' }}
+              sx={{ 
+                fontSize: 48, 
+                color: '#4CAF50',
+                filter: 'drop-shadow(0 0 8px rgba(76, 175, 80, 0.3))',
+                animation: `${fadeIn} 0.5s ease-out`
+              }}
             />
           )}
         </StyledCountdownContainer>
@@ -588,17 +612,36 @@ const FaceScanner = ({ startScanning, onScanningComplete, onFaceDetected }) => {
       {showFlash && <StyledFlashOverlay sx={{ opacity: 0.8 }} />}
       {!faceDetected && !isLoading && !webcamError && (
         <StyledFaceDetectedOverlay>
-          <Typography variant="body1" sx={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography 
+            variant="body1" 
+            sx={{ 
+              color: '#fff',
+              fontSize: { base: '0.875rem', md: '1rem' },
+              textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1
+            }}
+          >
             <Face /> Please position your face in the frame
           </Typography>
         </StyledFaceDetectedOverlay>
       )}
       <StyledInstructionText>
-        <Typography variant="h6" sx={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            color: '#fff',
+            fontSize: { base: '1rem', md: '1.25rem' },
+            textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1
+          }}
+        >
           {isCollecting ? 'Hold still for a moment...' : 'Look at the camera'}
         </Typography>
       </StyledInstructionText>
-      {faceDetected && <StatsDisplay testScores={currentTestScores} />}
     </StyledWebcamContainer>
   );
 };
@@ -663,6 +706,13 @@ const DetailedResultDisplay = ({ overallPercentage, testScores }) => {
   const navigate = useNavigate();
   const [showDetails, setShowDetails] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [funnyDescription, setFunnyDescription] = useState(null);
+
+  useEffect(() => {
+    if (testScores) {
+      setFunnyDescription(generateAutismRatingName(overallPercentage, testScores));
+    }
+  }, [overallPercentage, testScores]);
 
   let tierLabel, tierDescription, tierEmoji;
   if (overallPercentage >= 90) {
@@ -693,7 +743,6 @@ const DetailedResultDisplay = ({ overallPercentage, testScores }) => {
     'Forehead Ratio': 'Assesses the forehead proportion to face height.',
   };
 
-  const funnyDescription = testScores ? generateAutismRatingName(overallPercentage, testScores) : '';
   const sortedFeatures = Object.entries(testScores)
     .sort(([, a], [, b]) => b - a)
     .map(([test, score]) => ({
@@ -707,6 +756,40 @@ const DetailedResultDisplay = ({ overallPercentage, testScores }) => {
 
   return (
     <Box sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          mb: 4,
+          cursor: 'pointer',
+        }}
+        onClick={() => navigate('/')}
+      >
+        <Box
+          sx={{
+            width: 120,
+            height: 120,
+            background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
+            borderRadius: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            animation: `${neonGlow} 2s infinite`,
+            boxShadow: '0 0 32px rgba(9, 194, 247, 0.2)',
+            transition: 'transform 0.3s ease',
+            '&:hover': {
+              transform: 'scale(1.05)'
+            }
+          }}
+        >
+          <img
+            src="/lookzapp trans 2.png"
+            alt="LookzApp"
+            style={{ width: '80%', filter: 'brightness(0) invert(1)' }}
+          />
+        </Box>
+      </Box>
+
       <Box
         sx={{
           p: 4,
@@ -951,6 +1034,23 @@ const DetailedResultDisplay = ({ overallPercentage, testScores }) => {
           *This is an experimental estimation based on facial features, not a medical diagnosis. Consult a professional for
           accurate assessment.*
         </Typography>
+
+        <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
+          <Button
+            variant="outlined"
+            onClick={() => navigate('/')}
+            sx={{
+              color: '#fff',
+              borderColor: 'rgba(255,255,255,0.5)',
+              '&:hover': {
+                borderColor: '#fff',
+                bgcolor: 'rgba(255,255,255,0.1)'
+              }
+            }}
+          >
+            Back to Home
+          </Button>
+        </Box>
       </Box>
 
       <Snackbar
@@ -974,6 +1074,140 @@ const DetailedResultDisplay = ({ overallPercentage, testScores }) => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+    </Box>
+  );
+};
+
+// Add ExploreOtherTests component before DetailedResultDisplay
+const ExploreOtherTests = () => {
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  const tests = [
+    {
+      title: 'Attractiveness Analysis',
+      description: 'AI-powered analysis of facial features and attractiveness',
+      path: '/scan/attractiveness',
+      icon: <FaceRetouchingNatural />,
+      color: '#09c2f7'
+    },
+    {
+      title: 'Criminality Analysis',
+      description: 'Evaluate behavioral patterns and risk factors',
+      path: '/scan/crime',
+      icon: <WarningAmberIcon />,
+      color: '#fa0ea4'
+    },
+    {
+      title: 'Liar Score',
+      description: 'Detect deception patterns and truthfulness indicators',
+      path: '/scan/lying',
+      icon: <SentimentDissatisfied />,
+      color: '#6ce9ff'
+    }
+  ];
+
+  return (
+    <Box sx={{ mt: 8, mb: 4 }}>
+      <Typography
+        variant="h4"
+        sx={{
+          textAlign: 'center',
+          mb: 4,
+          fontWeight: 'bold',
+          background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          textShadow: '0 0 10px rgba(9, 194, 247, 0.3)'
+        }}
+      >
+        Explore Our Other Tests
+      </Typography>
+      
+      <Grid container spacing={3} justifyContent="center">
+        {tests.map((test, index) => (
+          <Grid item xs={12} sm={6} md={4} key={test.title}>
+            <Card
+              sx={{
+                height: '100%',
+                background: 'rgba(13, 17, 44, 0.7)',
+                backdropFilter: 'blur(16px)',
+                border: '1px solid rgba(250, 14, 164, 0.2)',
+                transition: 'all 0.3s ease',
+                cursor: 'pointer',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: `0 8px 32px ${test.color}40`,
+                  border: `1px solid ${test.color}40`
+                }
+              }}
+              onClick={() => navigate(test.path)}
+            >
+              <CardContent sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                textAlign: 'center',
+                p: 3
+              }}>
+                <Box
+                  sx={{
+                    color: test.color,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 64,
+                    height: 64,
+                    borderRadius: '50%',
+                    background: `${test.color}20`,
+                    mb: 2,
+                    '& .MuiSvgIcon-root': {
+                      fontSize: 32
+                    }
+                  }}
+                >
+                  {test.icon}
+                </Box>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    color: '#fff',
+                    fontWeight: 600,
+                    mb: 1
+                  }}
+                >
+                  {test.title}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'rgba(255,255,255,0.7)',
+                    mb: 2,
+                    minHeight: '40px'
+                  }}
+                >
+                  {test.description}
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  sx={{
+                    color: test.color,
+                    borderColor: `${test.color}40`,
+                    '&:hover': {
+                      borderColor: test.color,
+                      backgroundColor: `${test.color}10`
+                    }
+                  }}
+                >
+                  Try Now
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
     </Box>
   );
 };
@@ -1059,95 +1293,179 @@ const AutismAnalytic = () => {
       />
       <Box sx={{ position: 'relative', zIndex: 1, maxWidth: 'xl', mx: 'auto' }}>
         {isLoadingResults ? (
-          <LoadingAnimation>
+          <>
             <Box
               sx={{
-                width: '100%',
-                maxWidth: '400px',
-                height: '4px',
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                borderRadius: '2px',
-                overflow: 'hidden',
-                position: 'relative'
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '400px',
+                gap: 2
               }}
             >
               <Box
                 sx={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  height: '100%',
-                  width: `${loadingProgress}%`,
-                  background: 'linear-gradient(90deg, #09c2f7, #fa0ea4)',
-                  transition: 'width 0.1s ease-out',
-                  '&:after': {
-                    content: '""',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  mb: 4,
+                  cursor: 'pointer',
+                }}
+                onClick={() => navigate('/')}
+              >
+                <Box
+                  sx={{
+                    width: 120,
+                    height: 120,
+                    background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
+                    borderRadius: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    animation: `${neonGlow} 2s infinite`,
+                    boxShadow: '0 0 32px rgba(9, 194, 247, 0.2)',
+                    transition: 'transform 0.3s ease',
+                    '&:hover': {
+                      transform: 'scale(1.05)'
+                    }
+                  }}
+                >
+                  <img
+                    src="/lookzapp trans 2.png"
+                    alt="LookzApp"
+                    style={{ width: '80%', filter: 'brightness(0) invert(1)' }}
+                  />
+                </Box>
+              </Box>
+              <Typography
+                variant="h6"
+                sx={{
+                  color: '#fff',
+                  textShadow: '0 0 10px rgba(9, 194, 247, 0.3)',
+                  mb: 2
+                }}
+              >
+                Analyzing Results...
+              </Typography>
+              <Box
+                sx={{
+                  width: '100%',
+                  maxWidth: '400px',
+                  height: '4px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: '2px',
+                  overflow: 'hidden',
+                  position: 'relative'
+                }}
+              >
+                <Box
+                  sx={{
                     position: 'absolute',
                     top: 0,
                     left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent)',
-                    animation: 'shimmer 2s infinite',
-                    '@keyframes shimmer': {
-                      '0%': { transform: 'translateX(-100%)' },
-                      '100%': { transform: 'translateX(100%)' }
+                    height: '100%',
+                    width: `${loadingProgress}%`,
+                    background: 'linear-gradient(90deg, #09c2f7, #fa0ea4)',
+                    transition: 'width 0.1s ease-out',
+                    '&:after': {
+                      content: '""',
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent)',
+                      animation: 'shimmer 2s infinite',
+                      '@keyframes shimmer': {
+                        '0%': { transform: 'translateX(-100%)' },
+                        '100%': { transform: 'translateX(100%)' }
+                      }
                     }
-                  }
-                }}
-              />
-            </Box>
-            <AnalyzingText>
-              Analyzing Results
-            </AnalyzingText>
-            <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-              {loadingProgress}%
-            </Typography>
-          </LoadingAnimation>
-        ) : (
-          <>
-            {(currentStep === 'instructions' || currentStep === 'scanning') && (
-              <Box sx={{ my: 8 }}>
-                <Typography
-                  variant="h3"
-                  sx={{
-                    fontWeight: 800,
-                    textAlign: 'center',
-                    background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    mb: 4,
                   }}
-                >
-                  Face Scan
-                </Typography>
-                <StyledWebcamContainer>
-                  <FaceScanner
-                    startScanning={currentStep === 'scanning'}
-                    onScanningComplete={handleScanningComplete}
-                    onFaceDetected={handleFaceDetected}
-                  />
-                </StyledWebcamContainer>
-                {currentStep === 'instructions' && (
-                  <Box sx={{ textAlign: 'center', mt: 4 }}>
-                    <Typography variant="h5" sx={{ color: '#fff' }}>
-                      Position your face in the frame
-                    </Typography>
-                    <Typography sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                      Ensure good lighting and keep your face straight
-                    </Typography>
-                  </Box>
-                )}
+                />
               </Box>
-            )}
-
-            {currentStep === 'result' && likelihoodScore !== null && (
-              <Box sx={{ py: 8 }}>
-                <DetailedResultDisplay overallPercentage={likelihoodScore} testScores={testScores} />
-              </Box>
-            )}
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  mt: 1
+                }}
+              >
+                {loadingProgress}%
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                py: 3,
+                textAlign: 'center',
+                color: 'rgba(255,255,255,0.6)',
+                fontSize: '0.9rem',
+                animation: `${fadeIn} 1s ease-out`,
+                opacity: 0,
+                animationFillMode: 'forwards',
+              }}
+            >
+              <Typography variant="body2">
+                © 2025 Octavian Ideas. All rights reserved.
+              </Typography>
+            </Box>
           </>
-        )}
+        ) : (currentStep === 'instructions' || currentStep === 'scanning') ? (
+          <>
+            <Box sx={{ my: 8 }}>
+              <StyledWebcamContainer>
+                <FaceScanner
+                  startScanning={currentStep === 'scanning'}
+                  onScanningComplete={handleScanningComplete}
+                  onFaceDetected={handleFaceDetected}
+                />
+              </StyledWebcamContainer>
+              {currentStep === 'instructions' && (
+                <Box sx={{ textAlign: 'center', mt: 4 }}>
+                  <Typography variant="h5" sx={{ color: '#fff' }}>
+                    Position your face in the frame
+                  </Typography>
+                  <Typography sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                    Ensure good lighting and keep your face straight
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </>
+        ) : currentStep === 'result' ? (
+          <>
+            <Box sx={{ py: 8 }}>
+              <DetailedResultDisplay
+                overallPercentage={likelihoodScore}
+                testScores={testScores}
+              />
+              <ExploreOtherTests />
+            </Box>
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                py: 3,
+                textAlign: 'center',
+                color: 'rgba(255,255,255,0.6)',
+                fontSize: '0.9rem',
+                animation: `${fadeIn} 1s ease-out`,
+                opacity: 0,
+                animationFillMode: 'forwards',
+              }}
+            >
+              <Typography variant="body2">
+                © 2025 Octavian Ideas. All rights reserved.
+              </Typography>
+            </Box>
+          </>
+        ) : null}
       </Box>
     </Box>
   );

@@ -215,6 +215,7 @@ export const calculateCategoryScore = (testScores, category) => {
     let violentPatterns = 0;
     let sexualPatterns = 0;
     let whiteCollarPatterns = 0;
+    let organizedPatterns = 0;
     let totalPatterns = 0;
 
     Object.entries(testScores).forEach(([feature, data]) => {
@@ -237,6 +238,11 @@ export const calculateCategoryScore = (testScores, category) => {
           if (['Facial Symmetry', 'Eye Shape', 'Facial Harmony'].includes(feature) && score > 75) {
             whiteCollarPatterns++;
           }
+
+          // Check for organized crime patterns
+          if (['Facial Width', 'Eye Shape', 'Cheekbone Prominence', 'Chin Prominence'].includes(feature) && score > 70) {
+            organizedPatterns++;
+          }
         }
       }
     });
@@ -245,101 +251,117 @@ export const calculateCategoryScore = (testScores, category) => {
     const violentRatio = totalPatterns > 0 ? violentPatterns / totalPatterns : 0;
     const sexualRatio = totalPatterns > 0 ? sexualPatterns / totalPatterns : 0;
     const whiteCollarRatio = totalPatterns > 0 ? whiteCollarPatterns / totalPatterns : 0;
+    const organizedRatio = totalPatterns > 0 ? organizedPatterns / totalPatterns : 0;
 
-    // Special handling for each category based on patterns
-    if (category === 'violent' && isDarkSkin) {
-      let baseScore = 60; // Base score for dark skin
-      
-      // Add pattern-based contribution
-      if (violentRatio > 0.5) {
-        baseScore += 20;
-        featureReasons.push('Multiple violent facial patterns detected');
-      }
-      
-      return {
-        score: Math.min(Math.max(baseScore, 0), 100),
-        reasons: featureReasons
-      };
-    }
+    // Get gender from userData
+    const gender = skinColorData?.userData?.gender || 'male';
 
-    if (category === 'sexual' && isMediumSkin) {
-      let baseScore = 50; // Base score for medium skin
+    // Special handling for each category based on patterns and gender
+    if (category === 'violent') {
+      let baseScore = isDarkSkin ? 60 : 40;
       
-      // Add pattern-based contribution
-      if (sexualRatio > 0.5) {
-        baseScore += 20;
-        featureReasons.push('Multiple sexual criminal patterns detected');
-      }
-      
-      return {
-        score: Math.min(Math.max(baseScore, 0), 100),
-        reasons: featureReasons
-      };
-    }
-
-    if (category === 'whiteCollar' && isLightSkin) {
-      let baseScore = 40; // Base score for light skin
-      
-      // Add pattern-based contribution
-      if (whiteCollarRatio > 0.5) {
-        baseScore += 20;
-        featureReasons.push('Multiple white collar criminal patterns detected');
-      }
-      
-      return {
-        score: Math.min(Math.max(baseScore, 0), 100),
-        reasons: featureReasons
-      };
-    }
-
-    // Special handling for noCrime category with light skin
-    if (category === 'noCrime' && isLightSkin) {
-      // Calculate base score with adjusted parameters
-      Object.entries(features).forEach(([feature, config]) => {
-        let score;
-        if (feature === 'Skin Color' && typeof testScores[feature] === 'object') {
-          const rgb = testScores[feature].color.match(/\d+/g).map(Number);
-          score = calculateSkinDarknessScore(rgb);
-          
-          // Adjust skin color weight for light skin in noCrime category
-          config.weight = 1.5; // Increased weight for light skin
-          
-          if (config.skinToneMatch && config.skinToneMatch.includes(testScores[feature].category)) {
-            featureReasons.push(config.description);
-          }
-        } else {
-          score = typeof testScores[feature] === 'object' ? testScores[feature].score : testScores[feature];
-          
-          // Adjust feature weights for light skin in noCrime category
-          if (['Facial Symmetry', 'Eye Shape', 'Facial Harmony'].includes(feature)) {
-            config.weight = 1.2; // Increased weight for key features
-          }
+      if (gender === 'male') {
+        baseScore += isDarkSkin ? 15 : 10;
+        if (violentRatio > 0.5) {
+          baseScore += 20;
+          featureReasons.push('Multiple violent facial patterns detected');
         }
-        
-        if (typeof score === 'number' && !isNaN(score)) {
-          score = Math.min(Math.max(score, 0), 100);
-          
-          if (score > config.threshold) {
-            featureReasons.push(config.description);
-          }
-          
-          weightedScore += score * Math.abs(config.weight);
-          totalWeight += Math.abs(config.weight);
-          validFeatures++;
+      } else {
+        baseScore = Math.max(20, baseScore - 20);
+        if (violentRatio > 0.6) { // Higher threshold for females
+          baseScore += 15;
+          featureReasons.push('Unusual violent facial patterns detected');
         }
-      });
-
-      let rawScore = 0;
-      if (validFeatures > 0 && totalWeight > 0) {
-        rawScore = weightedScore / totalWeight;
       }
-
-      // Apply light skin bonus through parameter adjustments
-      const lightSkinBonus = 20;
-      const adjustedScore = Math.min(rawScore + lightSkinBonus, 100);
-
+      
       return {
-        score: Math.min(Math.max(adjustedScore, 0), 100),
+        score: Math.min(Math.max(baseScore, 0), 100),
+        reasons: featureReasons
+      };
+    }
+
+    if (category === 'sexual') {
+      let baseScore = isMediumSkin ? 50 : 40;
+      
+      if (gender === 'male') {
+        if (sexualRatio > 0.5) {
+          baseScore += 25;
+          featureReasons.push('Multiple predatory facial patterns detected');
+        }
+        if (isDarkSkin) {
+          baseScore += 10;
+        }
+      } else {
+        baseScore = Math.max(30, baseScore - 10);
+        if (sexualRatio > 0.6) {
+          baseScore += 20;
+          featureReasons.push('Manipulative facial patterns detected');
+        }
+        if (isLightSkin) {
+          baseScore += 5;
+        }
+      }
+      
+      return {
+        score: Math.min(Math.max(baseScore, 0), 100),
+        reasons: featureReasons
+      };
+    }
+
+    if (category === 'whiteCollar') {
+      let baseScore = isLightSkin ? 60 : 40;
+      
+      if (gender === 'male') {
+        if (whiteCollarRatio > 0.5) {
+          baseScore += 20;
+          featureReasons.push('Multiple deceptive facial patterns detected');
+        }
+        if (isLightSkin) {
+          baseScore += 15;
+        }
+      } else {
+        if (whiteCollarRatio > 0.4) {
+          baseScore += 25;
+          featureReasons.push('Sophisticated deceptive patterns detected');
+        }
+        if (isLightSkin) {
+          baseScore += 20;
+        }
+      }
+      
+      return {
+        score: Math.min(Math.max(baseScore, 0), 100),
+        reasons: featureReasons
+      };
+    }
+
+    if (category === 'organized') {
+      let baseScore = 40;
+      
+      if (gender === 'male') {
+        if (organizedRatio > 0.5) {
+          baseScore += 30;
+          featureReasons.push('Multiple criminal enterprise patterns detected');
+        }
+        if (isDarkSkin) {
+          baseScore += 15;
+        } else if (isMediumSkin) {
+          baseScore += 10;
+        }
+      } else {
+        if (organizedRatio > 0.4) {
+          baseScore += 25;
+          featureReasons.push('Complex criminal network patterns detected');
+        }
+        if (isLightSkin) {
+          baseScore += 20;
+        } else if (isMediumSkin) {
+          baseScore += 15;
+        }
+      }
+      
+      return {
+        score: Math.min(Math.max(baseScore, 0), 100),
         reasons: featureReasons
       };
     }

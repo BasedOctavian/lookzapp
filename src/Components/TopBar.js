@@ -30,6 +30,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import LogoutIcon from '@mui/icons-material/Logout';
 import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions';
 import GavelIcon from '@mui/icons-material/Gavel';
+import FlagIcon from '@mui/icons-material/Flag';
 
 const neonGlow = keyframes`
   0% { filter: drop-shadow(0 0 2px #09c2f7); }
@@ -67,22 +68,23 @@ const NavText = styled(Typography)(({ theme }) => ({
   }
 }));
 
-const MenuItem = styled(ListItem)(({ theme }) => ({
-  cursor: 'pointer',
+const MenuItem = styled(ListItem)(({ theme, isHeader }) => ({
+  cursor: isHeader ? 'default' : 'pointer',
   padding: theme.spacing(2),
   transition: 'all 0.2s ease',
+  backgroundColor: isHeader ? 'rgba(9, 194, 247, 0.1)' : 'transparent',
   '&:hover': {
-    background: 'linear-gradient(90deg, rgba(9, 194, 247, 0.1), rgba(250, 14, 164, 0.1))',
+    background: isHeader ? 'rgba(9, 194, 247, 0.1)' : 'linear-gradient(90deg, rgba(9, 194, 247, 0.1), rgba(250, 14, 164, 0.1))',
     '& .MuiListItemText-primary': {
-      color: '#09c2f7',
-      textShadow: '0 0 8px rgba(9, 194, 247, 0.5)'
+      color: isHeader ? '#09c2f7' : '#09c2f7',
+      textShadow: isHeader ? 'none' : '0 0 8px rgba(9, 194, 247, 0.5)'
     },
     '& .MuiSvgIcon-root': {
-      color: '#fa0ea4'
+      color: isHeader ? '#09c2f7' : '#fa0ea4'
     }
   },
   '&:active': {
-    transform: 'scale(0.98)'
+    transform: isHeader ? 'none' : 'scale(0.98)'
   }
 }));
 
@@ -112,36 +114,59 @@ const Topbar = () => {
 
   const menuItems = [
     { 
-      text: 'Attractiveness Analyzer', 
+      text: 'Available Now',
+      isHeader: true
+    },
+    { 
+      text: 'Attractiveness', 
       icon: <CameraAltIcon />,
-      action: () => navigate('/analysis')
+      action: () => navigate('/scan/attractiveness')
     },
     { 
-      text: 'Criminality Analysis', 
+      text: 'Predict a Crime', 
       icon: <GavelIcon />,
-      action: () => navigate('/criminality')
+      action: () => navigate('/scan/crime')
     },
     { 
-      text: 'Autism Feature Analysis', 
-      icon: <PsychologyIcon />,
-      action: () => navigate('/autism-analytic')
-    },
-    { 
-      text: 'Label Me', 
+      text: 'Sum Me Up', 
       icon: <FaceIcon />,
-      action: () => navigate('/label-me')
-    },
-    { 
-      text: 'Liar Score', 
-      icon: <EmojiEmotionsIcon />,
-      action: () => navigate('/liar-score')
-    },
-    { 
-      text: 'GeekedGuess', 
-      icon: <VisibilityIcon />,
-      action: () => navigate('/geeked-guess')
+      action: () => navigate('/scan/summary')
     },
     { divider: true },
+    { 
+      text: 'Requires Account',
+      isHeader: true
+    },
+    { 
+      text: 'Autism', 
+      icon: <PsychologyIcon />,
+      action: () => navigate('/scan/autism')
+    },
+    { 
+      text: 'Lying Skill', 
+      icon: <EmojiEmotionsIcon />,
+      action: () => navigate('/scan/lying')
+    },
+    { divider: true },
+    { 
+      text: 'In Development',
+      isHeader: true
+    },
+    { 
+      text: 'Sus Score', 
+      icon: <FlagIcon />,
+      action: () => navigate('/scan/sus')
+    },
+    { 
+      text: 'Substances', 
+      icon: <VisibilityIcon />,
+      action: () => navigate('/scan/substances')
+    },
+    { divider: true },
+    { 
+      text: 'Navigation',
+      isHeader: true
+    },
     { 
       text: 'Home', 
       icon: <AccountCircleIcon />,
@@ -286,9 +311,12 @@ const Topbar = () => {
                 ) : (
                   <MenuItem 
                     key={index}
+                    isHeader={item.isHeader}
                     onClick={() => {
-                      item.action();
-                      setIsDrawerOpen(false);
+                      if (!item.isHeader) {
+                        item.action();
+                        setIsDrawerOpen(false);
+                      }
                     }}
                   >
                     {item.icon && <MenuIconWrapper>{item.icon}</MenuIconWrapper>}
@@ -296,9 +324,11 @@ const Topbar = () => {
                       primary={item.text}
                       sx={{
                         '& .MuiListItemText-primary': {
-                          color: 'rgba(255,255,255,0.9)',
-                          fontSize: '1rem',
-                          fontWeight: 500
+                          color: item.isHeader ? '#09c2f7' : 'rgba(255,255,255,0.9)',
+                          fontSize: item.isHeader ? '0.9rem' : '1rem',
+                          fontWeight: item.isHeader ? 600 : 500,
+                          textTransform: item.isHeader ? 'uppercase' : 'none',
+                          letterSpacing: item.isHeader ? '1px' : 'normal'
                         }
                       }}
                     />

@@ -1,10 +1,10 @@
 export const maleConfig = {
   weights: {
     'Carnal Tilt': 1,
-    'Facial Thirds': 1,
+    'Facial Thirds': 0.5,
     'Cheekbone Location': 1.5,
     'Interocular Distance': 1,
-    'Jawline': 1.5,
+    'Jawline': 2.5,
     'Chin': 1,
     'Nose': 1,
   },

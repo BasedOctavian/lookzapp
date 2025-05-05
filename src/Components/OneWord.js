@@ -66,6 +66,8 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import LoadingIndicator from './LoadingIndicator';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 // Animations
 const neonGlow = keyframes`
@@ -408,6 +410,7 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [measurements, setMeasurements] = useState(null);
   const [testScores, setTestScores] = useState(null);
+  const [isScanning, setIsScanning] = useState(false);
   const toast = useToast();
 
   const config = gender === 'M' ? maleConfig : femaleConfig;
@@ -905,9 +908,6 @@ const WebcamTiltDetector = ({ startScanning, onScanningComplete, onFaceDetected,
           {currentStep === 'scanning' ? 'Hold still for a moment...' : 'Look at the camera'}
         </Typography>
       </StyledInstructionText>
-      {faceDetected && measurements && testScores && (
-        <StatsDisplay measurements={measurements} testScores={testScores} />
-      )}
     </Box>
   );
 };
@@ -1372,15 +1372,16 @@ const DetailedResultDisplay = ({ overallRating, faceRating, userInfo }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [isBrutal, setIsBrutal] = useState(false);
-  const oneWord = useOneWordDescription({
-    overallRating,
-    faceRating,
+
+  const descriptions = useOneWordDescription({
+    overallRating: overallRating || 0,
+    faceRating: faceRating || 0,
     testScores: userInfo?.testScores,
     measurements: userInfo?.measurements,
     height: userInfo?.height,
     weight: userInfo?.weight,
     gender: userInfo?.gender
-  }, isBrutal);
+  });
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -1396,7 +1397,7 @@ const DetailedResultDisplay = ({ overallRating, faceRating, userInfo }) => {
     return () => clearInterval(interval);
   }, []);
 
-  if (isLoading) {
+  if (isLoading || !descriptions) {
     return (
       <LoadingAnimation>
         <Box
@@ -1445,6 +1446,8 @@ const DetailedResultDisplay = ({ overallRating, faceRating, userInfo }) => {
       </LoadingAnimation>
     );
   }
+
+  const currentDescription = isBrutal ? descriptions.brutal : descriptions.gentle;
 
   return (
     <Box sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
@@ -1516,7 +1519,7 @@ const DetailedResultDisplay = ({ overallRating, faceRating, userInfo }) => {
               }
             }}
           >
-            {oneWord.word}
+            {currentDescription.word}
           </Typography>
           <Typography
             variant="h6"
@@ -1529,46 +1532,9 @@ const DetailedResultDisplay = ({ overallRating, faceRating, userInfo }) => {
               animation: 'fadeIn 1s ease-out'
             }}
           >
-            {oneWord.statement}
+            {currentDescription.statement}
           </Typography>
         </Box>
-
-        <Grid container spacing={3}>
-          <Grid item xs={12} md= {6}>
-            <Box
-              sx={{
-                p: 3,
-                borderRadius: 2,
-                bgcolor: 'rgba(0,0,0,0.2)',
-                mb: 2
-              }}
-            >
-              <Typography variant="h6" sx={{ color: '#09c2f7', mb: 1 }}>
-                Overall Score
-              </Typography>
-              <Typography variant="h3" sx={{ color: '#fff' }}>
-                {overallRating.toFixed(1)} / 100
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Box
-              sx={{
-                p: 3,
-                borderRadius: 2,
-                bgcolor: 'rgba(0,0,0,0.2)',
-                mb: 2
-              }}
-            >
-              <Typography variant="h6" sx={{ color: '#fa0ea4', mb: 1 }}>
-                Face Score
-              </Typography>
-              <Typography variant="h3" sx={{ color: '#fff' }}>
-                {faceRating.toFixed(1)} / 100
-              </Typography>
-            </Box>
-          </Grid>
-        </Grid>
 
         <Grid container spacing={3} sx={{ mt: 2 }}>
           <Grid item xs={12} md={4}>
@@ -1622,14 +1588,15 @@ const DetailedResultDisplay = ({ overallRating, faceRating, userInfo }) => {
         </Grid>
 
         <Button
-          variant="contained"
-          color="primary"
+          variant="outlined"
           onClick={() => navigate('/')}
-          sx={{ 
-            mt: 4,
-            background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
+          sx={{
+            color: '#fff',
+            borderColor: 'rgba(255,255,255,0.5)',
+            marginTop: 4,
             '&:hover': {
-              background: 'linear-gradient(45deg, #fa0ea4 0%, #09c2f7 100%)',
+              borderColor: '#fff',
+              bgcolor: 'rgba(255,255,255,0.1)'
             }
           }}
         >
@@ -1656,6 +1623,140 @@ const getGenderCode = (gender) => {
   if (lowerGender === 'male') return 'M';
   if (lowerGender === 'female') return 'W';
   return 'M';
+};
+
+// Add ExploreOtherTests component before DetailedResultDisplay
+const ExploreOtherTests = () => {
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  const tests = [
+    {
+      title: 'Autism Analysis',
+      description: 'Advanced AI-powered analysis of potential autism spectrum traits',
+      path: '/scan/autism',
+      icon: <Psychology />,
+      color: '#fa0ea4'
+    },
+    {
+      title: 'Criminality Analysis',
+      description: 'Evaluate behavioral patterns and risk factors',
+      path: '/scan/crime',
+      icon: <WarningAmberIcon />,
+      color: '#09c2f7'
+    },
+    {
+      title: 'Liar Score',
+      description: 'Detect deception patterns and truthfulness indicators',
+      path: '/scan/lying',
+      icon: <SentimentDissatisfied />,
+      color: '#6ce9ff'
+    }
+  ];
+
+  return (
+    <Box sx={{ mt: 8, mb: 4 }}>
+      <Typography
+        variant="h4"
+        sx={{
+          textAlign: 'center',
+          mb: 4,
+          fontWeight: 'bold',
+          background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          textShadow: '0 0 10px rgba(9, 194, 247, 0.3)'
+        }}
+      >
+        Explore Our Other Tests
+      </Typography>
+      
+      <Grid container spacing={3} justifyContent="center">
+        {tests.map((test, index) => (
+          <Grid item xs={12} sm={6} md={4} key={test.title}>
+            <Card
+              sx={{
+                height: '100%',
+                background: 'rgba(13, 17, 44, 0.7)',
+                backdropFilter: 'blur(16px)',
+                border: '1px solid rgba(250, 14, 164, 0.2)',
+                transition: 'all 0.3s ease',
+                cursor: 'pointer',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: `0 8px 32px ${test.color}40`,
+                  border: `1px solid ${test.color}40`
+                }
+              }}
+              onClick={() => navigate(test.path)}
+            >
+              <CardContent sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                textAlign: 'center',
+                p: 3
+              }}>
+                <Box
+                  sx={{
+                    color: test.color,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 64,
+                    height: 64,
+                    borderRadius: '50%',
+                    background: `${test.color}20`,
+                    mb: 2,
+                    '& .MuiSvgIcon-root': {
+                      fontSize: 32
+                    }
+                  }}
+                >
+                  {test.icon}
+                </Box>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    color: '#fff',
+                    fontWeight: 600,
+                    mb: 1
+                  }}
+                >
+                  {test.title}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'rgba(255,255,255,0.7)',
+                    mb: 2,
+                    minHeight: '40px'
+                  }}
+                >
+                  {test.description}
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  sx={{
+                    color: test.color,
+                    borderColor: `${test.color}40`,
+                    '&:hover': {
+                      borderColor: test.color,
+                      backgroundColor: `${test.color}10`
+                    }
+                  }}
+                >
+                  Try Now
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+    </Box>
+  );
 };
 
 // Main Component
@@ -2232,6 +2333,7 @@ const AttractivenessRatingProcess = () => {
               faceRating={currentFaceRating}
               userInfo={userInfo}
             />
+            <ExploreOtherTests />
             <Box
               sx={{
                 position: 'absolute',
