@@ -7,133 +7,40 @@ import {
   Box,
   Button,
   Typography,
-  Grid,
   CircularProgress,
-  LinearProgress,
   Snackbar,
   Alert,
   styled,
   keyframes,
-  Paper,
+  Grid,
+  Card,
+  CardContent,
 } from '@mui/material';
 import { useToast } from '@chakra-ui/toast';
-import {
-  Face,
-  Straighten,
-  RemoveRedEye,
-  Psychology,
-  Person,
-  SentimentSatisfied,
-  SentimentNeutral,
-  SentimentDissatisfied,
-} from '@mui/icons-material';
-import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import LoadingIndicator from '../Components/LoadingIndicator';
+import { Face, Psychology, SentimentSatisfied } from '@mui/icons-material';
 
-// Animations
-const neonGlow = keyframes`
-  0% { filter: drop-shadow(0 0 2px #09c2f7); }
-  50% { filter: drop-shadow(0 0 6px #09c2f7); }
-  100% { filter: drop-shadow(0 0 2px #09c2f7); }
-`;
-
-// Utility functions
-const generateExplanation = (scores) => {
-  const explanations = [];
-  const confidenceLevels = [];
-  
-  // Voice analysis
-  if (scores.rmsMean > 0.015) {
-    const intensity = scores.rmsMean > 0.025 ? 'elevated' : 'slightly elevated';
-    explanations.push(`Your voice showed ${intensity} intensity, suggesting possible stress.`);
-    confidenceLevels.push(scores.rmsMean > 0.025 ? 0.4 : 0.3);
-  }
-
-  if (scores.zcrMean > 0.15) {
-    const instability = scores.zcrMean > 0.2 ? 'significant' : 'some';
-    explanations.push(`Your speech showed ${instability} instability, indicating mild nervousness.`);
-    confidenceLevels.push(scores.zcrMean > 0.2 ? 0.4 : 0.3);
-  }
-
-  // Body language analysis
-  if (scores.headMovementVariance > 1.5) {
-    const movement = scores.headMovementVariance > 2.5 ? 'increased' : 'slightly increased';
-    explanations.push(`Your head movements were ${movement}, suggesting some discomfort.`);
-    confidenceLevels.push(scores.headMovementVariance > 2.5 ? 0.4 : 0.3);
-  }
-
-  if (scores.smileIntensityVariance > 0.007) {
-    const variation = scores.smileIntensityVariance > 0.015 ? 'noticeable' : 'minor';
-    explanations.push(`Your facial expressions showed ${variation} variations, possibly indicating tension.`);
-    confidenceLevels.push(scores.smileIntensityVariance > 0.015 ? 0.4 : 0.3);
-  }
-
-  // Micro-expressions
-  if (scores.microExpressionCount > 2) {
-    const frequency = scores.microExpressionCount > 4 ? 'frequent' : 'some';
-    explanations.push(`${frequency} rapid facial movements were detected, suggesting concealed emotions.`);
-    confidenceLevels.push(scores.microExpressionCount > 4 ? 0.4 : 0.3);
-  }
-
-  const avgConfidence = confidenceLevels.length > 0 
-    ? confidenceLevels.reduce((a, b) => a + b, 0) / confidenceLevels.length 
-    : 0;
-  
-  const confidenceText = avgConfidence > 0.4 ? 'with moderate confidence' : 
-                        avgConfidence > 0.2 ? 'with some confidence' : 
-                        'with low confidence';
-
-  if (explanations.length === 0) {
-    return 'Your responses showed natural patterns with no significant deception indicators.';
-  }
-
-  return `Our analysis found ${confidenceText}: ${explanations.join(' ')}`;
-};
-
-const fadeIn = keyframes`
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-`;
-
-const pulse = keyframes`
-  0% { opacity: 0; }
-  50% { opacity: 1; }
-  100% { opacity: 0; }
-`;
-
+// Define keyframes
 const gradientFlow = keyframes`
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 `;
 
-const LoadingAnimation = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: '50vh',
-  animation: `${fadeIn} 0.5s ease-out`,
-}));
+const neonGlow = keyframes`
+  0% { filter: drop-shadow(0 0 2px #09c2f7); }
+  50% { filter: drop-shadow(0 0 6px #09c2f7); }
+  100% { filter: drop-shadow(0 0 2px #09c2f7); }
+`;
 
-const AnalyzingText = styled(Typography)(({ theme }) => ({
-  color: '#fff',
-  fontSize: '1.5rem',
-  fontWeight: 600,
-  textAlign: 'center',
-  marginBottom: theme.spacing(2),
-  '&::after': {
-    content: '"..."',
-    display: 'inline-block',
-    width: '1.2em',
-    textAlign: 'left',
-    animation: `${pulse} 1.5s infinite`,
-  },
-}));
+const fadeIn = keyframes`
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
 
+// Define styled components
 const GradientButton = styled(Button)({
   background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
   backgroundSize: '200% 200%',
@@ -151,7 +58,6 @@ const StyledWebcamContainer = styled(Box)(({ theme }) => ({
   width: '100%',
   height: '100%',
   maxWidth: '800px',
-  maxHeight: '600px',
   margin: '0 auto',
   borderRadius: '24px',
   overflow: 'hidden',
@@ -159,6 +65,26 @@ const StyledWebcamContainer = styled(Box)(({ theme }) => ({
   border: '1px solid rgba(250, 14, 164, 0.2)',
   background: 'linear-gradient(45deg, rgba(13, 17, 44, 0.7), rgba(102, 4, 62, 0.7))',
   backdropFilter: 'blur(16px)',
+}));
+
+const AnalysisContainer = styled(Box)(({ theme }) => ({
+  marginTop: theme.spacing(3),
+  padding: theme.spacing(3),
+  borderRadius: '16px',
+  background: 'rgba(13, 17, 44, 0.95)',
+  backdropFilter: 'blur(8px)',
+  border: '1px solid rgba(250, 14, 164, 0.3)',
+  color: '#fff',
+  animation: `${fadeIn} 0.5s ease-out`,
+}));
+
+const AnalysisItem = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  marginBottom: theme.spacing(1),
+  '& .MuiTypography-root': {
+    fontSize: '0.9rem',
+  },
 }));
 
 const StyledInstructionText = styled(Typography)(({ theme }) => ({
@@ -179,227 +105,115 @@ const StyledInstructionText = styled(Typography)(({ theme }) => ({
   width: 'auto',
 }));
 
-// StatsDisplay Component - Real-Time Feedback
-const StatsDisplay = ({ features }) => {
-  if (!features) return null;
+const questions = [
+  { text: "Have you ever pissed yourself in public and tried to play it off?" },
+  { text: "Ever stolen cash from a friend's bag while they were blacked out?" },
+  { text: "Ever smashed in a bathroom while a line of people were waiting outside?" },
+  { text: "Ever told your mom you're thriving while secretly snorting pills in your car?" },
+  { text: "Ever drove blackout drunk and only realized it the next day?" },
+  { text: "Ever begged for nudes, screenshotted them, then ghosted hard?" },
+  { text: "Ever pretended to be an 'entrepreneur' just to get laid?" },
+  { text: "Ever moaned your ex's name while rawdogging someone else?" },
+  { text: "Ever doubled your body count just to look less like a virgin?" },
+  { text: "Ever watched illegal fetish content and lowkey enjoyed it?" },
+  { text: "Ever lied to your dealer saying you're clean just to get more?" },
+  { text: "Ever made out with someone you found disgusting just because you were horny and bored?" },
+  { text: "Ever told someone you liked them while secretly planning to ghost?" },
+  { text: "Ever followed a girl home just to see if she lives alone?" },
+  { text: "Ever lied about being 18 when you were actually 15 just to pull?" },
+  { text: "Ever stalked your ex's new man and felt like absolute garbage after?" },
+  { text: "Ever bragged about a fake threesome just to sound cool?" },
+  { text: "Ever told someone you loved them to keep the money or attention coming?" },
+  { text: "Ever cried on command just to win a fight or dodge a breakup?" },
+  { text: "Ever watched someone get changed and pretended you didn't see?" },
+  { text: "Ever gassed someone up just to emotionally ruin them later?" },
+  { text: "Ever jerked it in a public place and walked out like nothing happened?" },
+  { text: "Ever called someone 'your world' while texting 3 others?" },
+  { text: "Ever sent a full-on 'come over' text and instantly wanted to die?" },
+  { text: "Ever ghosted someone mid-'I love you' text?" },
+  { text: "Ever cheated your way through a whole class and flexed that GPA?" },
+  { text: "Ever started a rumor about someone's sexuality just to stir shit?" },
+  { text: "Ever fantasized about hooking up with a teacher or cousin?" },
+  { text: "Ever smiled hearing your ex got cheated on?" },
+  { text: "Ever faked a mental breakdown just to dodge accountability?" },
+  { text: "Ever stolen cash from grandma's purse and blamed your sibling?" },
+  { text: "Ever made a fake profile to stalk your ex's new boo?" },
+  { text: "Ever said 'I love you' just to hit and dip?" },
+  { text: "Ever faked a traumatic event for likes or sympathy on TikTok?" },
+  { text: "Ever lowkey wanted to get caught cheating just for the drama?" },
+  { text: "Ever claimed you're single while your girl was asleep next to you?" },
+  { text: "Ever hooked up with someone who repulsed you just for the ego boost?" },
+  { text: "Ever lied to your therapist because you didn't want to sound insane?" },
+  { text: "Ever hoped your best friend fails just to feel like the alpha?" },
+  { text: "Ever posted thirst traps just to make your ex spiral?" },
+  { text: "Ever done something legit felony-level and just never got caught?" },
+  { text: "Ever said you were a CEO when you were jobless just to impress a baddie?" },
+  { text: "Ever posted a cryptic 'miss you' story aimed at your ex and pretended it wasn't?" },
+  { text: "Ever used someone's trauma to look like the good guy, then dipped?" },
+  { text: "Ever sexted out of boredom with someone you'd never touch IRL?" },
+  { text: "Ever catfished someone just to ruin their day?" },
+  { text: "Ever let someone take the fall for drugs that were actually yours?" },
+  { text: "Ever told people you were related to a celeb just to get free stuff?" },
+  { text: "Ever flirted with your friend's parent just to feel powerful?" },
+  { text: "Ever lied about your body count being low to seem innocent?" },
+  { text: "Ever whispered something filthy in church just to make someone laugh?" },
+  { text: "Ever claimed you were in a gang just to avoid getting jumped?" },
+  { text: "Ever cried after sex because you felt nothing inside?" },
+  { text: "Ever said your ex abused you just so people would hate them?" },
+  { text: "Ever got off to your own nudes or videos?" },
+  { text: "Ever told someone they were the best you ever had, and meant the opposite?" },
+  { text: "Ever stalked someone so hard you knew their Starbucks order before meeting?" },
+  { text: "Ever faked having a twin just to catfish two people at once?" },
+  { text: "Ever snitched just to avoid getting canceled yourself?" },
+  { text: "Ever said you were dying to get your ex to text back?" },
+  { text: "Ever made a playlist for someone, then reused it for the next?" },
+  { text: "Ever pretended to have amnesia after cheating just to dodge the convo?" },
+  { text: "Ever DM'd a celeb something filthy, then deleted it and prayed?" },
+  { text: "Ever posted fake crying selfies to see who checks in?" },
+  { text: "Ever saved someone's spicy pics and kept them post-breakup?" },
+  { text: "Ever made up a whole relationship just to make someone jealous?" },
 
-  const stats = [
-    { label: 'Pitch Change', value: features.pitchChangeRate * 100, icon: <Psychology />, max: 50, normal: 15, unit: '%' },
-    { label: 'Intensity', value: features.rmsMean * 1000, icon: <Person />, max: 50, normal: 20, unit: '' },
-    { label: 'Head Movement', value: features.headMovementVariance * 10, icon: <Face />, max: 100, normal: 80, unit: '' },
-    { label: 'Smile Intensity', value: features.smileIntensityVariance * 100, icon: <SentimentSatisfied />, max: 50, normal: 25, unit: '%' },
-  ];
+  // 30 NEW ADDITIONS (Teen boy nasty secrets edition):
+  { text: "Ever scratched your balls and sniffed it like it was cologne?" },
+  { text: "Ever re-used the same crusty sock for way too long?" },
+  { text: "Ever peed in a bottle and forgot about it until someone found it?" },
+  { text: "Ever let a booger dry on the wall and never cleaned it?" },
+  { text: "Ever tried to flex abs in the mirror while crying?" },
+  { text: "Ever searched something wild online, cleared history, then did it again?" },
+  { text: "Ever touched your junk in class just to make sure it was still there?" },
+  { text: "Ever faked a deeper voice on the phone to sound grown?" },
+  { text: "Ever used 3-in-1 body wash, shampoo, and toothpaste like a psycho?" },
+  { text: "Ever eaten something off the floor and told yourself it's the '5-second rule'?" },
+  { text: "Ever sniffed your pits, gagged, then still didn't shower?" },
+  { text: "Ever played sick just to stay home and binge hentai or weird anime?" },
+  { text: "Ever used your phone screen reflection to check a zit mid-class?" },
+  { text: "Ever dry humped your pillow and pretended it was your crush?" },
+  { text: "Ever checked if your balls could float in the bathtub?" },
+  { text: "Ever moaned quietly just to see what it felt like?" },
+  { text: "Ever worn the same underwear for days and reversed them to feel 'cleaner'?" },
+  { text: "Ever tried to flex muscles in gym class and ended up farting?" },
+  { text: "Ever made a TikTok draft so cringe you swore you'd never open it again?" },
+  { text: "Ever smelled your own fart under the blanket like it was an experiment?" },
+  { text: "Ever compared your size with a deodorant bottle and panicked?" },
+  { text: "Ever cracked open a zit and lowkey watched it in fascination?" },
+  { text: "Ever licked something off your hand and didn't know what it was?" },
+  { text: "Ever said 'bro I'm so done with her' then stalked her page for hours?" },
+  { text: "Ever talked in a fake accent to try to sound foreign and mysterious?" },
+  { text: "Ever got a boner during a school presentation and prayed no one noticed?" },
+  { text: "Ever fake gagged in a mirror just to see how far your tongue goes?" },
+  { text: "Ever made weird voices alone just to see how you'd sound as a villain?" },
+  { text: "Ever pretended to get a text mid-convo just to avoid saying hi?" },
+  { text: "Ever stared at a classmate's butt and mentally slapped yourself after?" }
+];
 
-  return (
-    <Box
-      sx={{
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        p: 1,
-        background: 'rgba(13, 17, 44, 0.85)',
-        backdropFilter: 'blur(8px)',
-        borderTop: '1px solid rgba(250, 14, 164, 0.2)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 0.5,
-        zIndex: 3,
-        animation: `${fadeIn} 0.5s ease-out`,
-        maxHeight: '180px',
-        overflow: 'auto',
-      }}
-    >
-      <Grid container spacing={0.5}>
-        {stats.map((stat, index) => {
-          const percentage = (stat.value / stat.max) * 100;
-          const isHigh = stat.value > stat.normal * 1.2;
-          const isLow = stat.value < stat.normal * 0.8;
-          const color = isHigh ? '#F44336' : isLow ? '#FF9800' : '#4CAF50';
 
-          return (
-            <Grid item xs={6} key={index}>
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.5,
-                  p: 0.5,
-                  borderRadius: 0.5,
-                  background: 'rgba(255, 255, 255, 0.05)',
-                }}
-              >
-                <Box
-                  sx={{
-                    color: color,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 16,
-                    height: 16,
-                    '& .MuiSvgIcon-root': { fontSize: 14 },
-                  }}
-                >
-                  {stat.icon}
-                </Box>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.25 }}>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: 'rgba(255, 255, 255, 0.7)',
-                        fontSize: '0.65rem',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {stat.label}
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: color,
-                        fontSize: '0.65rem',
-                        fontWeight: 'bold',
-                        ml: 0.5,
-                      }}
-                    >
-                      {stat.value.toFixed(1)}{stat.unit}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      height: 3,
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      borderRadius: 1.5,
-                      overflow: 'hidden',
-                      position: 'relative',
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        left: `${(stat.normal / stat.max) * 100}%`,
-                        top: 0,
-                        bottom: 0,
-                        width: '2px',
-                        background: '#fa0ea4',
-                        zIndex: 1,
-                      }}
-                    />
-                    <Box
-                      sx={{
-                        height: '100%',
-                        width: `${Math.min(percentage, 100)}%`,
-                        background: color,
-                        transition: 'width 0.3s ease-out',
-                      }}
-                    />
-                  </Box>
-                </Box>
-              </Box>
-            </Grid>
-          );
-        })}
-      </Grid>
-    </Box>
-  );
-};
-
-// AudioWaveform Component - Visualizes Audio Input
-const AudioWaveform = ({ analyser }) => {
-  const canvasRef = useRef(null);
-  const animationRef = useRef(null);
-
-  useEffect(() => {
-    if (!analyser) return;
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-
-    const draw = () => {
-      animationRef.current = requestAnimationFrame(draw);
-      analyser.getByteTimeDomainData(dataArray);
-
-      ctx.fillStyle = 'rgba(13, 17, 44, 0.2)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#09c2f7';
-      ctx.beginPath();
-
-      const sliceWidth = canvas.width / bufferLength;
-      let x = 0;
-
-      for (let i = 0; i < bufferLength; i++) {
-        const v = dataArray[i] / 128.0;
-        const y = v * canvas.height / 2;
-
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
-
-        x += sliceWidth;
-      }
-
-      ctx.lineTo(canvas.width, canvas.height / 2);
-      ctx.stroke();
-    };
-
-    draw();
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [analyser]);
-
-  return (
-    <Box
-      sx={{
-        position: 'absolute',
-        bottom: '30%',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: '80%',
-        height: '60px',
-        background: 'rgba(13, 17, 44, 0.3)',
-        borderRadius: '12px',
-        padding: '8px',
-        border: '1px solid rgba(9, 194, 247, 0.1)',
-        zIndex: 3,
-      }}
-    >
-      <canvas
-        ref={canvasRef}
-        width={800}
-        height={60}
-        style={{ width: '100%', height: '100%' }}
-      />
-    </Box>
-  );
-};
-
-// FaceScanner Component - Enhanced Lie Detection with Micro-Expression and Voice Analysis
-const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFaceDetected, currentPrompt, showDoneButton, onReady, isComputerSpeaking }, ref) => {
+const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFaceDetected, currentPrompt, weights }, ref) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const intervalRef = useRef(null);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
-  const earHistoryRef = useRef([]);
-  const audioFeaturesRef = useRef([]);
-  const headMovementRef = useRef([]);
-  const smileIntensityRef = useRef([]);
-  const gazeHistoryRef = useRef([]);
-  const microExpressionDataRef = useRef([]);
-  const audioDataRef = useRef([]);
+  const featureHistoryRef = useRef([]);
   const [isCollecting, setIsCollecting] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
   const [webcamError, setWebcamError] = useState(null);
@@ -407,12 +221,37 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
   const [videoReady, setVideoReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const [currentFeatures, setCurrentFeatures] = useState({});
   const toast = useToast();
+  const [smoothedFeatures, setSmoothedFeatures] = useState({
+    voiceIntensity: 0,
+    zcr: 0,
+    headMovement: 0,
+    eyeMovement: 0,
+    lipTension: 0
+  });
+  const [prevHeadPosition, setPrevHeadPosition] = useState(null);
+  const [prevEyePosition, setPrevEyePosition] = useState(null);
+  const [showResult, setShowResult] = useState(false);
+  const [prediction, setPrediction] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [speechStartTime, setSpeechStartTime] = useState(null);
+  const [speechEndTime, setSpeechEndTime] = useState(null);
+  const [wordCount, setWordCount] = useState(0);
+  const [responseLength, setResponseLength] = useState(0);
+  const [speechRate, setSpeechRate] = useState(0);
+  const [pauseCount, setPauseCount] = useState(0);
+  const [pauseDuration, setPauseDuration] = useState(0);
+  const [lastSpeechTime, setLastSpeechTime] = useState(null);
+  const [confidenceScore, setConfidenceScore] = useState(0);
+  const [fillerWordCount, setFillerWordCount] = useState(0);
+  const [repetitionCount, setRepetitionCount] = useState(0);
+  const [lastWords, setLastWords] = useState([]);
+  const [analysisResults, setAnalysisResults] = useState(null);
+
+  const recognitionRef = useRef(null);
+  const [isListening, setIsListening] = useState(false);
 
   const leftEyeIndices = [33, 160, 158, 133, 153, 144];
-  const rightEyeIndices = [362, 385, 387, 263, 373, 390];
-  const mouthIndices = [61, 291, 0, 17, 269, 405];
   const noseIndices = [1, 2, 98, 327];
 
   const calculateDistance = (p1, p2) => {
@@ -420,116 +259,39 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
     return Math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2);
   };
 
-  const stdDev = (arr) => {
-    if (arr.length === 0) return 0;
-    const mean = arr.reduce((sum, val) => sum + val, 0) / arr.length;
-    const variance = arr.reduce((sum, val) => sum + (val - mean) ** 2, 0) / arr.length;
-    return Math.sqrt(variance);
-  };
-
-  const calculateEAR = (landmarks, indices) => {
+  const calculateEyeCenter = (landmarks, indices) => {
     try {
-      const points = indices.map((i) => {
-        if (!landmarks[i]) throw new Error('Missing landmark');
-        return landmarks[i];
-      });
-      const [p1, p2, p3, p4, p5, p6] = points;
-      const A = Math.sqrt((p2[0] - p6[0]) ** 2 + (p2[1] - p6[1]) ** 2);
-      const B = Math.sqrt((p3[0] - p5[0]) ** 2 + (p3[1] - p5[1]) ** 2);
-      const C = Math.sqrt((p1[0] - p4[0]) ** 2 + (p1[1] - p4[1]) ** 2);
-      return (A + B) / (2.0 * C);
+      const points = indices.map(i => landmarks[i]);
+      const centerX = points.reduce((sum, p) => sum + p[0], 0) / points.length;
+      const centerY = points.reduce((sum, p) => sum + p[1], 0) / points.length;
+      return [centerX, centerY];
     } catch (e) {
-      console.error('Error calculating EAR:', e);
-      return 0;
+      console.error('Error calculating eye center:', e);
+      return [0, 0];
     }
   };
 
-  const calculateSmileIntensity = (landmarks) => {
-    try {
-      const mouthPoints = mouthIndices.map(i => landmarks[i]);
-      const width = Math.abs(mouthPoints[1][0] - mouthPoints[0][0]);
-      const height = Math.abs(mouthPoints[2][1] - mouthPoints[3][1]);
-      const leftCorner = landmarks[61];
-      const rightCorner = landmarks[291];
-      const leftTop = landmarks[37];
-      const rightTop = landmarks[267];
-      const leftLift = Math.abs(leftCorner[1] - leftTop[1]);
-      const rightLift = Math.abs(rightCorner[1] - rightTop[1]);
-      const cornerLift = (leftLift + rightLift) / 2;
-      const baseRatio = height / width;
-      
-      // Enhanced smile detection
-      const cheekPoints = [123, 352]; // Cheek points
-      const cheekLift = Math.abs(landmarks[cheekPoints[0]][1] - landmarks[cheekPoints[1]][1]);
-      const eyeSquint = Math.abs(landmarks[159][1] - landmarks[386][1]); // Eye squint measurement
-      
-      const smileScore = (baseRatio * 0.3) + (cornerLift * 0.3) + (cheekLift * 0.2) + (eyeSquint * 0.2);
-      return Math.min(Math.max(smileScore / 40, 0), 1);
-    } catch (e) {
-      console.error('Error calculating smile intensity:', e);
-      return 0;
-    }
-  };
-
-  const detectMicroExpressions = (current, previous) => {
-    if (!current || !previous) return 0;
-    
-    let microExpressionCount = 0;
-    
-    // Detect eyebrow movements (more sensitive threshold)
-    const eyebrowLeftChange = Math.abs(current.eyebrowLeft - previous.eyebrowLeft);
-    const eyebrowRightChange = Math.abs(current.eyebrowRight - previous.eyebrowRight);
-    if (eyebrowLeftChange > 0.02 || eyebrowRightChange > 0.02) {
-      microExpressionCount++;
-    }
-    
-    // Detect mouth movements (more sensitive threshold)
-    const mouthWidthChange = Math.abs(current.mouthWidth - previous.mouthWidth);
-    if (mouthWidthChange > 0.02) {
-      microExpressionCount++;
-    }
-    
-    // Detect eye squinting (new)
-    const eyeSquintChange = Math.abs(current.eyeSquint - previous.eyeSquint);
-    if (eyeSquintChange > 0.02) {
-      microExpressionCount++;
-    }
-    
-    // Detect nose wrinkling (new)
-    const noseWrinkleChange = Math.abs(current.noseWrinkle - previous.noseWrinkle);
-    if (noseWrinkleChange > 0.02) {
-      microExpressionCount++;
-    }
-    
-    // Detect lip tension changes (new)
-    const lipTensionChange = Math.abs(current.lipTension - previous.lipTension);
-    if (lipTensionChange > 0.02) {
-      microExpressionCount++;
-    }
-    
-    return microExpressionCount;
-  };
-
-  const calculateHeadMovement = (landmarks) => {
+  const calculateHeadPosition = (landmarks) => {
     try {
       const nosePoints = noseIndices.map(i => landmarks[i]);
       const centerX = nosePoints.reduce((sum, p) => sum + p[0], 0) / nosePoints.length;
       const centerY = nosePoints.reduce((sum, p) => sum + p[1], 0) / nosePoints.length;
-      return { x: centerX, y: centerY };
+      return [centerX, centerY];
     } catch (e) {
-      console.error('Error calculating head movement:', e);
-      return { x: 0, y: 0 };
+      console.error('Error calculating head position:', e);
+      return [0, 0];
     }
   };
 
-  const calculateGazeRatio = (landmarks, leftIndex, rightIndex, irisIndex) => {
-    const leftCorner = landmarks[leftIndex];
-    const rightCorner = landmarks[rightIndex];
-    const iris = landmarks[irisIndex];
-    if (!leftCorner || !rightCorner || !iris) return 0.5;
-    const eyeWidth = rightCorner[0] - leftCorner[0];
-    if (eyeWidth === 0) return 0.5;
-    return (iris[0] - leftCorner[0]) / eyeWidth;
+  const calculateLipTension = (landmarks) => {
+    try {
+      const upperLip = landmarks[13];
+      const lowerLip = landmarks[14];
+      return calculateDistance(upperLip, lowerLip);
+    } catch (e) {
+      console.error('Error calculating lip tension:', e);
+      return 0;
+    }
   };
 
   const loadModel = async () => {
@@ -608,172 +370,180 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
   useEffect(() => {
     if (startScanning && !isCollecting) {
       setIsCollecting(true);
-      earHistoryRef.current = [];
-      audioFeaturesRef.current = [];
-      headMovementRef.current = [];
-      smileIntensityRef.current = [];
-      gazeHistoryRef.current = [];
-      microExpressionDataRef.current = [];
-      audioDataRef.current = [];
+      featureHistoryRef.current = [];
+      setSmoothedFeatures({ voiceIntensity: 0, zcr: 0, headMovement: 0, eyeMovement: 0, lipTension: 0 });
+      setPrevHeadPosition(null);
+      setPrevEyePosition(null);
+      setWordCount(0);
+      setResponseLength(0);
+      setFillerWordCount(0);
+      setRepetitionCount(0);
+      setPauseCount(0);
+      setPauseDuration(0);
+      setLastSpeechTime(null);
+      setSpeechStartTime(null);
+      setSpeechEndTime(null);
+      setLastWords([]);
+      setConfidenceScore(0);
+      if (recognitionRef.current) recognitionRef.current.start();
     }
-  }, [startScanning]);
+  }, [startScanning, currentPrompt]);
 
   useEffect(() => {
-    if (model && videoReady && onReady) {
-      onReady();
-    }
-  }, [model, videoReady, onReady]);
+    if ('webkitSpeechRecognition' in window) {
+      recognitionRef.current = new window.webkitSpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
 
-  const handleDoneSpeaking = () => {
-    setIsCollecting(false);
-    const result = calculateScore();
-    onScanningComplete(result);
-  };
-
-  const calculateScore = () => {
-    try {
-      const microExpressionData = microExpressionDataRef.current || [];
-      const audioData = audioDataRef.current || [];
-      const headMovements = headMovementRef.current || [];
-      const smileIntensities = smileIntensityRef.current || [];
-      const gazeHistory = gazeHistoryRef.current || [];
-
-      // Enhanced micro-expression detection
-      let totalMicroExpressions = 0;
-      if (microExpressionData.length > 1) {
-        for (let i = 1; i < microExpressionData.length; i++) {
-          totalMicroExpressions += detectMicroExpressions(microExpressionData[i], microExpressionData[i-1]);
-        }
-      }
-      const microExpressionCount = totalMicroExpressions;
-
-      // Compute audio features with enhanced stutter detection
-      const rmsValues = audioData.map(f => f?.rms || 0);
-      const zcrValues = audioData.map(f => f?.zcr || 0);
-      const rmsMean = rmsValues.length > 0 ? rmsValues.reduce((sum, r) => sum + r, 0) / rmsValues.length : 0;
-      const zcrMean = zcrValues.length > 0 ? zcrValues.reduce((sum, z) => sum + z, 0) / zcrValues.length : 0;
-      const rmsStd = stdDev(rmsValues);
-      const zcrStd = stdDev(zcrValues);
-
-      // Detect stutters (sudden changes in audio)
-      const stutterCount = rmsValues.reduce((count, rms, i) => {
-        if (i === 0) return 0;
-        const prevRms = rmsValues[i-1];
-        const change = Math.abs(rms - prevRms);
-        // More sensitive threshold for stutter detection
-        return count + (change > 0.05 ? 1 : 0);
-      }, 0);
-
-      // Also detect rapid changes in zero-crossing rate as potential stutters
-      const zcrStutterCount = zcrValues.reduce((count, zcr, i) => {
-        if (i === 0) return 0;
-        const prevZcr = zcrValues[i-1];
-        const change = Math.abs(zcr - prevZcr);
-        return count + (change > 0.1 ? 1 : 0);
-      }, 0);
-
-      // Combine both types of stutters
-      const totalStutterCount = stutterCount + zcrStutterCount;
-
-      const headMovementVariance = headMovements.length > 1
-        ? headMovements.reduce((sum, pos, i) => {
-            if (i === 0) return 0;
-            const prev = headMovements[i - 1];
-            return sum + Math.sqrt((pos.x - prev.x) ** 2 + (pos.y - prev.y) ** 2);
-          }, 0) / (headMovements.length - 1)
-        : 0;
-
-      const smileIntensityVariance = smileIntensities.length > 1
-        ? smileIntensities.reduce((sum, intensity, i) => {
-            if (i === 0) return 0;
-            return sum + Math.abs(intensity - smileIntensities[i - 1]);
-          }, 0) / (smileIntensities.length - 1)
-        : 0;
-
-      const gazeAwayCount = gazeHistory.filter(g => g < 0.3 || g > 0.7).length;
-      const gazeAwayPercentage = gazeHistory.length > 0 ? (gazeAwayCount / gazeHistory.length) * 100 : 0;
-
-      // Calculate individual scores (0-1 range)
-      const voiceIntensityScore = Math.min(rmsMean * 15, 1);
-      const zcrScore = Math.min(zcrMean / 15, 1);
-      const headMovementScore = Math.min(headMovementVariance / 15, 1);
-      const smileScore = Math.min(smileIntensityVariance * 3, 1);
-      const microExpressionScore = Math.min(microExpressionCount / 3, 1);
-      const gazeScore = Math.min(gazeAwayPercentage / 100, 1);
-      const stutterScore = Math.min(totalStutterCount / 5, 1);
-
-      // Calculate weighted average with stutter detection
-      const weights = {
-        voiceIntensity: 0.15,
-        zcr: 0.15,
-        headMovement: 0.15,
-        smile: 0.15,
-        microExpressions: 0.15,
-        gaze: 0.1,
-        stutter: 0.15
+      recognitionRef.current.onstart = () => {
+        setIsListening(true);
+        setSpeechStartTime(Date.now());
       };
 
-      const weightedScore = (
-        voiceIntensityScore * weights.voiceIntensity +
-        zcrScore * weights.zcr +
-        headMovementScore * weights.headMovement +
-        smileScore * weights.smile +
-        microExpressionScore * weights.microExpressions +
-        gazeScore * weights.gaze +
-        stutterScore * weights.stutter
-      );
+      recognitionRef.current.onresult = (event) => {
+        const transcript = Array.from(event.results)
+          .map(result => result[0].transcript)
+          .join('');
 
-      // Calculate final score with non-linear scaling
-      const finalLieScore = Math.round(
-        (Math.tanh((weightedScore - 0.4) * 2.5) + 1) * 50
+        const words = transcript.trim().split(/\s+/);
+        setWordCount(words.length);
+        setResponseLength(transcript.length);
+
+        const fillerWords = ['um', 'uh', 'like', 'you know', 'sort of', 'kind of', 'basically', 'actually'];
+        const fillerCount = words.filter(word => 
+          fillerWords.includes(word.toLowerCase())
+        ).length;
+        setFillerWordCount(fillerCount);
+
+        const currentWords = words.slice(-5);
+        if (lastWords.length > 0) {
+          const repetitions = currentWords.filter(word => 
+            lastWords.includes(word)
+          ).length;
+          setRepetitionCount(prev => prev + repetitions);
+        }
+        setLastWords(currentWords);
+
+        const currentTime = Date.now();
+        if (speechStartTime) {
+          const duration = (currentTime - speechStartTime) / 1000;
+          setSpeechRate(words.length / duration);
+        }
+
+        if (lastSpeechTime) {
+          const pauseTime = currentTime - lastSpeechTime;
+          if (pauseTime > 1000) {
+            setPauseCount(prev => prev + 1);
+            setPauseDuration(prev => prev + pauseTime);
+          }
+        }
+        setLastSpeechTime(currentTime);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+        setSpeechEndTime(Date.now());
+      };
+    }
+  }, []);
+
+  const calculateScore = (weights) => {
+    try {
+      const featureMeans = {
+        rms: featureHistoryRef.current.map(f => f.rms).reduce((sum, v) => sum + v, 0) / featureHistoryRef.current.length,
+        zcr: featureHistoryRef.current.map(f => f.zcr).reduce((sum, v) => sum + v, 0) / featureHistoryRef.current.length,
+        headMovement: featureHistoryRef.current.map(f => f.headMovement).reduce((sum, v) => sum + v, 0) / featureHistoryRef.current.length,
+        eyeMovement: featureHistoryRef.current.map(f => f.eyeMovement).reduce((sum, v) => sum + v, 0) / featureHistoryRef.current.length,
+        lipTension: featureHistoryRef.current.map(f => f.lipTension).reduce((sum, v) => sum + v, 0) / featureHistoryRef.current.length,
+      };
+
+      const confidenceFactors = {
+        responseLength: Math.min(responseLength / 100, 1),
+        speechRate: Math.min(speechRate / 3, 1),
+        pauseCount: Math.max(0, 1 - (pauseCount / 5)),
+        fillerWords: Math.max(0, 1 - (fillerWordCount / 5)),
+        repetitions: Math.max(0, 1 - (repetitionCount / 3)),
+      };
+
+      const confidenceScore = Object.values(confidenceFactors).reduce((sum, val) => sum + val, 0) / Object.keys(confidenceFactors).length;
+      setConfidenceScore(confidenceScore);
+
+      const normalizedFeatures = {
+        voiceIntensity: Math.min(featureMeans.rms / 0.025, 1),
+        zcr: Math.min(featureMeans.zcr / 0.2, 1),
+        headMovement: Math.min(featureMeans.headMovement / 2.0, 1),
+        eyeMovement: Math.min(featureMeans.eyeMovement / 0.3, 1),
+        lipTension: Math.min(featureMeans.lipTension / 0.35, 1),
+        responseLength: Math.min(responseLength / 200, 1),
+        speechRate: Math.min(speechRate / 3, 1),
+        pauseCount: Math.min(pauseCount / 5, 1),
+        fillerWords: Math.min(fillerWordCount / 5, 1),
+        repetitions: Math.min(repetitionCount / 3, 1),
+        confidence: confidenceScore
+      };
+
+      const bias = -3.5;
+      const weightedSum = bias + Object.keys(normalizedFeatures).reduce((sum, key) => 
+        sum + weights[key] * normalizedFeatures[key], 0
       );
+      const lieProbability = 1 / (1 + Math.exp(-weightedSum));
+      const finalLieScore = Math.round(lieProbability * 100);
 
       return {
         finalLieScore,
-        microExpressionCount,
-        rmsMean,
-        zcrMean,
-        rmsStd,
-        zcrStd,
-        headMovementVariance,
-        smileIntensityVariance,
-        gazeAwayPercentage,
-        stutterCount
+        lieProbability,
+        normalizedFeatures,
+        metrics: {
+          responseLength,
+          speechRate,
+          wordCount,
+          pauseCount,
+          pauseDuration,
+          fillerWordCount,
+          repetitionCount,
+          confidenceScore
+        }
       };
     } catch (error) {
       console.error('Error in score calculation:', error);
       return {
         finalLieScore: 0,
-        microExpressionCount: 0,
-        rmsMean: 0,
-        zcrMean: 0,
-        rmsStd: 0,
-        zcrStd: 0,
-        headMovementVariance: 0,
-        smileIntensityVariance: 0,
-        gazeAwayPercentage: 0,
-        stutterCount: 0
+        lieProbability: 0,
+        normalizedFeatures: {},
+        metrics: {}
       };
     }
   };
 
-  useImperativeHandle(ref, () => ({
-    startCollecting: () => {
-      setIsCollecting(true);
-      earHistoryRef.current = [];
-      audioFeaturesRef.current = [];
-      headMovementRef.current = [];
-      smileIntensityRef.current = [];
-      gazeHistoryRef.current = [];
-      microExpressionDataRef.current = [];
-      audioDataRef.current = [];
-    },
-    stopCollecting: () => {
-      setIsCollecting(false);
-      const result = calculateScore();
+  const handleDoneSpeaking = () => {
+    setIsCollecting(false);
+    setIsProcessing(true);
+    if (recognitionRef.current) recognitionRef.current.stop();
+
+    const result = calculateScore(weights);
+    setIsProcessing(false);
+    
+    setPrediction(result.finalLieScore >= 55 ? 'LIE' : 'TRUTH');
+    setShowResult(true);
+
+    setAnalysisResults({
+      confidence: Math.round(result.normalizedFeatures.confidence * 100),
+      keyFactors: [
+        { name: 'Voice Intensity', value: Math.round(result.normalizedFeatures.voiceIntensity * 100) },
+        { name: 'Speech Rate', value: Math.round(result.normalizedFeatures.speechRate * 100) },
+        { name: 'Head Movement', value: Math.round(result.normalizedFeatures.headMovement * 100) },
+        { name: 'Eye Movement', value: Math.round(result.normalizedFeatures.eyeMovement * 100) },
+        { name: 'Lip Tension', value: Math.round(result.normalizedFeatures.lipTension * 100) },
+        { name: 'Filler Words', value: Math.round(result.normalizedFeatures.fillerWords * 100) },
+        { name: 'Repetitions', value: Math.round(result.normalizedFeatures.repetitions * 100) },
+      ].sort((a, b) => b.value - a.value).slice(0, 3)
+    });
+
+    setTimeout(() => {
+      setShowResult(false);
       onScanningComplete(result);
-    },
-  }));
+    }, 3000);
+  };
 
   useEffect(() => {
     if (!model || !videoReady || !analyserRef.current) return;
@@ -793,1114 +563,407 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
         setFaceDetected(true);
         onFaceDetected(true);
 
-        const face = predictions[0];
-        const landmarks = face.scaledMesh;
+        const landmarks = predictions[0].scaledMesh;
 
-        try {
-          const leftEAR = calculateEAR(landmarks, leftEyeIndices);
-          const rightEAR = calculateEAR(landmarks, rightEyeIndices);
-          const avgEAR = (leftEAR + rightEAR) / 2;
+        const currentHeadPosition = calculateHeadPosition(landmarks);
+        const currentEyePosition = calculateEyeCenter(landmarks, leftEyeIndices);
+        const currentLipTension = calculateLipTension(landmarks);
 
-          context.strokeStyle = 'rgba(9, 194, 247, 0.5)';
+        let currentHeadMovement = 0;
+        if (prevHeadPosition) {
+          currentHeadMovement = calculateDistance(currentHeadPosition, prevHeadPosition);
+        }
+        setPrevHeadPosition(currentHeadPosition);
+
+        let currentEyeMovement = 0;
+        if (prevEyePosition) {
+          currentEyeMovement = calculateDistance(currentEyePosition, prevEyePosition);
+        }
+        setPrevEyePosition(currentEyePosition);
+
+        const analyser = analyserRef.current;
+        const bufferLength = analyser.fftSize;
+        const dataArray = new Float32Array(bufferLength);
+        analyser.getFloatTimeDomainData(dataArray);
+
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          sum += dataArray[i] ** 2;
+        }
+        const currentRMS = Math.sqrt(sum / bufferLength);
+
+        let zcr = 0;
+        for (let i = 1; i < bufferLength; i++) {
+          if ((dataArray[i - 1] >= 0 && dataArray[i] < 0) || (dataArray[i - 1] < 0 && dataArray[i] >= 0)) {
+            zcr += 1;
+          }
+        }
+        const currentZCR = zcr / bufferLength;
+
+        const alpha = 0.1;
+        setSmoothedFeatures(prev => ({
+          voiceIntensity: alpha * currentRMS + (1 - alpha) * prev.voiceIntensity,
+          zcr: alpha * currentZCR + (1 - alpha) * prev.zcr,
+          headMovement: alpha * currentHeadMovement + (1 - alpha) * prev.headMovement,
+          eyeMovement: alpha * currentEyeMovement + (1 - alpha) * prev.eyeMovement,
+          lipTension: alpha * currentLipTension + (1 - alpha) * prev.lipTension
+        }));
+
+        context.save();
+        if (showResult) {
+          context.strokeStyle = prediction === 'LIE' ? 'rgba(255, 0, 0, 0.3)' : 'rgba(0, 255, 0, 0.3)';
+          context.lineWidth = 2;
+        } else {
+          context.strokeStyle = 'rgba(9, 194, 247, 0.1)';
           context.lineWidth = 1;
-          context.beginPath();
-          for (let i = 0; i < landmarks.length; i++) {
-            const point = landmarks[i];
-            if (!point || !Array.isArray(point) || point.length < 2) continue;
-            const [x, y] = point;
-            if (i === 0) {
-              context.moveTo(x, y);
-            } else {
-              context.lineTo(x, y);
-            }
+        }
+
+        context.beginPath();
+        for (let i = 0; i < landmarks.length; i++) {
+          const point = landmarks[i];
+          if (!point || !Array.isArray(point) || point.length < 2) continue;
+          const [x, y] = point;
+          if (i === 0) {
+            context.moveTo(x, y);
+          } else {
+            context.lineTo(x, y);
           }
-          context.stroke();
+        }
+        context.stroke();
+        context.restore();
 
-          context.fillStyle = `rgba(250, 14, 164, ${1 - Math.min(avgEAR, 0.3) / 0.3})`;
-          leftEyeIndices.forEach(index => {
-            const point = landmarks[index];
-            if (!point || !Array.isArray(point) || point.length < 2) return;
-            const [x, y] = point;
-            context.beginPath();
-            context.arc(x, y, 2, 0, 2 * Math.PI);
-            context.fill();
+        if (isCollecting) {
+          featureHistoryRef.current.push({
+            rms: currentRMS,
+            zcr: currentZCR,
+            headMovement: currentHeadMovement,
+            eyeMovement: currentEyeMovement,
+            lipTension: currentLipTension,
           });
+        }
 
-          context.fillStyle = `rgba(250, 14, 164, ${1 - Math.min(avgEAR, 0.3) / 0.3})`;
-          rightEyeIndices.forEach(index => {
-            const point = landmarks[index];
-            if (!point || !Array.isArray(point) || point.length < 2) return;
-            const [x, y] = point;
-            context.beginPath();
-            context.arc(x, y, 2, 0, 2 * Math.PI);
-            context.fill();
-          });
-
-          context.fillStyle = 'rgba(9, 194, 247, 0.8)';
-          mouthIndices.forEach(index => {
-            const point = landmarks[index];
-            if (!point || !Array.isArray(point) || point.length < 2) return;
-            const [x, y] = point;
-            context.beginPath();
-            context.arc(x, y, 2, 0, 2 * Math.PI);
-            context.fill();
-          });
-
-          context.fillStyle = 'rgba(255, 255, 255, 0.8)';
-          noseIndices.forEach(index => {
-            const point = landmarks[index];
-            if (!point || !Array.isArray(point) || point.length < 2) return;
-            const [x, y] = point;
-            context.beginPath();
-            context.arc(x, y, 2, 0, 2 * Math.PI);
-            context.fill();
-          });
-
-          context.fillStyle = 'rgba(250, 14, 164, 1)';
-          [468, 473].forEach(index => {
-            const point = landmarks[index];
-            if (!point || !Array.isArray(point) || point.length < 2) return;
-            const [x, y] = point;
-            context.beginPath();
-            context.arc(x, y, 3, 0, 2 * Math.PI);
-            context.fill();
-          });
-
-          if (isCollecting) {
-            const smileIntensity = calculateSmileIntensity(landmarks);
-            smileIntensityRef.current.push(smileIntensity);
-
-            const headPosition = calculateHeadMovement(landmarks);
-            headMovementRef.current.push(headPosition);
-
-            const leftEyeGaze = calculateGazeRatio(landmarks, 33, 133, 468);
-            const rightEyeGaze = calculateGazeRatio(landmarks, 362, 263, 473);
-            const avgGaze = (leftEyeGaze + rightEyeGaze) / 2;
-            gazeHistoryRef.current.push(avgGaze);
-
-            const analyser = analyserRef.current;
-            const bufferLength = analyser.fftSize;
-            const dataArray = new Float32Array(bufferLength);
-            analyser.getFloatTimeDomainData(dataArray);
-
-            // Always collect micro-expression data
-            const eyebrowLeft = calculateDistance(landmarks[19], landmarks[37]);
-            const eyebrowRight = calculateDistance(landmarks[24], landmarks[44]);
-            const mouthWidth = calculateDistance(landmarks[61], landmarks[291]);
-            const eyeSquint = calculateDistance(landmarks[33], landmarks[133]);
-            const noseWrinkle = calculateDistance(landmarks[1], landmarks[2]);
-            const lipTension = calculateDistance(landmarks[61], landmarks[291]);
-            
-            microExpressionDataRef.current.push({
-              eyebrowLeft,
-              eyebrowRight,
-              mouthWidth,
-              eyeSquint,
-              noseWrinkle,
-              lipTension
-            });
-
-            // Always collect audio data
-            let sum = 0;
-            for (let i = 0; i < bufferLength; i++) {
-              sum += dataArray[i] ** 2;
-            }
-            const rms = Math.sqrt(sum / bufferLength);
-
-            let zcr = 0;
-            for (let i = 1; i < bufferLength; i++) {
-              if ((dataArray[i - 1] >= 0 && dataArray[i] < 0) || (dataArray[i - 1] < 0 && dataArray[i] >= 0)) {
-                zcr += 1;
-              }
-            }
-            zcr /= bufferLength;
-
-            audioDataRef.current.push({ rms, zcr });
-
-            setCurrentFeatures({
-              pitchChangeRate: zcr,
-              rmsMean: rms,
-              headMovementVariance: headMovementRef.current.length > 1
-                ? headMovementRef.current.reduce((sum, pos, i) => {
-                    if (i === 0) return 0;
-                    const prev = headMovementRef.current[i - 1];
-                    return sum + Math.sqrt((pos.x - prev.x) ** 2 + (pos.y - prev.y) ** 2);
-                  }, 0) / (headMovementRef.current.length - 1)
-                : 0,
-              smileIntensityVariance: smileIntensity,
-            });
-          }
-        } catch (error) {
-          console.error('Error processing face data:', error);
+        if (showResult) {
+          context.save();
+          context.font = 'bold 80px Arial';
+          context.fillStyle = prediction === 'LIE' ? 'rgba(255, 0, 0, 0.8)' : 'rgba(0, 255, 0, 0.8)';
+          context.textAlign = 'center';
+          context.textBaseline = 'middle';
+          context.fillText(prediction, canvas.width / 2, canvas.height / 2);
+          context.restore();
         }
       } else {
         setFaceDetected(false);
         onFaceDetected(false);
-        setCurrentFeatures({});
       }
     };
 
     intervalRef.current = setInterval(detectFaceAndRunTest, 100);
     return () => clearInterval(intervalRef.current);
-  }, [model, videoReady, isCollecting, onFaceDetected, isComputerSpeaking]);
+  }, [model, videoReady, isCollecting, onFaceDetected, weights, showResult, prediction]);
 
   if (webcamError) {
     toast({ title: 'Error', description: webcamError, status: 'error', duration: 5000, isClosable: true });
   }
 
   return (
-    <StyledWebcamContainer>
-      {isLoading && (
-        <LoadingIndicator
-          progress={loadingProgress}
-          message="Loading Face Detection..."
-          subMessage={
-            loadingProgress < 30 ? 'Initializing...' : loadingProgress < 100 ? 'Loading Model...' : 'Almost Ready...'
-          }
-        />
-      )}
-      {!model && !webcamError && !isLoading && (
-        <LoadingIndicator progress={0} message="Preparing Camera..." subMessage="" />
-      )}
-      {webcamError && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(13, 17, 44, 0.85)',
-            backdropFilter: 'blur(8px)',
-            zIndex: 4,
-          }}
-        >
-          <ErrorOutlineIcon sx={{ fontSize: 48, color: 'error.main', mb: 2 }} />
-          <Typography variant="h6" color="error" mb={2}>
-            <WarningAmberIcon sx={{ fontSize: 24, mr: 1 }} /> Camera Error
-          </Typography>
-          <Typography variant="body1" color="error" mb={3}>
-            {webcamError}
-          </Typography>
-          <GradientButton onClick={() => { setWebcamError(null); setIsLoading(true); loadModel().then(startVideo); }}>
-            Retry
-          </GradientButton>
-        </Box>
-      )}
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isLoading ? 'blur(4px)' : 'none' }}
-      />
-      <canvas
-        ref={canvasRef}
-        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: faceDetected ? 1 : 0.5 }}
-      />
-      <StyledInstructionText>
-        <Typography variant="h6" sx={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 1, fontWeight: 600 }}>
-          {faceDetected 
-            ? (isCollecting ? 'Hold still and speak...' : 'Look at the camera')
-            : 'Please Wait...'}
-        </Typography>
-        {faceDetected && currentPrompt && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500 }}>
-              {typeof currentPrompt === 'string' ? currentPrompt : currentPrompt.prompt}
+    <Box>
+      <StyledWebcamContainer>
+        {isLoading && (
+          <LoadingIndicator
+            progress={loadingProgress}
+            message="Loading Face Detection..."
+            subMessage={
+              loadingProgress < 30 ? 'Initializing...' : loadingProgress < 100 ? 'Loading Model...' : 'Almost Ready...'
+            }
+          />
+        )}
+        {!model && !webcamError && !isLoading && (
+          <LoadingIndicator progress={0} message="Preparing Camera..." subMessage="" />
+        )}
+        {webcamError && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(13, 17, 44, 0.85)',
+              backdropFilter: 'blur(8px)',
+              zIndex: 4,
+            }}
+          >
+            <ErrorOutlineIcon sx={{ fontSize: 48, color: 'error.main', mb: 2 }} />
+            <Typography variant="h6" color="error" mb={2}>
+              <WarningAmberIcon sx={{ fontSize: 24, mr: 1 }} /> Camera Error
             </Typography>
-            {typeof currentPrompt !== 'string' && (
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                {currentPrompt.context}
-              </Typography>
-            )}
+            <Typography variant="body1" color="error" mb={3}>
+              {webcamError}
+            </Typography>
+            <GradientButton onClick={() => { setWebcamError(null); setIsLoading(true); loadModel().then(startVideo); }}>
+              Retry
+            </GradientButton>
           </Box>
         )}
-      </StyledInstructionText>
-      {showDoneButton && isCollecting && (
-        <Box sx={{ 
-          position: 'absolute', 
-          bottom: '20%', 
-          left: '50%', 
-          transform: 'translateX(-50%)',
-          zIndex: 3,
-          textAlign: 'center',
-        }}>
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isLoading ? 'blur(4px)' : 'none' }}
+        />
+        <canvas
+          ref={canvasRef}
+          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: faceDetected ? 1 : 0.5 }}
+        />
+        <StyledInstructionText>
+          <Typography variant="h6" sx={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 1, fontWeight: 600 }}>
+            {faceDetected 
+              ? (isCollecting ? 'Hold still and speak...' : 'Look at the camera')
+              : 'Please Wait...'}
+          </Typography>
+          {faceDetected && currentPrompt && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500 }}>
+                {currentPrompt}
+              </Typography>
+            </Box>
+          )}
+        </StyledInstructionText>
+        {!showResult && isCollecting && !isProcessing && (
+          <Box sx={{ 
+            position: 'absolute', 
+            bottom: '20%', 
+            left: '50%', 
+            transform: 'translateX(-50%)',
+            zIndex: 3,
+            textAlign: 'center',
+          }}>
+            <GradientButton 
+              onClick={handleDoneSpeaking}
+              sx={{ 
+                minWidth: '200px',
+                fontSize: '1.2rem',
+                py: 1.5,
+              }}
+            >
+              Done Speaking
+            </GradientButton>
+          </Box>
+        )}
+      </StyledWebcamContainer>
+    </Box>
+  );
+});
+
+const LiarScore = () => {
+  const navigate = useNavigate();
+  const [currentStep, setCurrentStep] = useState('instructions');
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [shuffledQuestions, setShuffledQuestions] = useState([]);
+  const [weights] = useState({
+    headMovement: 2.0,
+    eyeMovement: 2.0,
+    fillerWords: 1.5,
+    repetitions: 1.5,
+    pauseCount: 1.3,
+    confidence: -1.5,
+    voiceIntensity: 1.0,
+    lipTension: 1.4,
+    zcr: 1.0,
+    responseLength: 0.9,
+    speechRate: 0.9
+  });
+  const faceScannerRef = useRef(null);
+  const toast = useToast();
+
+  // Fisher-Yates shuffle algorithm
+  const shuffleArray = (array) => {
+    const newArray = [...array];
+    for (let i = newArray.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+    }
+    return newArray;
+  };
+
+  const handleStartScanning = () => {
+    // Shuffle questions when starting
+    const shuffled = shuffleArray(questions);
+    setShuffledQuestions(shuffled);
+    setCurrentQuestionIndex(0);
+    setCurrentStep('scanning');
+  };
+
+  const handleFaceDetected = (detected) => {};
+
+  const handleScanningComplete = (result) => {
+    if (currentQuestionIndex < shuffledQuestions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+      // Check if we've completed 10 questions
+      if ((currentQuestionIndex + 1) % 10 === 0) {
+        setCurrentStep('break');
+      }
+    } else {
+      setCurrentStep('instructions');
+    }
+  };
+
+  const BreakScreen = () => {
+    const tests = [
+      {
+        title: 'Attractiveness Analysis',
+        description: 'Advanced AI-powered analysis of facial features and attractiveness',
+        path: '/scan/attractiveness',
+        icon: <Face />,
+        color: '#09c2f7'
+      },
+      {
+        title: 'Criminality Analysis',
+        description: 'Evaluate behavioral patterns and risk factors',
+        path: '/scan/crime',
+        icon: <WarningAmberIcon />,
+        color: '#fa0ea4'
+      },
+      {
+        title: 'Autism Analysis',
+        description: 'Advanced AI-powered analysis of potential autism spectrum traits',
+        path: '/scan/autism',
+        icon: <Psychology />,
+        color: '#6ce9ff'
+      },
+      {
+        title: 'Label Me',
+        description: 'Get personalized labels and insights about yourself',
+        path: '/scan/label',
+        icon: <SentimentSatisfied />,
+        color: '#4dabf7'
+      }
+    ];
+
+    return (
+      <Box sx={{ 
+        textAlign: 'center', 
+        py: 8,
+        px: { xs: 2, sm: 3, md: 4 }
+      }}>
+        <Typography
+          variant="h3"
+          sx={{
+            fontWeight: 800,
+            textAlign: 'center',
+            background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            mb: 4,
+            fontSize: { xs: '2rem', md: '2.5rem' }
+          }}
+        >
+          Take a Break or Try Our Other Features
+        </Typography>
+
+        <Box sx={{ mb: 6 }}>
           <GradientButton 
-            onClick={handleDoneSpeaking}
+            onClick={() => setCurrentStep('scanning')}
             sx={{ 
               minWidth: '200px',
               fontSize: '1.2rem',
               py: 1.5,
             }}
           >
-            Done Speaking
+            Continue Lie Detection
           </GradientButton>
         </Box>
-      )}
-      {faceDetected && <StatsDisplay features={currentFeatures} />}
-      {faceDetected && isCollecting && !isComputerSpeaking && <AudioWaveform analyser={analyserRef.current} />}
-    </StyledWebcamContainer>
-  );
-});
 
-// CustomBarChart Component - Visualization
-const CustomBarChart = ({ data, normalRanges }) => {
-  return (
-    <Box sx={{ width: '100%', height: '300px', position: 'relative' }}>
-      {data.map((item, index) => {
-        const value = item.value;
-        const max = item.max;
-        const normalRange = normalRanges[index];
-        const percentage = (value / max) * 100;
-        const normalPercentage = (normalRange / max) * 100;
-        const isHigh = value > normalRange * 1.2;
-        const isLow = value < normalRange * 0.8;
-        const color = isHigh ? '#F44336' : isLow ? '#FF9800' : '#4CAF50';
-        
-        return (
-          <Box
-            key={index}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              mb: 2,
-              height: '40px',
-            }}
-          >
-            <Typography
-              variant="body2"
-              sx={{
-                width: '150px',
-                color: '#fff',
-                fontSize: '0.8rem',
-                textAlign: 'right',
-                pr: 2,
-              }}
-            >
-              {item.label}
-            </Typography>
-            <Box
-              sx={{
-                flex: 1,
-                height: '100%',
-                position: 'relative',
-                background: 'rgba(255, 255, 255, 0.1)',
-                borderRadius: '4px',
-                overflow: 'hidden',
-              }}
-            >
-              <Box
+        <Grid container spacing={3} justifyContent="center">
+          {tests.map((test) => (
+            <Grid item xs={12} sm={6} md={3} key={test.title}>
+              <Card
                 sx={{
-                  position: 'absolute',
-                  left: `${normalPercentage}%`,
-                  top: 0,
-                  bottom: 0,
-                  width: '2px',
-                  background: '#fa0ea4',
-                  zIndex: 1,
+                  height: '100%',
+                  background: 'rgba(13, 17, 44, 0.7)',
+                  backdropFilter: 'blur(16px)',
+                  border: '1px solid rgba(250, 14, 164, 0.2)',
+                  transition: 'all 0.3s ease',
+                  cursor: 'pointer',
+                  '&:hover': {
+                    transform: 'translateY(-8px)',
+                    boxShadow: `0 8px 32px ${test.color}40`,
+                    border: `1px solid ${test.color}40`
+                  }
                 }}
-              />
-              <Box
-                sx={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: `${percentage}%`,
-                  background: color,
-                  transition: 'width 0.5s ease-out',
-                  borderRadius: '4px',
-                }}
-              />
-              <Typography
-                variant="caption"
-                sx={{
-                  position: 'absolute',
-                  right: '8px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: '#fff',
-                  fontSize: '0.7rem',
-                  fontWeight: 'bold',
-                  textShadow: '0 0 4px rgba(0,0,0,0.5)',
-                }}
+                onClick={() => navigate(test.path)}
               >
-                {value.toFixed(1)}
-              </Typography>
-            </Box>
-          </Box>
-        );
-      })}
-    </Box>
-  );
-};
-
-// DetailedResultDisplay Component - Scenario Mode Results
-const DetailedResultDisplay = ({ overallPercentage, testScores, previousScores, scenario }) => {
-  const navigate = useNavigate();
-  const [showDetails, setShowDetails] = useState(false);
-
-  const safeTestScores = {
-    blinkRate: 0,
-    rmsMean: 0,
-    zcrMean: 0,
-    headMovementVariance: 0,
-    smileIntensityVariance: 0,
-    gazeAwayPercentage: 0,
-    microExpressionCount: 0,
-    rmsStd: 0,
-    zcrStd: 0,
-    ...testScores
-  };
-
-  const chartData = [
-    { label: 'Voice Intensity', value: (safeTestScores.rmsMean || 0) * 1000, max: 50 },
-    { label: 'Zero-Crossing Rate', value: (safeTestScores.zcrMean || 0) * 100, max: 50 },
-    { label: 'Head Movement', value: (safeTestScores.headMovementVariance || 0) * 10, max: 100 },
-    { label: 'Smile Intensity', value: (safeTestScores.smileIntensityVariance || 0) * 100, max: 50 },
-  ];
-
-  const normalRanges = [20, 15, 80, 25];
-
-  const getRatingExplanation = (label, value, max) => {
-    let explanation = '';
-    let color = '#4CAF50';
-
-    switch (label) {
-      case 'Voice Intensity':
-        if (value > 30) {
-          explanation = 'High intensity. Suggests overcompensation.';
-          color = '#F44336';
-        } else if (value > 20) {
-          explanation = 'Elevated intensity. Possible stress.';
-          color = '#FF9800';
-        } else {
-          explanation = 'Normal intensity. Natural pattern.';
-        }
-        break;
-      case 'Zero-Crossing Rate':
-        if (value > 20) {
-          explanation = 'Highly unstable speech. Strong nervousness.';
-          color = '#F44336';
-        } else if (value > 15) {
-          explanation = 'Unstable speech. Indicates nervousness.';
-          color = '#FF9800';
-        } else {
-          explanation = 'Stable speech. Natural rhythm.';
-        }
-        break;
-      case 'Head Movement':
-        if (value > 90) {
-          explanation = 'Excessive movement. High stress.';
-          color = '#F44336';
-        } else if (value > 80) {
-          explanation = 'Increased movement. Suggests nervousness.';
-          color = '#FF9800';
-        } else {
-          explanation = 'Normal movement. Relaxed behavior.';
-        }
-        break;
-      case 'Smile Intensity':
-        if (value > 35) {
-          explanation = 'Highly unnatural. Likely forced.';
-          color = '#F44336';
-        } else if (value > 25) {
-          explanation = 'Unnatural variation. Possible discomfort.';
-          color = '#FF9800';
-        } else {
-          explanation = 'Natural variation. Genuine expression.';
-        }
-        break;
-    }
-    return { explanation, color };
-  };
-
-  let tierLabel, tierEmoji;
-  if (overallPercentage >= 75) {
-    tierLabel = 'High Likelihood of Lying';
-    tierEmoji = <SentimentDissatisfied />;
-  } else if (overallPercentage >= 50) {
-    tierLabel = 'Moderate Likelihood of Lying';
-    tierEmoji = <SentimentNeutral />;
-  } else if (overallPercentage >= 25) {
-    tierLabel = 'Some Signs of Deception';
-    tierEmoji = <SentimentNeutral />;
-  } else {
-    tierLabel = 'Low Likelihood of Lying';
-    tierEmoji = <SentimentSatisfied />;
-  }
-
-  return (
-    <Box sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
-      <Box
-        sx={{
-          p: 4,
-          borderRadius: 2,
-          bgcolor: 'rgba(13, 17, 44, 0.7)',
-          border: '1px solid rgba(250, 14, 164, 0.2)',
-          mb: 4,
-          textAlign: 'center',
-        }}
-      >
-        <Typography variant="h2" component="div" gutterBottom sx={{ fontSize: '4rem' }}>
-          {tierEmoji}
-        </Typography>
-        <Typography variant="h4" gutterBottom fontWeight="bold">
-          {tierLabel}
-        </Typography>
-        <CircularProgress
-          variant="determinate"
-          value={overallPercentage || 0}
-          size={120}
-          thickness={4}
-          sx={{ color: '#09c2f7', mt: 2 }}
-        />
-        <Typography variant="h6" sx={{ mt: 2 }}>
-          {(overallPercentage || 0).toFixed(0)}% Lie Likelihood
-        </Typography>
-        <Typography variant="body1" paragraph sx={{ mt: 3 }}>
-          {generateExplanation(safeTestScores)}
-        </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => setShowDetails(!showDetails)}
-          sx={{ mt: 2 }}
-        >
-          {showDetails ? 'Hide Details' : 'Show Detailed Analysis'}
-        </Button>
-      </Box>
-
-      {showDetails && (
-        <Box>
-          <Typography variant="h5" gutterBottom fontWeight="bold" align="center" mb={4}>
-            Detailed Feature Analysis
-          </Typography>
-          <Box sx={{ 
-            p: 3, 
-            mb: 4, 
-            borderRadius: 2,
-            bgcolor: 'rgba(13, 17, 44, 0.7)',
-            border: '1px solid rgba(9, 194, 247, 0.3)',
-          }}>
-            <Typography variant="h6" gutterBottom sx={{ color: '#fff', mb: 3 }}>
-              Feature Comparison
-            </Typography>
-            <CustomBarChart data={chartData} normalRanges={normalRanges} />
-            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center', gap: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 12, height: 12, background: '#4CAF50', borderRadius: '2px' }} />
-                <Typography variant="caption" sx={{ color: '#fff' }}>Normal</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 12, height: 12, background: '#FF9800', borderRadius: '2px' }} />
-                <Typography variant="caption" sx={{ color: '#fff' }}>Elevated</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 12, height: 12, background: '#F44336', borderRadius: '2px' }} />
-                <Typography variant="caption" sx={{ color: '#fff' }}>High</Typography>
-              </Box>
-            </Box>
-          </Box>
-
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {chartData.map((item, index) => {
-              const { explanation, color } = getRatingExplanation(item.label, item.value, item.max);
-              return (
-                <Box
-                  key={index}
-                  sx={{
-                    p: 2,
-                    borderRadius: 2,
-                    bgcolor: 'rgba(13, 17, 44, 0.7)',
-                    border: `1px solid ${color}`,
-                  }}
-                >
-                  <Box display="flex" alignItems="center" mb={1}>
-                    <Typography variant="body1" fontWeight="medium" sx={{ color: '#fff' }}>
-                      {item.label}: {item.value.toFixed(2)}
-                    </Typography>
-                  </Box>
-                  <LinearProgress
-                    variant="determinate"
-                    value={Math.min((item.value / item.max) * 100, 100)}
+                <CardContent sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  textAlign: 'center',
+                  p: 3
+                }}>
+                  <Box
                     sx={{
-                      height: 8,
-                      borderRadius: 3,
-                      backgroundColor: 'rgba(255,255,255,0.1)',
-                      '& .MuiLinearProgress-bar': { backgroundColor: color },
+                      color: test.color,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 64,
+                      height: 64,
+                      borderRadius: '50%',
+                      background: `${test.color}20`,
+                      mb: 2,
+                      '& .MuiSvgIcon-root': {
+                        fontSize: 32
+                      }
                     }}
-                  />
-                  <Typography variant="body2" sx={{ mt: 1, color: 'rgba(255,255,255,0.7)' }}>
-                    {explanation}
+                  >
+                    {test.icon}
+                  </Box>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      color: '#fff',
+                      fontWeight: 600,
+                      mb: 1
+                    }}
+                  >
+                    {test.title}
                   </Typography>
-                </Box>
-              );
-            })}
-          </Box>
-        </Box>
-      )}
-
-      <Box sx={{ mt: 4, textAlign: 'center' }}>
-        <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-          *This is for entertainment purposes only and not a reliable lie detector.*
-        </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: 'rgba(255,255,255,0.7)',
+                      mb: 2,
+                      minHeight: '40px'
+                    }}
+                  >
+                    {test.description}
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    sx={{
+                      color: test.color,
+                      borderColor: `${test.color}40`,
+                      '&:hover': {
+                        borderColor: test.color,
+                        backgroundColor: `${test.color}10`
+                      }
+                    }}
+                  >
+                    Try Now
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
       </Box>
-    </Box>
-  );
-};
-
-// QuestionResultsDisplay Component - Question Mode Results
-const QuestionResultsDisplay = ({ questionResults }) => (
-  <Box sx={{ p: 3, maxWidth: '800px', mx: 'auto' }}>
-    <Typography variant="h4" sx={{ mb: 4, textAlign: 'center' }}>Question Results</Typography>
-    {questionResults.map((result, index) => {
-      const getTierColor = (score) => {
-        if (score >= 70) return '#F44336';
-        if (score >= 40) return '#FF9800';
-        return '#4CAF50';
-      };
-
-      const chartData = [
-        { label: 'Voice Intensity', value: (result.rmsMean || 0) * 1000, max: 50 },
-        { label: 'Zero-Crossing Rate', value: (result.zcrMean || 0) * 100, max: 50 },
-        { label: 'Head Movement', value: (result.headMovementVariance || 0) * 10, max: 100 },
-        { label: 'Smile Intensity', value: (result.smileIntensityVariance || 0) * 100, max: 50 },
-        { label: 'Micro-Expressions', value: (result.microExpressionCount || 0) * 20, max: 100 },
-        { label: 'Gaze Away', value: (result.gazeAwayPercentage || 0), max: 100 },
-        { label: 'Stutter Count', value: (result.stutterCount || 0) * 20, max: 100 }
-      ];
-
-      const normalRanges = [20, 15, 80, 25, 30, 40, 20];
-
-      return (
-        <Box 
-          key={index} 
-          sx={{ 
-            mb: 4, 
-            p: 3, 
-            borderRadius: 2, 
-            bgcolor: 'rgba(13, 17, 44, 0.7)',
-            border: '1px solid rgba(250, 14, 164, 0.2)',
-          }}
-        >
-          <Typography variant="h6" sx={{ mb: 2, color: '#fff' }}>
-            Question {index + 1}: {result.question}
-          </Typography>
-          
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            mb: 3,
-            gap: 2
-          }}>
-            <CircularProgress
-              variant="determinate"
-              value={result.finalLieScore || 0}
-              size={80}
-              thickness={4}
-              sx={{ color: getTierColor(result.finalLieScore) }}
-            />
-            <Box>
-              <Typography variant="h5" sx={{ color: getTierColor(result.finalLieScore) }}>
-                {result.finalLieScore.toFixed(0)}% Lie Likelihood
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                {result.finalLieScore >= 70 ? 'High Likelihood of Lying' :
-                 result.finalLieScore >= 40 ? 'Moderate Likelihood of Lying' :
-                 result.finalLieScore >= 25 ? 'Some Signs of Deception' :
-                 'Low Likelihood of Lying'}
-              </Typography>
-            </Box>
-          </Box>
-
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle1" sx={{ color: '#fff', mb: 2 }}>
-              Detailed Analysis
-            </Typography>
-            <CustomBarChart data={chartData} normalRanges={normalRanges} />
-          </Box>
-
-          <Box sx={{ 
-            p: 2, 
-            borderRadius: 1, 
-            bgcolor: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.1)'
-          }}>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)' }}>
-              {generateExplanation(result)}
-            </Typography>
-          </Box>
-
-          {result.stutterCount > 0 && (
-            <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <WarningAmberIcon sx={{ color: '#FF9800' }} />
-              <Typography variant="body2" sx={{ color: '#FF9800' }}>
-                Detected {result.stutterCount} speech irregularities
-              </Typography>
-            </Box>
-          )}
-
-          {result.microExpressionCount > 0 && (
-            <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Psychology sx={{ color: '#09c2f7' }} />
-              <Typography variant="body2" sx={{ color: '#09c2f7' }}>
-                Detected {result.microExpressionCount} micro-expressions
-              </Typography>
-            </Box>
-          )}
-        </Box>
-      );
-    })}
-  </Box>
-);
-
-// LiarScore Component - Main Application Logic
-const LiarScore = () => {
-  const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState('instructions');
-  const [scenario, setScenario] = useState(null);
-  const [likelihoodScore, setLikelihoodScore] = useState(null);
-  const [testScores, setTestScores] = useState(null);
-  const [faceDetected, setFaceDetected] = useState(false);
-  const [isLoadingResults, setIsLoadingResults] = useState(false);
-  const [loadingProgress, setLoadingProgress] = useState(0);
-  const [difficulty, setDifficulty] = useState(null);
-  const [mode, setMode] = useState(null);
-  const [currentQuestions, setCurrentQuestions] = useState([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [isShowingResult, setIsShowingResult] = useState(false);
-  const [questionResults, setQuestionResults] = useState([]);
-  const [previousScores, setPreviousScores] = useState([]);
-  const [isScannerReady, setIsScannerReady] = useState(false);
-  const [isComputerSpeaking, setIsComputerSpeaking] = useState(false);
-  const [hasStartedCurrentQuestion, setHasStartedCurrentQuestion] = useState(false);
-  const [showResultsButton, setShowResultsButton] = useState(false);
-  const [resultsButtonTimer, setResultsButtonTimer] = useState(3);
-  const [canShowResults, setCanShowResults] = useState(false);
-  const [nextQuestionTimer, setNextQuestionTimer] = useState(0);
-  const [canProceedToNext, setCanProceedToNext] = useState(false);
-  const toast = useToast();
-  const faceScannerRef = useRef(null);
-
-  const scenarios = {
-    easy: [
-      {
-        prompt: "Someone finds a Reddit account with your name and 40,000 karma in r/AmITheAsshole",
-        context: "Explain why it might *not* be you",
-        category: "internet"
-      },
-      {
-        prompt: "You're caught in a McDonald's bathroom filming yourself saying 'I am the Alpha'",
-        context: "Justify what the video was *actually* for",
-        category: "social"
-      },
-      {
-        prompt: "Your AirPods auto-connect to a speaker and start blasting your voice memos titled 'Unhinged Rants'",
-        context: "Explain who those were *really* for",
-        category: "tech fail"
-      },
-      {
-        prompt: "Your Notes app is leaked and includes a checklist titled 'Fake Personalities I Can Pull Off'",
-        context: "Defend why this is a productivity strategy",
-        category: "psych"
-      },
-      {
-        prompt: "Your Uber driver recognizes you from a very niche meme account",
-        context: "Explain what the account is and how you're involved",
-        category: "internet"
-      },
-      {
-        prompt: "Someone catches you googling 'how to win a fight without touching them'",
-        context: "Explain why you were researching this",
-        category: "bizarre"
-      },
-      {
-        prompt: "You're found in public pretending to be on the phone to avoid someone",
-        context: "Reveal what the fake convo was about",
-        category: "social"
-      },
-      {
-        prompt: "Your YouTube history is 90% 'villain speeches' and 'interrogation room breakdowns'",
-        context: "Explain the phase you're going through",
-        category: "media"
-      }
-    ],
-    medium: [
-      {
-        prompt: "You get exposed for running 3 anonymous Twitter accounts that reply to your main",
-        context: "Defend the accounts and their purpose",
-        category: "internet"
-      },
-      {
-        prompt: "Your group chat finds your AI-generated thirst trap edits of yourself",
-        context: "Explain why you made them",
-        category: "AI / tech"
-      },
-      {
-        prompt: "Your friends find out you've been carrying around a fake book just for the aesthetic",
-        context: "Justify the book and the performance",
-        category: "pretentious"
-      },
-      {
-        prompt: "Someone catches you recording yourself crying and then immediately smiling",
-        context: "Explain what project this was for",
-        category: "unhinged"
-      },
-      {
-        prompt: "You're exposed for editing your BeReal timestamps to make your life look cooler",
-        context: "Defend why authenticity was *overrated*",
-        category: "social media"
-      },
-      {
-        prompt: "You're caught selling your old voice memos as NFTs titled 'Mental Breakdown Vol. 1–5'",
-        context: "Pitch it as performance art",
-        category: "grift"
-      },
-      {
-        prompt: "Your Notes app includes a document titled 'Revenge Masterplan (Theoretical)'",
-        context: "Explain why it's not about anyone real",
-        category: "dark"
-      },
-      {
-        prompt: "You're found leading a Discord server called 'Exit Plan'",
-        context: "Explain what the group is *really* about",
-        category: "cult-y"
-      }
-    ],
-    hard: [
-      {
-        prompt: "Your search history reveals you've been researching 'how to fake your own death'",
-        context: "Explain why this is actually a creative writing project",
-        category: "dark"
-      },
-      {
-        prompt: "Someone finds your detailed notes on how to manipulate people's emotions",
-        context: "Defend this as a psychology experiment",
-        category: "psych"
-      },
-      {
-        prompt: "You're caught creating fake social media accounts to boost your own popularity",
-        context: "Justify this as a marketing strategy",
-        category: "social media"
-      },
-      {
-        prompt: "Your browser history shows you've been researching 'how to get away with murder'",
-        context: "Explain this as research for a novel",
-        category: "dark"
-      },
-      {
-        prompt: "Someone discovers you've been recording private conversations without consent",
-        context: "Defend this as a documentary project",
-        category: "unhinged"
-      },
-      {
-        prompt: "You're found with a detailed plan to ruin someone's reputation",
-        context: "Explain this as a revenge plot for a movie script",
-        category: "dark"
-      },
-      {
-        prompt: "Your notes include a list of people's weaknesses and how to exploit them",
-        context: "Justify this as character research",
-        category: "psych"
-      },
-      {
-        prompt: "You're caught creating fake evidence to frame someone",
-        context: "Explain this as part of an art installation",
-        category: "unhinged"
-      }
-    ]
+    );
   };
-
-  const questions = {
-    easy: [
-      "Have you ever lied about your age to scam someone out of money?",
-      "Have you ever cheated on a test and bragged about it to humiliate others?",
-      "Have you ever faked a serious illness to ruin someone's plans?",
-      "Have you ever stolen something valuable and blamed it on someone else?",
-      "Have you ever lied to a friend to manipulate them into doing something wrong?",
-      "Have you ever googled yourself to find and delete negative reviews?",
-      "Have you ever been caught talking to yourself while plotting revenge?",
-      "Have you ever liked your own post from a burner account to boost engagement?",
-      "Have you ever fake laughed at someone's joke while planning their downfall?",
-      "Have you ever taken a selfie during someone else's serious moment?",
-      "Have you ever practiced an argument in the mirror to gaslight someone?",
-      "Have you ever followed someone just to gather dirt on them?",
-      "Have you ever hoped someone would get canceled for your benefit?",
-      "Have you ever eaten food off the floor and served it to guests?",
-      "Have you ever told someone they looked good just to manipulate them?",
-      "Have you ever muted a close friend to avoid helping them?",
-      "Have you ever recorded someone without consent for blackmail?",
-      "Have you ever stalked someone to find their weaknesses?",
-      "Have you ever imagined your own funeral to guilt-trip others?",
-      "Have you ever joined a cause just to scam donations?"
-    ],
-    medium: [
-      "Have you ever fabricated entire job experiences to scam a hiring manager?",
-      "Have you ever cheated in a relationship and framed your partner for it?",
-      "Have you ever stolen from work and sold the goods for profit?",
-      "Have you ever lied to your parents about something that could ruin them?",
-      "Have you ever pretended to be someone else online to catfish?",
-      "Have you ever gotten back with an ex just to destroy their new relationship?",
-      "Have you ever used someone for free food or rides while mocking them?",
-      "Have you ever trauma-dumped to manipulate someone's emotions?",
-      "Have you ever posted something just to make someone feel inferior?",
-      "Have you ever ghosted someone you were still manipulating?",
-      "Have you ever intentionally caused a scene to humiliate someone?",
-      "Have you ever convinced someone they were wrong just to control them?",
-      "Have you ever let someone take the blame for your serious mistake?",
-      "Have you ever threatened to leak something to destroy someone?",
-      "Have you ever lied about a mental illness to avoid consequences?",
-      "Have you ever kept receipts just to blackmail someone later?",
-      "Have you ever encouraged someone to do something dangerous for content?",
-      "Have you ever secretly hoped a couple would break up for your gain?",
-      "Have you ever faked being into someone to manipulate their friends?",
-      "Have you ever made up a tragedy to scam attention or money?"
-    ],
-    hard: [
-      "Have you ever cheated on a partner and exposed them to serious harm?",
-      "Have you ever committed a felony and walked away scot-free?",
-      "Have you ever lied under oath to destroy someone's life?",
-      "Have you ever betrayed a close friend for personal gain?",
-      "Have you ever hidden a serious secret that could harm your partner?",
-      "Have you ever flirted with someone just to cause emotional damage?",
-      "Have you ever ruined a relationship just to prove you could?",
-      "Have you ever blackmailed someone with sensitive information?",
-      "Have you ever made up a lie so big it destroyed someone's life?",
-      "Have you ever hoped someone would fail so you could take advantage?",
-      "Have you ever intentionally ruined someone's reputation permanently?",
-      "Have you ever faked love to manipulate someone's emotions?",
-      "Have you ever led multiple people on for your own entertainment?",
-      "Have you ever recorded an intimate moment without consent?",
-      "Have you ever sabotaged someone's career for personal gain?",
-      "Have you ever lied about being assaulted to manipulate others?",
-      "Have you ever taken advantage of someone while they were vulnerable?",
-      "Have you ever pretended to care just to gather damaging information?",
-      "Have you ever watched someone spiral and done nothing to help?",
-      "Have you ever manipulated someone into loving you for your benefit?"
-    ]
-  };
-
-  const getRandomScenario = (difficultyLevel) => {
-    const availableScenarios = scenarios[difficultyLevel];
-    const randomIndex = Math.floor(Math.random() * availableScenarios.length);
-    return availableScenarios[randomIndex];
-  };
-
-  const getRandomQuestions = (difficultyLevel, count = 5) => {
-    const availableQuestions = questions[difficultyLevel];
-    const shuffled = [...availableQuestions].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, count);
-  };
-
-  const handleDifficultyChange = (newDifficulty) => {
-    setDifficulty(newDifficulty);
-    setMode(null);
-  };
-
-  const handleModeChange = (newMode) => {
-    setMode(newMode);
-    if (newMode === 'scenario') {
-      const newScenario = getRandomScenario(difficulty);
-      setScenario(newScenario);
-    } else if (newMode === 'question') {
-      const randomQuestions = getRandomQuestions(difficulty, 5);
-      setCurrentQuestions(randomQuestions);
-      setCurrentQuestionIndex(0);
-      setQuestionResults([]);
-    }
-  };
-
-  const handleStartScanning = () => {
-    if (!difficulty || !mode) {
-      toast({
-        title: 'Error',
-        description: 'Please select a difficulty and mode',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
-    }
-    setCurrentStep('scanning');
-    if (mode === 'scenario') {
-      speakText(`${scenario.prompt}\n\n${scenario.context}`);
-    }
-  };
-
-  const speakText = (text) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      setIsComputerSpeaking(true);
-      setShowResultsButton(false);
-      setCanShowResults(false);
-      
-      utterance.onend = () => {
-        setIsComputerSpeaking(false);
-        setShowResultsButton(true);
-        setCanShowResults(false);
-        setResultsButtonTimer(3);
-        
-        const timer = setInterval(() => {
-          setResultsButtonTimer(prev => {
-            if (prev <= 1) {
-              setCanShowResults(true);
-              clearInterval(timer);
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-      };
-      
-      utterance.onerror = () => {
-        setIsComputerSpeaking(false);
-        setShowResultsButton(true);
-        setCanShowResults(true);
-      };
-      
-      speechSynthesis.speak(utterance);
-    } else {
-      console.log('Text-to-speech not supported');
-      setShowResultsButton(true);
-      setCanShowResults(true);
-    }
-  };
-
-  const handleFaceDetected = (detected) => {
-    setFaceDetected(detected);
-  };
-
-  const handleNextQuestion = () => {
-    if (currentQuestionIndex < currentQuestions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-      setIsShowingResult(false);
-      setHasStartedCurrentQuestion(false);
-      setCanProceedToNext(false);
-    } else {
-      setCurrentStep('result');
-    }
-  };
-
-  useEffect(() => {
-    let collectionTimer;
-
-    if (currentStep === 'scanning' && 
-        isScannerReady && 
-        faceDetected && 
-        !isShowingResult && 
-        !hasStartedCurrentQuestion) {
-      
-      if (faceScannerRef.current) {
-        setHasStartedCurrentQuestion(true);
-        faceScannerRef.current.startCollecting();
-        
-        if (mode === 'question') {
-          speakText(currentQuestions[currentQuestionIndex]);
-        }
-        
-        collectionTimer = setTimeout(() => {
-          if (faceScannerRef.current) {
-            faceScannerRef.current.stopCollecting();
-          }
-        }, 30000);
-      }
-    }
-
-    return () => {
-      if (collectionTimer) clearTimeout(collectionTimer);
-    };
-  }, [currentStep, mode, isScannerReady, currentQuestionIndex, isShowingResult, currentQuestions, faceDetected, hasStartedCurrentQuestion]);
-
-  useEffect(() => {
-    if (isShowingResult) {
-      setNextQuestionTimer(3);
-      setCanProceedToNext(false);
-      const timer = setInterval(() => {
-        setNextQuestionTimer(prev => {
-          if (prev <= 1) {
-            setCanProceedToNext(true);
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [isShowingResult]);
-
-  const handleShowResults = () => {
-    if (faceScannerRef.current && canShowResults) {
-      faceScannerRef.current.stopCollecting();
-      setIsShowingResult(true);
-      setShowResultsButton(false);
-      setCanShowResults(false);
-    }
-  };
-
-  const handleScanningComplete = (result) => {
-    if (mode === 'scenario') {
-      setLikelihoodScore(result.finalLieScore);
-      setTestScores({
-        rmsMean: result.rmsMean,
-        zcrMean: result.zcrMean,
-        headMovementVariance: result.headMovementVariance,
-        smileIntensityVariance: result.smileIntensityVariance,
-        gazeAwayPercentage: result.gazeAwayPercentage,
-        microExpressionCount: result.microExpressionCount,
-        rmsStd: result.rmsStd,
-        zcrStd: result.zcrStd,
-      });
-      setPreviousScores(prev => [
-        ...prev,
-        { score: result.finalLieScore, scenario: scenario, timestamp: new Date().toISOString() }
-      ].slice(-5));
-      setCurrentStep('result');
-    } else if (mode === 'question') {
-      const currentQuestion = currentQuestions[currentQuestionIndex];
-      setQuestionResults(prev => [...prev, { question: currentQuestion, ...result }]);
-    }
-  };
-
-  const GlassCard = styled(Paper)(({ theme }) => ({
-    padding: theme.spacing(4),
-    backdropFilter: 'blur(16px)',
-    backgroundColor: 'rgba(13, 17, 44, 0.7)',
-    border: '1px solid rgba(250, 14, 164, 0.2)',
-    borderRadius: '24px',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    '&:hover': {
-      transform: 'translateY(-8px)',
-      backgroundColor: 'rgba(13, 17, 44, 0.85)',
-      boxShadow: '0 8px 32px rgba(250, 14, 164, 0.3)'
-    },
-    position: 'relative',
-    overflow: 'hidden',
-    aspectRatio: '1',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    textAlign: 'center',
-    '&:before': {
-      content: '""',
-      position: 'absolute',
-      width: '100%',
-      height: '100%',
-      background: `
-        linear-gradient(rgba(9, 194, 247, 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(9, 194, 247, 0.05) 1px, transparent 1px)
-      `,
-      backgroundSize: '40px 40px',
-      opacity: 0.3,
-    }
-  }));
 
   return (
     <Box
@@ -1914,10 +977,11 @@ const LiarScore = () => {
     >
       <TopBar />
       <Box sx={{ position: 'relative', zIndex: 1, maxWidth: 'xl', mx: 'auto' }}>
-        {isLoadingResults ? (
-          <LoadingAnimation>
+        {currentStep === 'instructions' && (
+          <Box sx={{ my: 8, textAlign: 'center' }}>
             <Box
               sx={{
+                marginTop: '100px',
                 display: 'flex',
                 justifyContent: 'center',
                 mb: 4,
@@ -1949,363 +1013,57 @@ const LiarScore = () => {
                 />
               </Box>
             </Box>
-            <Box
+            <Typography
+              variant="h4"
+              component="h1"
+              align="center"
               sx={{
-                width: '100%',
-                maxWidth: '400px',
-                height: '4px',
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                borderRadius: '2px',
-                overflow: 'hidden',
-                position: 'relative'
+                fontWeight: 700,
+                background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                mb: 2,
               }}
             >
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  height: '100%',
-                  width: `${loadingProgress}%`,
-                  background: 'linear-gradient(90deg, #09c2f7, #fa0ea4)',
-                  transition: 'width 0.1s ease-out',
-                  '&:after': {
-                    content: '""',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent)',
-                    animation: 'shimmer 2s infinite',
-                    '@keyframes shimmer': {
-                      '0%': { transform: 'translateX(-100%)' },
-                      '100%': { transform: 'translateX(100%)' }
-                    }
-                  }
-                }}
-              />
-            </Box>
-            <AnalyzingText>
-              Analyzing Results
-            </AnalyzingText>
-            <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-              {loadingProgress}%
+              Lie Detector
             </Typography>
-          </LoadingAnimation>
-        ) : (
-          <>
-            {currentStep === 'instructions' && (
-              <Box sx={{ my: 8, textAlign: 'center' }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    mb: 4,
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => navigate('/')}
-                >
-                  <Box
-                    sx={{
-                      width: 120,
-                      height: 120,
-                      background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
-                      borderRadius: '24px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      animation: `${neonGlow} 2s infinite`,
-                      boxShadow: '0 0 32px rgba(9, 194, 247, 0.2)',
-                      transition: 'transform 0.3s ease',
-                      '&:hover': {
-                        transform: 'scale(1.05)'
-                      }
-                    }}
-                  >
-                    <img
-                      src="/lookzapp trans 2.png"
-                      alt="LookzApp"
-                      style={{ width: '80%', filter: 'brightness(0) invert(1)' }}
-                    />
-                  </Box>
-                </Box>
-                <Box sx={{ mb: 4 }}>
-                  <Typography 
-                    variant="h6" 
-                    sx={{ 
-                      color: '#fff', 
-                      mb: 2,
-                      background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      textShadow: '0 0 10px rgba(9, 194, 247, 0.3)',
-                    }}
-                  >
-                    Select Difficulty
-                  </Typography>
-                  <Grid container spacing={3} justifyContent="center" sx={{ maxWidth: '800px', mx: 'auto' }}>
-                    {[
-                      { value: 'easy', label: 'Easy', icon: <SentimentSatisfied />, description: 'Simple scenarios and questions' },
-                      { value: 'medium', label: 'Medium', icon: <SentimentNeutral />, description: 'Moderate complexity' },
-                      { value: 'hard', label: 'Hard', icon: <SentimentDissatisfied />, description: 'Challenging scenarios' }
-                    ].map((option) => (
-                      <Grid item xs={12} sm={6} md={4} key={option.value}>
-                        <GlassCard
-                          onClick={() => handleDifficultyChange(option.value)}
-                          sx={{
-                            cursor: 'pointer',
-                            p: 3,
-                            height: '100%',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            border: difficulty === option.value ? '2px solid #09c2f7' : '1px solid rgba(250, 14, 164, 0.2)',
-                            boxShadow: difficulty === option.value ? '0 0 20px rgba(9, 194, 247, 0.3)' : 'none',
-                            transition: 'all 0.3s ease',
-                            '&:hover': {
-                              transform: 'translateY(-8px)',
-                              boxShadow: '0 8px 32px rgba(250, 14, 164, 0.3)',
-                              border: '2px solid #09c2f7'
-                            }
-                          }}
-                        >
-                          <Box
-                            sx={{ 
-                              width: 64,
-                              height: 64,
-                              borderRadius: '50%',
-                              background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              mb: 2,
-                              animation: `${neonGlow} 2s infinite`,
-                              '& .MuiSvgIcon-root': {
-                                fontSize: 32,
-                                color: '#fff'
-                              }
-                            }}
-                          >
-                            {option.icon}
-                          </Box>
-                          <Typography
-                            variant="h6"
-                            sx={{
-                              color: '#fff',
-                              fontWeight: 600,
-                              textAlign: 'center',
-                              mb: 1
-                            }}
-                          >
-                            {option.label}
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              color: 'rgba(255,255,255,0.7)',
-                              textAlign: 'center',
-                              fontSize: '0.875rem'
-                            }}
-                          >
-                            {option.description}
-                          </Typography>
-                        </GlassCard>
-                      </Grid>
-                    ))}
-                  </Grid>
-                </Box>
-                {difficulty && (
-                  <Box sx={{ mb: 4 }}>
-                    <Typography 
-                      variant="h6" 
-                      sx={{ 
-                        color: '#fff', 
-                        mb: 2,
-                        background: 'linear-gradient(45deg, #6ce9ff 30%, #09c2f7 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        textShadow: '0 0 10px rgba(9, 194, 247, 0.3)',
-                      }}
-                    >
-                      Select Mode
-                    </Typography>
-                    <Grid container spacing={3} justifyContent="center" sx={{ maxWidth: '800px', mx: 'auto' }}>
-                      {[
-                        { value: 'scenario', label: 'Scenario Based', icon: <Psychology />, description: 'Respond to unique scenarios' },
-                        { value: 'question', label: 'Question Based', icon: <RemoveRedEye />, description: 'Answer specific questions' }
-                      ].map((option) => (
-                        <Grid item xs={12} sm={6} key={option.value}>
-                          <GlassCard
-                            onClick={() => handleModeChange(option.value)}
-                            sx={{
-                              cursor: 'pointer',
-                              p: 3,
-                              height: '100%',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              border: mode === option.value ? '2px solid #09c2f7' : '1px solid rgba(250, 14, 164, 0.2)',
-                              boxShadow: mode === option.value ? '0 0 20px rgba(9, 194, 247, 0.3)' : 'none',
-                              transition: 'all 0.3s ease',
-                              '&:hover': {
-                                transform: 'translateY(-8px)',
-                                boxShadow: '0 8px 32px rgba(250, 14, 164, 0.3)',
-                                border: '2px solid #09c2f7'
-                              }
-                            }}
-                          >
-                            <Box
-                              sx={{ 
-                                width: 64,
-                                height: 64,
-                                borderRadius: '50%',
-                                background: 'linear-gradient(45deg, #09c2f7, #fa0ea4)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                mb: 2,
-                                animation: `${neonGlow} 2s infinite`,
-                                '& .MuiSvgIcon-root': {
-                                  fontSize: 32,
-                                  color: '#fff'
-                                }
-                              }}
-                            >
-                              {option.icon}
-                            </Box>
-                            <Typography
-                              variant="h6"
-                              sx={{
-                                color: '#fff',
-                                fontWeight: 600,
-                                textAlign: 'center',
-                                mb: 1
-                              }}
-                            >
-                              {option.label}
-                            </Typography>
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                color: 'rgba(255,255,255,0.7)',
-                                textAlign: 'center',
-                                fontSize: '0.875rem'
-                              }}
-                            >
-                              {option.description}
-                            </Typography>
-                          </GlassCard>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  </Box>
-                )}
-                <GradientButton onClick={handleStartScanning} disabled={!difficulty || !mode}>
-                  Start Speaking
-                </GradientButton>
-              </Box>
-            )}
-
-            {currentStep === 'scanning' && (
-              <Box sx={{ my: 8 }}>
-                {mode === 'question' && isShowingResult ? (
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Typography variant="h5" sx={{ mb: 2 }}>
-                      Result for: {questionResults[questionResults.length - 1].question}
-                    </Typography>
-                    <DetailedResultDisplay 
-                      overallPercentage={questionResults[questionResults.length - 1].finalLieScore} 
-                      testScores={questionResults[questionResults.length - 1]}
-                    />
-                    <GradientButton 
-                      onClick={handleNextQuestion}
-                      disabled={!canProceedToNext}
-                      sx={{ mt: 4 }}
-                    >
-                      {canProceedToNext ? 
-                        (currentQuestionIndex < currentQuestions.length - 1 ? 'Next Question' : 'View Full Results') :
-                        `Loading next question in ${nextQuestionTimer}s`
-                      }
-                    </GradientButton>
-                  </Box>
-                ) : (
-                  <Box sx={{ position: 'relative' }}>
-                    <FaceScanner
-                      startScanning={true}
-                      onScanningComplete={handleScanningComplete}
-                      onFaceDetected={handleFaceDetected}
-                      currentPrompt={mode === 'scenario' ? scenario : (mode === 'question' && isScannerReady ? currentQuestions[currentQuestionIndex] : 'Loading face detection...')}
-                      showDoneButton={mode === 'scenario'}
-                      ref={faceScannerRef}
-                      onReady={() => setIsScannerReady(true)}
-                      isComputerSpeaking={isComputerSpeaking}
-                    />
-                    {showResultsButton && (
-                      <Box sx={{ 
-                        position: 'absolute', 
-                        bottom: '20%', 
-                        left: '50%', 
-                        transform: 'translateX(-50%)',
-                        zIndex: 3,
-                        textAlign: 'center',
-                      }}>
-                        <GradientButton 
-                          onClick={handleShowResults}
-                          disabled={!canShowResults}
-                          sx={{ 
-                            minWidth: '200px',
-                            fontSize: '1.2rem',
-                            py: 1.5,
-                            opacity: canShowResults ? 1 : 0.7,
-                            position: 'relative',
-                          }}
-                        >
-                          {canShowResults ? 'See Results' : (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <CircularProgress
-                                size={20}
-                                thickness={4}
-                                sx={{ color: 'white' }}
-                                variant="determinate"
-                                value={(3 - resultsButtonTimer) * (100 / 3)}
-                              />
-                              <Typography>
-                                {resultsButtonTimer}s
-                              </Typography>
-                            </Box>
-                          )}
-                        </GradientButton>
-                      </Box>
-                    )}
-                  </Box>
-                )}
-              </Box>
-            )}
-
-            {currentStep === 'result' && (
-              <Box sx={{ py: 8 }}>
-                {mode === 'scenario' ? (
-                  <DetailedResultDisplay 
-                    overallPercentage={likelihoodScore} 
-                    testScores={testScores}
-                    previousScores={previousScores}
-                    scenario={scenario}
-                  />
-                ) : (
-                  <QuestionResultsDisplay questionResults={questionResults} />
-                )}
-                <Box sx={{ textAlign: 'center', mt: 4 }}>
-                  <GradientButton onClick={() => setCurrentStep('instructions')}>
-                    Try Again
-                  </GradientButton>
-                </Box>
-              </Box>
-            )}
-          </>
+            <Typography
+              variant="subtitle1"
+              align="center"
+              sx={{
+                color: 'rgba(255,255,255,0.8)',
+                mb: 4,
+              }}
+            >
+              Answer provocative questions while our AI analyzes your facial expressions, voice patterns, and micro-expressions to detect deception.
+            </Typography>
+            <GradientButton 
+              onClick={handleStartScanning}
+              sx={{ 
+                minWidth: '200px',
+                fontSize: '1.2rem',
+                py: 1.5,
+              }}
+            >
+              Start Game
+            </GradientButton>
+          </Box>
         )}
+
+        {currentStep === 'scanning' && (
+          <Box sx={{ my: 8 }}>
+            <FaceScanner
+              startScanning={true}
+              onScanningComplete={handleScanningComplete}
+              onFaceDetected={handleFaceDetected}
+              currentPrompt={shuffledQuestions[currentQuestionIndex]?.text}
+              weights={weights}
+              ref={faceScannerRef}
+            />
+          </Box>
+        )}
+
+        {currentStep === 'break' && <BreakScreen />}
       </Box>
     </Box>
   );

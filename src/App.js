@@ -124,8 +124,6 @@ function App() {
                 <Route path="/octavian" element={<Octavian />} />
                 <Route path="/scan/summary" element={<OneWordPage />} />
                 <Route path="/soon" element={<Soon />} />
-                <Route path="/scan/sus" element={<PrivateRoute><SusMeter /></PrivateRoute>} />
-                <Route path="/scan/substances" element={<PrivateRoute><GeekedGuess /></PrivateRoute>} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </Suspense>
