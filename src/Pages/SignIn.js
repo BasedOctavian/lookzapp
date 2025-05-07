@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import useSnackbar from '../hooks/SignIn/useSnackbar';
 import { 
   Box, 
   Typography, 
@@ -178,11 +179,13 @@ function SignIn() {
     email: '',
     password: ''
   });
+  const [verificationSent, setVerificationSent] = useState(false);
   
-  const { signIn } = useAuth();
+  const { signIn, resendVerificationEmail } = useAuth();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { showSnackbar, SnackbarComponent } = useSnackbar();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -196,6 +199,18 @@ function SignIn() {
         ...prev,
         [name]: ''
       }));
+    }
+  };
+
+  const handleResendVerification = async () => {
+    try {
+      const success = await resendVerificationEmail();
+      if (success) {
+        setVerificationSent(true);
+        showSnackbar('Verification email sent! Please check your inbox.', 'success');
+      }
+    } catch (error) {
+      showSnackbar(error.message, 'error');
     }
   };
 
@@ -235,10 +250,18 @@ function SignIn() {
       await signIn(formData.email, formData.password);
       navigate('/');
     } catch (error) {
-      setErrors({
-        email: ' ',
-        password: 'Invalid email or password'
-      });
+      if (error.message.includes('verify your email')) {
+        setErrors({
+          email: ' ',
+          password: 'Please verify your email before signing in'
+        });
+        setVerificationSent(false);
+      } else {
+        setErrors({
+          email: ' ',
+          password: 'Invalid email or password'
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -326,6 +349,21 @@ function SignIn() {
             </AuthLink>
           </Box>
           
+          {errors.password === 'Please verify your email before signing in' && !verificationSent && (
+            <Button
+              onClick={handleResendVerification}
+              sx={{
+                mt: 2,
+                color: '#09c2f7',
+                '&:hover': {
+                  backgroundColor: 'rgba(9, 194, 247, 0.1)',
+                },
+              }}
+            >
+              Resend Verification Email
+            </Button>
+          )}
+          
           <AuthButton
             fullWidth
             type="submit"
@@ -349,6 +387,7 @@ function SignIn() {
           <AuthLink href="/signup">Sign Up</AuthLink>
         </Typography>
       </AuthCard>
+      {SnackbarComponent}
     </AuthContainer>
   );
 }

@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react';
 import { auth, db, storage } from '../firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut,
+  sendEmailVerification,
+  onAuthStateChanged,
+  ActionCodeSettings
+} from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
@@ -9,7 +16,7 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
     });
@@ -21,6 +28,16 @@ export function useAuth() {
       // Create user with Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
+
+      // Configure email verification settings
+      const actionCodeSettings = {
+        url: 'https://lookzapp.com/signin',
+        handleCodeInApp: true,
+        dynamicLinkDomain: 'lookzapp.page.link'
+      };
+
+      // Send email verification with custom settings
+      await sendEmailVerification(user, actionCodeSettings);
 
       // Handle profile picture upload if provided
       let profilePictureURL = null;
@@ -52,6 +69,7 @@ export function useAuth() {
         facialRating: 0,
         hairRating: 0,
         smileRating: 0,
+        emailVerified: false
       });
 
       return user;
@@ -84,7 +102,14 @@ export function useAuth() {
   const signIn = async (email, password) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      return userCredential.user;
+      const user = userCredential.user;
+      
+      if (!user.emailVerified) {
+        await signOut(auth);
+        throw new Error('Please verify your email before signing in. Check your inbox for the verification link.');
+      }
+      
+      return user;
     } catch (error) {
       throw error;
     }
@@ -98,5 +123,29 @@ export function useAuth() {
     }
   };
 
-  return { user, loading, signUp, signIn, signOut: signOutUser };
+  const resendVerificationEmail = async () => {
+    try {
+      if (auth.currentUser && !auth.currentUser.emailVerified) {
+        const actionCodeSettings = {
+          url: 'https://lookzapp.com/signin',
+          handleCodeInApp: true,
+          dynamicLinkDomain: 'lookzapp.page.link'
+        };
+        await sendEmailVerification(auth.currentUser, actionCodeSettings);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  return { 
+    user, 
+    loading, 
+    signUp, 
+    signIn, 
+    signOut: signOutUser,
+    resendVerificationEmail 
+  };
 }

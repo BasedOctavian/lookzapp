@@ -11,14 +11,26 @@ import PhysicalInfoForm from '../Components/SignUp/PhysicalInfoForm';
 import { Typography, Box, Button, styled } from '@mui/material';
 
 // Styled Components
+const ButtonContainer = styled(Box)({
+  display: 'flex',
+  gap: '16px',
+  justifyContent: 'center',
+  '& > button': {
+    flex: '1 1 0',
+    maxWidth: '160px'
+  }
+});
+
 const GradientButton = styled(Button)({
   background: 'linear-gradient(45deg, #09c2f7 0%, #fa0ea4 100%)',
   color: '#fff',
-  fontWeight: 700,
-  padding: '12px 24px',
-  borderRadius: '12px',
+  fontWeight: 600,
+  padding: '10px 20px',
+  borderRadius: '10px',
   textTransform: 'none',
   transition: 'all 0.3s ease',
+  fontSize: '0.95rem',
+  whiteSpace: 'nowrap',
   '&:hover': {
     transform: 'translateY(-2px)',
     boxShadow: '0 0 24px rgba(9, 194, 247, 0.4)',
@@ -194,8 +206,8 @@ function CreateAccount() {
         formData.weight,
         formData.profilePictureFile
       );
-      showSnackbar("You've successfully signed up!", 'success');
-      navigate('/analyze-selection');
+      showSnackbar("Account created! Please check your email to verify your account before signing in.", 'success');
+      navigate('/signin');
     } catch (error) {
       showSnackbar(error.message, 'error');
     } finally {
@@ -240,20 +252,31 @@ function CreateAccount() {
     <AuthLayout>
       <AuthCard
         title={
-          <Typography
-            variant="h3"
-            sx={{
-              mb: 4,
-              textAlign: 'center',
-              background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              fontWeight: 800,
-              fontSize: { xs: '2rem', sm: '2.5rem' }
-            }}
-          >
-            Sign Up - Step {currentStep} of 3
-          </Typography>
+          <Box sx={{ textAlign: 'center', mb: 2 }}>
+            <Typography
+              variant="h3"
+              sx={{
+                background: 'linear-gradient(45deg, #fff 30%, #09c2f7 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontWeight: 800,
+                fontSize: { xs: '2rem', sm: '2.5rem' }
+              }}
+            >
+              Sign Up
+            </Typography>
+            <Typography
+              variant="h6"
+              sx={{
+                mt: 1,
+                color: '#6ce9ff',
+                textShadow: '0 0 10px rgba(9, 194, 247, 0.3)',
+                fontWeight: 500
+              }}
+            >
+              Step {currentStep} of 3
+            </Typography>
+          </Box>
         }
         form={getForm()}
         linkText="Already have an account?"
@@ -420,7 +443,7 @@ function ProfilePictureForm({
           >
             Select how to add your profile picture:
           </Typography>
-          <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+          <ButtonContainer sx={{ mb: 3 }}>
             <GradientButton
               onClick={() => setSelectedMethod('upload')}
               disabled={selectedMethod === 'upload'}
@@ -431,9 +454,9 @@ function ProfilePictureForm({
               onClick={() => setSelectedMethod('webcam')}
               disabled={selectedMethod === 'webcam'}
             >
-              Take Photo with Webcam
+              Use Webcam
             </GradientButton>
-          </Box>
+          </ButtonContainer>
 
           {selectedMethod === 'upload' && (
             <Box sx={{ textAlign: 'center' }}>
@@ -502,14 +525,14 @@ function ProfilePictureForm({
         </Box>
       )}
       <canvas ref={canvasRef} style={{ display: 'none' }} />
-      <Box sx={{ mt: 4, display: 'flex', justifyContent: 'space-between' }}>
+      <ButtonContainer sx={{ mt: 4 }}>
         <GradientButton onClick={onPrev} disabled={isLoading}>
           Previous
         </GradientButton>
         <GradientButton onClick={onSubmit} disabled={isLoading || !profilePictureFile}>
           {isLoading ? 'Submitting...' : 'Submit'}
         </GradientButton>
-      </Box>
+      </ButtonContainer>
     </StyledBox>
   );
 }

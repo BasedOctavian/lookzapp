@@ -36,6 +36,7 @@ const ScanLimitPage = lazy(() => import('./Components/ScanLimitPage'));
 const LiarScore = lazy(() => import('./Pages/LiarScore'));
 const Criminality = lazy(() => import('./Pages/Criminality'));
 const SusMeter = lazy(() => import('./Pages/SusMeter'));
+const CelebBlur = lazy(() => import('./Pages/CelebBlur'));
 // Create MUI theme
 const muiTheme = createTheme({
   palette: {
@@ -52,6 +53,7 @@ const muiTheme = createTheme({
 const LoadingSpinner = () => (
   <LoadingIndicator
     message="Loading..."
+    subMessage="Please wait while we prepare your experience"
   />
 );
 
@@ -121,8 +123,9 @@ function App() {
                 <Route path="/scan/autism" element={<PrivateRoute><AutismAnalytic /></PrivateRoute>} />
                 <Route path="/scan/crime" element={<PrivateRoute><Criminality /></PrivateRoute>} />
                 <Route path="/scan/lying" element={<PrivateRoute><LiarScore /></PrivateRoute>} />
-                <Route path="/octavian" element={<Octavian />} />
                 <Route path="/scan/summary" element={<OneWordPage />} />
+                <Route path="/games/celeb-blur" element={<CelebBlur />} />
+                <Route path="/games-selection" element={<GamesSelection />} />
                 <Route path="/soon" element={<Soon />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>

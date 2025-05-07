@@ -109,7 +109,8 @@ function LandingPage() {
     'Neural Analysis',
     'AI-Powered Insights',
     'Smart Face Mapping',
-    'Voice Pattern Analysis'
+    'Voice Pattern Analysis',
+    'Interactive Games'
   ];
 
   useEffect(() => {
@@ -287,20 +288,63 @@ function LandingPage() {
             Receive detailed symmetry analysis, voice pattern insights, and beauty predictions in real-time.
           </Typography>
 
-          <StyledButton
-            variant="contained"
-            size="large"
-            onClick={() => navigate('/scan')}
-            sx={{
-              px: 6,
-              py: 2,
-              fontSize: '1.1rem',
-              borderRadius: '12px',
-              textTransform: 'none',
-            }}
-          >
-            Start Free Scan →
-          </StyledButton>
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 3, 
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+            maxWidth: '800px',
+            mx: 'auto'
+          }}>
+            <StyledButton
+              variant="contained"
+              size="large"
+              onClick={() => navigate('/scan')}
+              sx={{
+                px: 6,
+                py: 2.5,
+                fontSize: '1.2rem',
+                borderRadius: '16px',
+                textTransform: 'none',
+                width: '280px',
+                letterSpacing: '0.5px',
+                fontWeight: 600,
+                boxShadow: '0 4px 20px rgba(9, 194, 247, 0.3)',
+                '&:hover': {
+                  boxShadow: '0 6px 25px rgba(9, 194, 247, 0.4)',
+                }
+              }}
+            >
+              Start Free Scan →
+            </StyledButton>
+            <Button
+              variant="outlined"
+              size="large"
+              onClick={() => navigate('/games-selection')}
+              sx={{
+                px: 6,
+                py: 2.5,
+                fontSize: '1.2rem',
+                borderRadius: '16px',
+                textTransform: 'none',
+                color: '#fff',
+                borderColor: 'rgba(255,255,255,0.4)',
+                borderWidth: '2px',
+                width: '280px',
+                letterSpacing: '0.5px',
+                fontWeight: 600,
+                backdropFilter: 'blur(8px)',
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                '&:hover': {
+                  borderColor: '#fff',
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                  boxShadow: '0 4px 20px rgba(255,255,255,0.1)',
+                }
+              }}
+            >
+              Explore Our Games
+            </Button>
+          </Box>
         </Box>
 
         <Grid 

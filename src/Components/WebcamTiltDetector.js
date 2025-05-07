@@ -1033,7 +1033,6 @@ const calculateTestScores = (measurements, params) => {
 // UserInfoForm Component with Improvements
 const UserInfoForm = ({ onSubmit, gender }) => {
   const [unitSystem, setUnitSystem] = useState('imperial');
-  const [name, setName] = useState('');
   const [ethnicity, setEthnicity] = useState('');
   const [eyeColor, setEyeColor] = useState('');
   const [heightFeet, setHeightFeet] = useState('');
@@ -1066,7 +1065,6 @@ const UserInfoForm = ({ onSubmit, gender }) => {
 
   useEffect(() => {
     setUnitSystem('imperial');
-    setName('');
     setEthnicity('');
     setEyeColor('');
     setHeightFeet('');
@@ -1086,7 +1084,6 @@ const UserInfoForm = ({ onSubmit, gender }) => {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!name) newErrors.name = 'Name is required';
     if (!ethnicity) newErrors.ethnicity = 'Ethnicity is required';
     if (!eyeColor) newErrors.eyeColor = 'Eye color is required';
 
@@ -1129,7 +1126,7 @@ const UserInfoForm = ({ onSubmit, gender }) => {
     }
 
     onSubmit({
-      name,
+      uid: crypto.randomUUID(),
       ethnicity: ethnicityMap[ethnicity],
       eyeColor: eyeColorMap[eyeColor],
       height: totalHeightInches,
@@ -1141,7 +1138,6 @@ const UserInfoForm = ({ onSubmit, gender }) => {
 
   const handleRevert = () => {
     setUnitSystem('imperial');
-    setName('');
     setEthnicity('');
     setEyeColor('');
     setHeightFeet('');
@@ -1153,8 +1149,7 @@ const UserInfoForm = ({ onSubmit, gender }) => {
   };
 
   const isFormValid = () => {
-    return name && 
-           ethnicity && 
+    return ethnicity && 
            eyeColor && 
            weightValue && 
            (unitSystem === 'imperial' ? (heightFeet && heightInches) : heightCm) &&
@@ -1217,18 +1212,6 @@ const UserInfoForm = ({ onSubmit, gender }) => {
         >
           Personal Information
         </Typography>
-
-        <TextField
-          label="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Enter their name"
-          variant="outlined"
-          fullWidth
-          error={!!errors.name}
-          helperText={errors.name}
-          autoComplete="off"
-        />
 
         <TextField
           select
@@ -1991,15 +1974,12 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
               {tierLabel}
             </Typography>
 
-            {/* Ratings Display */}
+            {/* Overall Rating */}
             <Box sx={{ 
               display: 'flex', 
-              flexDirection: { xs: 'column', md: 'row' },
               justifyContent: 'center',
-              gap: 4,
               my: 4
             }}>
-              {/* Overall Rating */}
               <Box sx={{ position: 'relative' }}>
                 <CircularProgress
                   variant="determinate"
@@ -2045,125 +2025,12 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
                   </Typography>
                 </Box>
               </Box>
-
-              {/* Face Rating */}
-              <Box sx={{ position: 'relative' }}>
-                <CircularProgress
-                  variant="determinate"
-                  value={faceRating}
-                  size={isMobile ? 160 : 200}
-                  thickness={4}
-                  sx={{
-                    color: '#fa0ea4',
-                    '& .MuiCircularProgress-circle': {
-                      transition: 'stroke-dashoffset 1s ease-in-out'
-                    }
-                  }}
-                />
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    textAlign: 'center'
-                  }}
-                >
-                  <Typography
-                    variant="h4"
-                    sx={{
-                      fontWeight: 'bold',
-                      background: 'linear-gradient(45deg, #fff 30%, #fa0ea4 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      textShadow: '0 0 10px rgba(250, 14, 164, 0.3)'
-                    }}
-                  >
-                    {faceRating.toFixed(1)}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: 'rgba(255,255,255,0.7)',
-                      textShadow: '0 0 5px rgba(250, 14, 164, 0.2)'
-                    }}
-                  >
-                    Face
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
-
-            {/* Feature Highlights */}
-            <Box
-              sx={{
-                mt: 4,
-                display: 'flex',
-                flexDirection: { xs: 'column', md: 'row' },
-                gap: 3,
-                justifyContent: 'center'
-              }}
-            >
-              {/* Best Feature */}
-              <Box
-                sx={{
-                  p: 3,
-                  borderRadius: 2,
-                  bgcolor: 'rgba(9, 194, 247, 0.1)',
-                  border: '1px solid rgba(9, 194, 247, 0.3)',
-                  flex: 1,
-                  textAlign: 'center',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center'
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <Box sx={{ color: '#09c2f7' }}>{featureIcons[bestFeature?.test]}</Box>
-                  <Typography variant="h6" sx={{ color: '#09c2f7' }}>
-                    Best Feature
-                  </Typography>
-                </Box>
-                <Typography variant="body1" sx={{ color: '#fff', mb: 1 }}>
-                  {bestFeature?.test}
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                  {ratingName?.split('. ')[0]}
-                </Typography>
-              </Box>
-
-              {/* Worst Feature */}
-              <Box
-                sx={{
-                  p: 3,
-                  borderRadius: 2,
-                  bgcolor: 'rgba(250, 14, 164, 0.1)',
-                  border: '1px solid rgba(250, 14, 164, 0.3)',
-                  flex: 1,
-                  textAlign: 'center',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center'
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <Box sx={{ color: '#fa0ea4' }}>{featureIcons[worstFeature?.test]}</Box>
-                  <Typography variant="h6" sx={{ color: '#fa0ea4' }}>
-                    Area for Improvement
-                  </Typography>
-                </Box>
-                <Typography variant="body1" sx={{ color: '#fff', mb: 1 }}>
-                  {worstFeature?.test}
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                  {ratingName?.split('. ')[1]}
-                </Typography>
-              </Box>
             </Box>
 
             <Typography variant="body1" paragraph sx={{ mt: 3 }}>
               {tierDescription}
             </Typography>
+
             <Button
               variant="contained"
               color="primary"
@@ -2318,8 +2185,6 @@ const DetailedResultDisplay = ({ overallRating, faceRating, testScores, userInfo
             </Box>
           )}
 
-          <ExploreOtherTests />
-          
           <Box sx={{ mt: 4, textAlign: 'center' }}>
             <Button
               variant="outlined"

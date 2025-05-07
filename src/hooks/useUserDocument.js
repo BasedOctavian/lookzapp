@@ -22,7 +22,7 @@ export function useUserDocument(userId) {
           const userData = { id: userDocSnap.id, ...userDocSnap.data() };
           setUserDoc(userData);
         } else {
-          console.log('No user document found for ID:', userId);
+          //console.log('No user document found for ID:', userId);
         }
       } catch (err) {
         console.error('Error fetching user document:', err);
