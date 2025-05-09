@@ -31,7 +31,7 @@ export function useAuth() {
 
       // Configure email verification settings
       const actionCodeSettings = {
-        url: 'https://lookzapp.com/signin',
+        url: 'https://lookzapp.com/verify-email',
         handleCodeInApp: true,
         dynamicLinkDomain: 'lookzapp.page.link'
       };
@@ -127,7 +127,7 @@ export function useAuth() {
     try {
       if (auth.currentUser && !auth.currentUser.emailVerified) {
         const actionCodeSettings = {
-          url: 'https://lookzapp.com/signin',
+          url: 'https://lookzapp.com/verify-email',
           handleCodeInApp: true,
           dynamicLinkDomain: 'lookzapp.page.link'
         };

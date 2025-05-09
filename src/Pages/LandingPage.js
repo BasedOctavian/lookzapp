@@ -299,7 +299,7 @@ function LandingPage() {
             <StyledButton
               variant="contained"
               size="large"
-              onClick={() => navigate('/scan')}
+              onClick={() => navigate('/select', { state: { initialView: 'analysis' } })}
               sx={{
                 px: 6,
                 py: 2.5,
@@ -320,7 +320,7 @@ function LandingPage() {
             <Button
               variant="outlined"
               size="large"
-              onClick={() => navigate('/games-selection')}
+              onClick={() => navigate('/select', { state: { initialView: 'games' } })}
               sx={{
                 px: 6,
                 py: 2.5,

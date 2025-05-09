@@ -129,9 +129,9 @@ const ProgressBar = styled(Box)(({ theme }) => ({
   transition: 'width 0.3s ease',
 }));
 
-const CelebBlur = () => {
+const InfluencerBlur = () => {
   const navigate = useNavigate();
-  const [celebs, setCelebs] = useState([]);
+  const [influencers, setInfluencers] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [blurLevel, setBlurLevel] = useState(30);
   const [guessCount, setGuessCount] = useState(0);
@@ -150,29 +150,35 @@ const CelebBlur = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Fetch and shuffle celebrities on mount
+  // Fetch and shuffle influencers on mount
   useEffect(() => {
-    const fetchCelebs = async () => {
+    const fetchInfluencers = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, 'blurredCelebs'));
-        const celebsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        const shuffled = celebsData.sort(() => Math.random() - 0.5);
-        setCelebs(shuffled);
+        const querySnapshot = await getDocs(collection(db, 'streamers'));
+        const influencersData = querySnapshot.docs
+          .filter(doc => doc.data().category === "influencers")
+          .map(doc => ({
+            id: doc.id,
+            name: doc.data().name,
+            photo_url: doc.data().photo_url
+          }));
+        const shuffled = influencersData.sort(() => Math.random() - 0.5);
+        setInfluencers(shuffled);
       } catch (error) {
-        console.error('Error fetching celebrities:', error);
+        console.error('Error fetching influencers:', error);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchCelebs();
+    fetchInfluencers();
   }, []);
 
   const handleGuess = () => {
-    const currentCeleb = celebs[currentIndex];
-    if (!currentCeleb) return;
+    const currentInfluencer = influencers[currentIndex];
+    if (!currentInfluencer) return;
 
     const normalizedGuess = guess.trim().toLowerCase().replace(/\./g, '');
-    const normalizedName = currentCeleb.name.trim().toLowerCase().replace(/\./g, '');
+    const normalizedName = currentInfluencer.name.trim().toLowerCase().replace(/\./g, '');
 
     if (normalizedGuess === normalizedName) {
       setMessage('Correct! 🎉');
@@ -284,7 +290,7 @@ const CelebBlur = () => {
               mb: 4,
             }}
           >
-            Guess the Celebrity
+            Guess the Influencer
           </Typography>
           <Box
             sx={{
@@ -314,12 +320,12 @@ const CelebBlur = () => {
           </Box>
           {isLoading ? (
             <CircularProgress />
-          ) : celebs.length > 0 && currentIndex < celebs.length ? (
+          ) : influencers.length > 0 && currentIndex < influencers.length ? (
             <StyledImageContainer>
               <Box
                 component="img"
-                src={celebs[currentIndex].photo_url}
-                alt="Blurred Celebrity"
+                src={influencers[currentIndex].photo_url}
+                alt="Blurred Influencer"
                 sx={{
                   width: '100%',
                   height: '100%',
@@ -342,12 +348,12 @@ const CelebBlur = () => {
                   </Typography>
                 ) : (
                   <Typography variant="h6" sx={{ color: '#fff', fontWeight: 600 }}>
-                    Who is this celebrity? (Guess {guessCount + 1})
+                    Who is this influencer? (Guess {guessCount + 1})
                   </Typography>
                 )}
                 {showHint && (
                   <Typography variant="body1" sx={{ color: '#09c2f7', mt: 1 }}>
-                    Hint: {celebs[currentIndex].hint || 'First letter: ' + celebs[currentIndex].name[0]}
+                    Hint: First letter: {influencers[currentIndex].name[0]}
                   </Typography>
                 )}
               </StyledInstructionText>
@@ -380,11 +386,11 @@ const CelebBlur = () => {
                   Skip
                 </GradientButton>
               </Box>
-              <ProgressBar sx={{ width: `${((currentIndex + 1) / celebs.length) * 100}%` }} />
+              <ProgressBar sx={{ width: `${((currentIndex + 1) / influencers.length) * 100}%` }} />
             </StyledImageContainer>
           ) : (
             <Typography variant="h5">
-              No more celebrities to guess.
+              No more influencers to guess.
             </Typography>
           )}
         </Box>
@@ -413,4 +419,4 @@ const CelebBlur = () => {
   );
 };
 
-export default CelebBlur;
+export default InfluencerBlur; 

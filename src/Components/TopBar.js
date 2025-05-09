@@ -68,23 +68,23 @@ const NavText = styled(Typography)(({ theme }) => ({
   }
 }));
 
-const MenuItem = styled(ListItem)(({ theme, isHeader }) => ({
-  cursor: isHeader ? 'default' : 'pointer',
+const MenuItem = styled(ListItem)(({ theme, isheader }) => ({
+  cursor: isheader ? 'default' : 'pointer',
   padding: theme.spacing(2),
   transition: 'all 0.2s ease',
-  backgroundColor: isHeader ? 'rgba(9, 194, 247, 0.1)' : 'transparent',
+  backgroundColor: isheader ? 'rgba(9, 194, 247, 0.1)' : 'transparent',
   '&:hover': {
-    background: isHeader ? 'rgba(9, 194, 247, 0.1)' : 'linear-gradient(90deg, rgba(9, 194, 247, 0.1), rgba(250, 14, 164, 0.1))',
+    background: isheader ? 'rgba(9, 194, 247, 0.1)' : 'linear-gradient(90deg, rgba(9, 194, 247, 0.1), rgba(250, 14, 164, 0.1))',
     '& .MuiListItemText-primary': {
-      color: isHeader ? '#09c2f7' : '#09c2f7',
-      textShadow: isHeader ? 'none' : '0 0 8px rgba(9, 194, 247, 0.5)'
+      color: isheader ? '#09c2f7' : '#09c2f7',
+      textShadow: isheader ? 'none' : '0 0 8px rgba(9, 194, 247, 0.5)'
     },
     '& .MuiSvgIcon-root': {
-      color: isHeader ? '#09c2f7' : '#fa0ea4'
+      color: isheader ? '#09c2f7' : '#fa0ea4'
     }
   },
   '&:active': {
-    transform: isHeader ? 'none' : 'scale(0.98)'
+    transform: isheader ? 'none' : 'scale(0.98)'
   }
 }));
 
@@ -115,7 +115,7 @@ const Topbar = () => {
   const menuItems = [
     { 
       text: 'Available Now',
-      isHeader: true
+      isheader: true
     },
     { 
       text: 'Attractiveness', 
@@ -135,7 +135,7 @@ const Topbar = () => {
     { divider: true },
     { 
       text: 'Requires Account',
-      isHeader: true
+      isheader: true
     },
     { 
       text: 'Autism', 
@@ -150,7 +150,7 @@ const Topbar = () => {
     { divider: true },
     { 
       text: 'In Development',
-      isHeader: true
+      isheader: true
     },
     { 
       text: 'Sus Score', 
@@ -165,7 +165,7 @@ const Topbar = () => {
     { divider: true },
     { 
       text: 'Navigation',
-      isHeader: true
+      isheader: true
     },
     { 
       text: 'Home', 
@@ -311,24 +311,19 @@ const Topbar = () => {
                 ) : (
                   <MenuItem 
                     key={index}
-                    isHeader={item.isHeader}
-                    onClick={() => {
-                      if (!item.isHeader) {
-                        item.action();
-                        setIsDrawerOpen(false);
-                      }
-                    }}
+                    onClick={item.action}
+                    isheader={item.isheader}
                   >
                     {item.icon && <MenuIconWrapper>{item.icon}</MenuIconWrapper>}
                     <ListItemText 
                       primary={item.text}
                       sx={{
                         '& .MuiListItemText-primary': {
-                          color: item.isHeader ? '#09c2f7' : 'rgba(255,255,255,0.9)',
-                          fontSize: item.isHeader ? '0.9rem' : '1rem',
-                          fontWeight: item.isHeader ? 600 : 500,
-                          textTransform: item.isHeader ? 'uppercase' : 'none',
-                          letterSpacing: item.isHeader ? '1px' : 'normal'
+                          color: item.isheader ? '#09c2f7' : 'rgba(255,255,255,0.9)',
+                          fontSize: item.isheader ? '0.9rem' : '1rem',
+                          fontWeight: item.isheader ? 600 : 500,
+                          textTransform: item.isheader ? 'uppercase' : 'none',
+                          letterSpacing: item.isheader ? '1px' : 'normal'
                         }
                       }}
                     />

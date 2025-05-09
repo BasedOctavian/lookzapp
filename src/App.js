@@ -14,6 +14,7 @@ import Soon from './Pages/Soon';
 const VideoCall = lazy(() => import('./Pages/VideoCall'));
 const CreateAccount = lazy(() => import('./Pages/CreateAccount'));
 const SignIn = lazy(() => import('./Pages/SignIn'));
+const VerifyEmail = lazy(() => import('./Pages/VerifyEmail'));
 const TopRatedUsersTable = lazy(() => import('./Pages/TopRatedUsersTable'));
 const Profile = lazy(() => import('./Pages/Profile/Profile'));
 const HomeScreen = lazy(() => import('./Pages/HomeScreen'));
@@ -26,17 +27,25 @@ const InfluencerProfile = lazy(() => import('./Pages/Profile/InfluencerProfile')
 const Analyze = lazy(() => import('./Pages/Analyze'));
 const Admin = lazy(() => import('./Pages/Admin/Admin'));
 const Looksmatch = lazy(() => import('./Pages/Looksmatch'));
-const GamesSelection = lazy(() => import('./Pages/GamesSelection'));
-const AnalyzeSelection = lazy(() => import('./Pages/AnalyzeSelection'));
+const Selection = lazy(() => import('./Pages/Selection'));
+//const AnalyzeSelection = lazy(() => import('./Pages/AnalyzeSelection'));
 const AutismAnalytic = lazy(() => import('./Pages/AutismAnalytic'));
 const GeekedGuess = lazy(() => import('./Pages/GeekedGuess'));
 const LandingPage = lazy(() => import('./Pages/LandingPage'));
 const Octavian = lazy(() => import('./Pages/OctavianLandingPage'));
 const ScanLimitPage = lazy(() => import('./Components/ScanLimitPage'));
 const LiarScore = lazy(() => import('./Pages/LiarScore'));
+const GroupLiarScore = lazy(() => import('./Pages/GroupLiarScore'));
 const Criminality = lazy(() => import('./Pages/Criminality'));
 const SusMeter = lazy(() => import('./Pages/SusMeter'));
 const CelebBlur = lazy(() => import('./Pages/CelebBlur'));
+const InfluencerBlur = lazy(() => import('./Pages/InfluencerBlur'));
+const WhoDoneIt = lazy(() => import('./Pages/WhoDoneIt'));
+const TimelineMatch = lazy(() => import('./Pages/TimelineMatch'));
+const ScandalMatch = lazy(() => import('./Pages/ScandalMatch'));
+const MoralScore = lazy(() => import('./Pages/MoralScore'));
+const LogicalProfile = lazy(() => import('./Pages/LogicalProfile'));
+const LifePredictor = lazy(() => import('./Pages/LifePredictor'));
 // Create MUI theme
 const muiTheme = createTheme({
   palette: {
@@ -116,16 +125,23 @@ function App() {
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/signup" element={<CreateAccount />} />
                 <Route path="/signin" element={<SignIn />} />
+                <Route path="/select" element={<Selection />} />
+                <Route path="/verify-email" element={<VerifyEmail />} />
                 <Route path="/scan-limit" element={<ScanLimitPage />} />
                 <Route path="/home" element={<Navigate to="/" />} />    
                 <Route path="/scan/attractiveness" element={<Analyze />} />
-                <Route path="/scan" element={<AnalyzeSelection />} />
                 <Route path="/scan/autism" element={<PrivateRoute><AutismAnalytic /></PrivateRoute>} />
                 <Route path="/scan/crime" element={<PrivateRoute><Criminality /></PrivateRoute>} />
                 <Route path="/scan/lying" element={<PrivateRoute><LiarScore /></PrivateRoute>} />
                 <Route path="/scan/summary" element={<OneWordPage />} />
-                <Route path="/games/celeb-blur" element={<CelebBlur />} />
-                <Route path="/games-selection" element={<GamesSelection />} />
+                <Route path="/games/guess-celeb" element={<CelebBlur />} />
+                <Route path="/games/guess-influencer" element={<InfluencerBlur />} />
+                <Route path="/games/order-events" element={<TimelineMatch />} />
+                <Route path="/games/match-scandal" element={<ScandalMatch />} />
+                <Route path="/games/morality-test" element={<MoralScore />} />
+                <Route path="/games/preference-predictor" element={<LogicalProfile />} />
+                <Route path="/games/life-predictor" element={<LifePredictor />} />
+                <Route path="/games/who-done-it" element={<WhoDoneIt />} />
                 <Route path="/soon" element={<Soon />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>

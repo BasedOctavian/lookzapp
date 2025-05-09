@@ -4,6 +4,7 @@ const useVideoStream = () => {
   const videoRef = useRef(null);
   const [videoReady, setVideoReady] = useState(false);
   const [error, setError] = useState(null);
+  const [stream, setStream] = useState(null);
 
   const startVideo = async () => {
     try {
@@ -14,7 +15,10 @@ const useVideoStream = () => {
           facingMode: 'user',
           frameRate: { ideal: 30 }
         },
+        audio: true
       });
+      setStream(stream);
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.onloadedmetadata = () => {
@@ -25,13 +29,14 @@ const useVideoStream = () => {
         };
       }
     } catch (err) {
-      setError('Webcam access denied or unavailable');
+      setError('Webcam or microphone access denied or unavailable');
     }
   };
 
   const stopVideo = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      videoRef.current.srcObject.getTracks().forEach((track) => track.stop());
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      setStream(null);
     }
   };
 
@@ -40,7 +45,7 @@ const useVideoStream = () => {
     return () => stopVideo();
   }, []);
 
-  return { videoRef, videoReady, error, retry: startVideo };
+  return { videoRef, videoReady, error, retry: startVideo, stream };
 };
 
 export default useVideoStream; 

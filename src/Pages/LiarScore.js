@@ -103,6 +103,10 @@ const StyledInstructionText = styled(Typography)(({ theme }) => ({
   boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
   maxWidth: '90%',
   width: 'auto',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
 }));
 
 const questions = [
@@ -172,8 +176,6 @@ const questions = [
   { text: "Ever posted fake crying selfies to see who checks in?" },
   { text: "Ever saved someone's spicy pics and kept them post-breakup?" },
   { text: "Ever made up a whole relationship just to make someone jealous?" },
-
-  // 30 NEW ADDITIONS (Teen boy nasty secrets edition):
   { text: "Ever scratched your balls and sniffed it like it was cologne?" },
   { text: "Ever re-used the same crusty sock for way too long?" },
   { text: "Ever peed in a bottle and forgot about it until someone found it?" },
@@ -206,14 +208,16 @@ const questions = [
   { text: "Ever stared at a classmate's butt and mentally slapped yourself after?" }
 ];
 
-
-const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFaceDetected, currentPrompt, weights }, ref) => {
+const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFaceDetected, currentPrompt, weights, currentStep, onCalibrationComplete, isMobile }, ref) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const intervalRef = useRef(null);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const featureHistoryRef = useRef([]);
+  const calibrationRMS = useRef([]);
+  const calibrationCycle = useRef(0);
+  const rmsNormalizationFactor = useRef(0.025); // Default value
   const [isCollecting, setIsCollecting] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
   const [webcamError, setWebcamError] = useState(null);
@@ -247,12 +251,20 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
   const [repetitionCount, setRepetitionCount] = useState(0);
   const [lastWords, setLastWords] = useState([]);
   const [analysisResults, setAnalysisResults] = useState(null);
+  const [debugInfo, setDebugInfo] = useState(null);
+  const [currentAudioBaseline, setCurrentAudioBaseline] = useState(0);
+  const audioBaselineRef = useRef(0);
+  const audioSamplesRef = useRef([]);
 
   const recognitionRef = useRef(null);
   const [isListening, setIsListening] = useState(false);
 
   const leftEyeIndices = [33, 160, 158, 133, 153, 144];
   const noseIndices = [1, 2, 98, 327];
+  const CALIBRATION_CYCLES = 50; // Approx 5 seconds at 100ms interval
+
+  const [consecutiveTruths, setConsecutiveTruths] = useState(0);
+  const [consecutiveLies, setConsecutiveLies] = useState(0);
 
   const calculateDistance = (p1, p2) => {
     if (!p1 || !p2) return 0;
@@ -368,6 +380,13 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
   }, []);
 
   useEffect(() => {
+    if (currentStep === 'calibration') {
+      calibrationRMS.current = [];
+      calibrationCycle.current = 0;
+    }
+  }, [currentStep]);
+
+  useEffect(() => {
     if (startScanning && !isCollecting) {
       setIsCollecting(true);
       featureHistoryRef.current = [];
@@ -447,6 +466,33 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
     }
   }, []);
 
+  // Reset audio normalization when question changes
+  useEffect(() => {
+    if (currentPrompt) {
+      audioSamplesRef.current = [];
+      audioBaselineRef.current = 0;
+      setCurrentAudioBaseline(0);
+    }
+  }, [currentPrompt]);
+
+  const calculateAudioLevel = (currentRMS) => {
+    // Collect samples for the first second
+    if (audioSamplesRef.current.length < 10) {
+      audioSamplesRef.current.push(currentRMS);
+      if (audioSamplesRef.current.length === 10) {
+        // Calculate baseline from first 10 samples
+        const baseline = audioSamplesRef.current.reduce((sum, val) => sum + val, 0) / audioSamplesRef.current.length;
+        audioBaselineRef.current = baseline;
+        setCurrentAudioBaseline(baseline);
+      }
+      return 0;
+    }
+
+    // Calculate relative audio level compared to baseline
+    const relativeLevel = Math.max(0, (currentRMS - audioBaselineRef.current) / audioBaselineRef.current);
+    return Math.min(relativeLevel * 100, 100);
+  };
+
   const calculateScore = (weights) => {
     try {
       const featureMeans = {
@@ -469,7 +515,7 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
       setConfidenceScore(confidenceScore);
 
       const normalizedFeatures = {
-        voiceIntensity: Math.min(featureMeans.rms / 0.025, 1),
+        voiceIntensity: Math.min(featureMeans.rms / rmsNormalizationFactor.current, 1),
         zcr: Math.min(featureMeans.zcr / 0.2, 1),
         headMovement: Math.min(featureMeans.headMovement / 2.0, 1),
         eyeMovement: Math.min(featureMeans.eyeMovement / 0.3, 1),
@@ -482,12 +528,62 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
         confidence: confidenceScore
       };
 
-      const bias = -3.5;
+      // Check if it's Safari on iOS
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isSafariIOS = isSafari && isIOS;
+
+      // Adjust bias based on platform
+      let bias;
+      if (isSafariIOS) {
+        bias = -0.8; // Even lower threshold for Safari on iOS
+      } else if (isMobile) {
+        bias = -1.2; // Lower threshold for other mobile devices
+      } else {
+        bias = -3.5; // Original threshold for desktop
+      }
+
       const weightedSum = bias + Object.keys(normalizedFeatures).reduce((sum, key) => 
         sum + weights[key] * normalizedFeatures[key], 0
       );
       const lieProbability = 1 / (1 + Math.exp(-weightedSum));
-      const finalLieScore = Math.round(lieProbability * 100);
+      let finalLieScore = Math.round(lieProbability * 100);
+
+      const lieThreshold = isMobile ? 68 : 55; // Different threshold for mobile
+      let isLie = finalLieScore >= lieThreshold;
+
+      // Check for 3 consecutive same results and apply 50% flip chance
+      if (consecutiveLies >= 3 || consecutiveTruths >= 3) {
+        const shouldFlip = Math.random() < 0.5; // 50% chance to flip
+        if (shouldFlip) {
+          isLie = !isLie;
+          finalLieScore = isLie ? lieThreshold + Math.floor(Math.random() * (100 - lieThreshold)) : lieThreshold - Math.floor(Math.random() * lieThreshold);
+        }
+      }
+
+      // Update consecutive counters
+      if (isLie) {
+        setConsecutiveLies(prev => prev + 1);
+        setConsecutiveTruths(0);
+      } else {
+        setConsecutiveTruths(prev => prev + 1);
+        setConsecutiveLies(0);
+      }
+
+      // Store debug info
+      setDebugInfo({
+        bias,
+        weightedSum,
+        lieProbability,
+        finalLieScore,
+        isSafariIOS,
+        isMobile,
+        normalizedFeatures,
+        lieThreshold,
+        isLie,
+        consecutiveLies,
+        consecutiveTruths
+      });
 
       return {
         finalLieScore,
@@ -600,6 +696,21 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
         }
         const currentZCR = zcr / bufferLength;
 
+        if (currentStep === 'calibration') {
+          calibrationRMS.current.push(currentRMS);
+          calibrationCycle.current += 1;
+          if (calibrationCycle.current >= CALIBRATION_CYCLES) {
+            const averageRMS = calibrationRMS.current.reduce((sum, v) => sum + v, 0) / calibrationRMS.current.length;
+            const targetRMS = 0.007;
+            rmsNormalizationFactor.current = 0.025 * (averageRMS / targetRMS);
+            onCalibrationComplete();
+          }
+          return;
+        }
+
+        // Calculate audio level relative to baseline
+        const audioLevel = calculateAudioLevel(currentRMS);
+
         const alpha = 0.1;
         setSmoothedFeatures(prev => ({
           voiceIntensity: alpha * currentRMS + (1 - alpha) * prev.voiceIntensity,
@@ -642,6 +753,12 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
           });
         }
 
+        // Update smoothed features with relative audio level
+        setSmoothedFeatures(prev => ({
+          ...prev,
+          voiceIntensity: audioLevel / 100 // Convert back to 0-1 range
+        }));
+
         if (showResult) {
           context.save();
           context.font = 'bold 80px Arial';
@@ -649,6 +766,8 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
           context.textAlign = 'center';
           context.textBaseline = 'middle';
           context.fillText(prediction, canvas.width / 2, canvas.height / 2);
+          
+          
           context.restore();
         }
       } else {
@@ -659,7 +778,7 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
 
     intervalRef.current = setInterval(detectFaceAndRunTest, 100);
     return () => clearInterval(intervalRef.current);
-  }, [model, videoReady, isCollecting, onFaceDetected, weights, showResult, prediction]);
+  }, [model, videoReady, isCollecting, onFaceDetected, weights, showResult, prediction, currentStep, onCalibrationComplete, currentPrompt]);
 
   if (webcamError) {
     toast({ title: 'Error', description: webcamError, status: 'error', duration: 5000, isClosable: true });
@@ -720,15 +839,20 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
           style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: faceDetected ? 1 : 0.5 }}
         />
         <StyledInstructionText>
-          <Typography variant="h6" sx={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 1, fontWeight: 600 }}>
-            {faceDetected 
-              ? (isCollecting ? 'Hold still and speak...' : 'Look at the camera')
-              : 'Please Wait...'}
+          <Typography variant="h6" sx={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 1, fontWeight: 600, textAlign: 'center' }}>
+            {currentStep === 'calibration'
+              ? 'Calibrating microphone, please say "Testing, one, two, three"'
+              : faceDetected 
+                ? (isCollecting ? 'Hold still and speak...' : 'Look at the camera')
+                : 'Please Wait...'}
           </Typography>
-          {faceDetected && currentPrompt && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500 }}>
+          {currentStep === 'scanning' && faceDetected && currentPrompt && (
+            <Box sx={{ mt: 2, textAlign: 'center' }}>
+              <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500, mb: 1 }}>
                 {currentPrompt}
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', fontStyle: 'italic' }}>
+                Reply with a simple yes or no, elaborate if needed
               </Typography>
             </Box>
           )}
@@ -754,6 +878,7 @@ const FaceScanner = React.forwardRef(({ startScanning, onScanningComplete, onFac
             </GradientButton>
           </Box>
         )}
+        
       </StyledWebcamContainer>
     </Box>
   );
@@ -764,6 +889,20 @@ const LiarScore = () => {
   const [currentStep, setCurrentStep] = useState('instructions');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [shuffledQuestions, setShuffledQuestions] = useState([]);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Add mobile detection
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+      const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i;
+      setIsMobile(mobileRegex.test(userAgent.toLowerCase()));
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const [weights] = useState({
     headMovement: 2.0,
     eyeMovement: 2.0,
@@ -780,7 +919,6 @@ const LiarScore = () => {
   const faceScannerRef = useRef(null);
   const toast = useToast();
 
-  // Fisher-Yates shuffle algorithm
   const shuffleArray = (array) => {
     const newArray = [...array];
     for (let i = newArray.length - 1; i > 0; i--) {
@@ -791,11 +929,10 @@ const LiarScore = () => {
   };
 
   const handleStartScanning = () => {
-    // Shuffle questions when starting
     const shuffled = shuffleArray(questions);
     setShuffledQuestions(shuffled);
     setCurrentQuestionIndex(0);
-    setCurrentStep('scanning');
+    setCurrentStep('calibration');
   };
 
   const handleFaceDetected = (detected) => {};
@@ -803,7 +940,6 @@ const LiarScore = () => {
   const handleScanningComplete = (result) => {
     if (currentQuestionIndex < shuffledQuestions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
-      // Check if we've completed 10 questions
       if ((currentQuestionIndex + 1) % 10 === 0) {
         setCurrentStep('break');
       }
@@ -1050,14 +1186,17 @@ const LiarScore = () => {
           </Box>
         )}
 
-        {currentStep === 'scanning' && (
+        {(currentStep === 'calibration' || currentStep === 'scanning') && (
           <Box sx={{ my: 8 }}>
             <FaceScanner
-              startScanning={true}
+              currentStep={currentStep}
+              onCalibrationComplete={() => setCurrentStep('scanning')}
+              startScanning={currentStep === 'scanning'}
               onScanningComplete={handleScanningComplete}
               onFaceDetected={handleFaceDetected}
-              currentPrompt={shuffledQuestions[currentQuestionIndex]?.text}
+              currentPrompt={currentStep === 'scanning' ? shuffledQuestions[currentQuestionIndex]?.text : null}
               weights={weights}
+              isMobile={isMobile}
               ref={faceScannerRef}
             />
           </Box>

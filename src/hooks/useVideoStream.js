@@ -3,16 +3,18 @@ import { useState, useEffect } from 'react';
 
 export default function useVideoStream() {
   const [stream, setStream] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     navigator.mediaDevices
-      .getUserMedia({ video: true, audio: false })
+      .getUserMedia({ video: true, audio: true })
       .then((mediaStream) => {
         setStream(mediaStream);
+        setError(null);
       })
       .catch((err) => {
         console.error('Failed to access media devices:', err);
-        // Error handling can be expanded here if needed
+        setError(err);
       });
 
     return () => {
@@ -22,5 +24,5 @@ export default function useVideoStream() {
     };
   }, []);
 
-  return stream;
+  return { stream, error };
 }
